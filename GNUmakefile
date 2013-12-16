@@ -28,6 +28,7 @@ endif
 
 # Target: sircc
 sircc_BIN= sircc
+sircc_HDR= $(wildcard src/*.h)
 sircc_SRC= $(wildcard src/*.c)
 sircc_OBJ= $(subst .c,.o,$(sircc_SRC))
 
@@ -40,8 +41,9 @@ all: bin
 
 bin: $(sircc_BIN)
 
+$(sircc_OBJ): $(sircc_HDR)
 $(sircc_BIN): $(sircc_OBJ)
-	$(CC) $(LDFLAGS) -o $@ $< $(LDLIBS)
+	$(CC) $(LDFLAGS) -o $@ $^ $(LDLIBS)
 
 clean:
 	$(RM) $(sircc_BIN) $(wildcard src/*.o)
@@ -54,6 +56,6 @@ uninstall:
 	$(RM) $(addprefix $(bindir)/,$(sircc_BIN))
 
 tags:
-	ctags -o .tags -a $(wildcard sircc/*.[hc])
+	ctags -o .tags -a $(wildcard src/*.[hc])
 
 .PHONY: all bin clean install uninstall tags
