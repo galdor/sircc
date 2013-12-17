@@ -1,0 +1,3 @@
+[submodule "libhashtable"]
+	path = libhashtable
+	url = git@github.com:galdor/libhashtable.git

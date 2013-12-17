@@ -25,6 +25,8 @@
 #include <netdb.h>
 #include <poll.h>
 
+#include "hashtable.h"
+
 #define SIRCC_ERROR_BUFSZ 1024
 
 /* Memory */
@@ -34,6 +36,9 @@ void *sircc_realloc(void *, size_t);
 void sircc_free(void *);
 char *sircc_strdup(const char *);
 char *sircc_strndup(const char *, size_t);
+
+/* String utils */
+size_t strlcpy(char *, const char *, size_t);
 
 /* Memory buffers */
 struct sircc_buf {
@@ -79,6 +84,18 @@ int sircc_address_resolve(const char *, const char *,
 int sircc_socket_open(struct addrinfo *);
 int sircc_socket_get_so_error(int, int *);
 
+/* IRC */
+struct sircc_msg {
+    char *prefix;
+    char *command;
+
+    char **params;
+    size_t nb_params;
+};
+
+void sircc_msg_free(struct sircc_msg *);
+int sircc_msg_parse(struct sircc_msg *, struct sircc_buf *);
+
 /* Main */
 void die(const char *, ...)
     __attribute__((format(printf, 1, 2)));
@@ -119,6 +136,8 @@ void sircc_server_delete(struct sircc_server *);
 int sircc_server_prepare_connection(struct sircc_server *);
 int sircc_server_connect(struct sircc_server *);
 void sircc_server_disconnect(struct sircc_server *);
+void sircc_server_trace(struct sircc_server *, const char *, ...)
+    __attribute__((format(printf, 2, 3)));
 void sircc_server_log_info(struct sircc_server *, const char *, ...)
     __attribute__((format(printf, 2, 3)));
 void sircc_server_log_error(struct sircc_server *, const char *, ...)
@@ -130,6 +149,7 @@ int sircc_server_printf(struct sircc_server *, const char *, ...)
 void sircc_server_on_pollin(struct sircc_server *);
 void sircc_server_on_pollout(struct sircc_server *);
 void sircc_server_on_connection_established(struct sircc_server *);
+void sircc_server_msg_process(struct sircc_server *, struct sircc_msg *);
 
 struct sircc_chan {
     struct sircc_server *server;
@@ -153,14 +173,10 @@ struct sircc {
 
     struct sigaction old_sigact_sigint;
     struct sigaction old_sigact_sigterm;
+
+    struct ht_table *msg_handlers;
 };
 
 extern struct sircc sircc;
-
-void sircc_initialize(void);
-void sircc_shutdown(void);
-void sircc_server_add(struct sircc_server *);
-void sircc_setup_poll_array(void);
-void sircc_poll(void);
 
 #endif

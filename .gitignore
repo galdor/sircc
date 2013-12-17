@@ -1,3 +1,6 @@
 *.o
 
+.tags
+session.vim
+
 /sircc

@@ -32,20 +32,24 @@ sircc_HDR= $(wildcard src/*.h)
 sircc_SRC= $(wildcard src/*.c)
 sircc_OBJ= $(subst .c,.o,$(sircc_SRC))
 
-$(sircc_BIN): CFLAGS+=
-$(sircc_BIN): LDFLAGS+=
-$(sircc_BIN): LDLIBS+= -lncurses
+$(sircc_BIN): CFLAGS+=  -Ilibhashtable/src
+$(sircc_BIN): LDFLAGS+= -Llibhashtable
+$(sircc_BIN): LDLIBS+=  -lhashtable -lncurses
 
 # Rules
 all: bin
 
-bin: $(sircc_BIN)
+bin: deps $(sircc_BIN)
+
+deps:
+	$(MAKE) -C libhashtable lib
 
 $(sircc_OBJ): $(sircc_HDR)
 $(sircc_BIN): $(sircc_OBJ)
 	$(CC) $(LDFLAGS) -o $@ $^ $(LDLIBS)
 
 clean:
+	$(MAKE) -C libhashtable clean
 	$(RM) $(sircc_BIN) $(wildcard src/*.o)
 
 install: bin
@@ -56,6 +60,8 @@ uninstall:
 	$(RM) $(addprefix $(bindir)/,$(sircc_BIN))
 
 tags:
-	ctags -o .tags -a $(wildcard src/*.[hc])
+	ctags -o .tags -a \
+		$(wildcard src/*.[hc]) \
+		$(wildcard libhashtable/src/*.[hc])
 
 .PHONY: all bin clean install uninstall tags
