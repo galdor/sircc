@@ -25,6 +25,8 @@
 #include <netdb.h>
 #include <poll.h>
 
+#include <curses.h>
+
 #include "hashtable.h"
 
 #define SIRCC_ERROR_BUFSZ 1024
@@ -95,6 +97,11 @@ struct sircc_msg {
 
 void sircc_msg_free(struct sircc_msg *);
 int sircc_msg_parse(struct sircc_msg *, struct sircc_buf *);
+
+/* User interface */
+void sircc_ui_initialize(void);
+void sircc_ui_shutdown(void);
+void sircc_ui_on_resize(void);
 
 /* Main */
 void die(const char *, ...)
@@ -173,8 +180,20 @@ struct sircc {
 
     struct sigaction old_sigact_sigint;
     struct sigaction old_sigact_sigterm;
+    struct sigaction old_sigact_sigwinch;
 
     struct ht_table *msg_handlers;
+
+    /* UI */
+    int tty;
+
+    bool ui_setup;
+
+    WINDOW *win_topic;
+    WINDOW *win_main;
+    WINDOW *win_chans;
+    WINDOW *win_servers;
+    WINDOW *win_prompt;
 };
 
 extern struct sircc sircc;

@@ -22,6 +22,9 @@
 #include <unistd.h>
 #include <sys/socket.h>
 #include <sys/types.h>
+#ifdef SIRCC_PLATFORM_FREEBSD
+#   include <sys/signal.h> /* Required for SIGWINCH */
+#endif
 
 #include "sircc.h"
 
@@ -40,6 +43,7 @@ static void sircc_poll(void);
 static void sircc_set_msg_handler(const char *, sircc_msg_handler);
 
 static void sircc_on_msg_ping(struct sircc_server *, struct sircc_msg *);
+static void sircc_on_msg_001(struct sircc_server *, struct sircc_msg *);
 
 
 static struct ht_memory_allocator sircc_ht_allocator = {
@@ -74,6 +78,8 @@ main(int argc, char **argv) {
 
     nb_args = argc - optind;
 
+    sircc_ui_initialize();
+
     server = sircc_server_new();
     server->host = "localhost";
     server->port = "6667";
@@ -84,12 +90,14 @@ main(int argc, char **argv) {
     sircc_initialize();
 
     sircc_set_msg_handler("PING", sircc_on_msg_ping);
+    sircc_set_msg_handler("001", sircc_on_msg_001);
 
     while (!sircc.do_exit) {
         sircc_poll();
     }
 
     sircc_shutdown();
+    sircc_ui_shutdown();
     return 0;
 }
 
@@ -115,6 +123,9 @@ sircc_signal_handler(int signo) {
 void
 die(const char *fmt, ...) {
     va_list ap;
+
+    if (sircc.ui_setup)
+        sircc_ui_shutdown();
 
     fprintf(stderr, "fatal error: ");
 
@@ -506,6 +517,7 @@ sircc_initialize(void) {
     sigact.sa_handler = sircc_signal_handler;
     sigaction(SIGINT, &sigact, &sircc.old_sigact_sigint);
     sigaction(SIGTERM, &sigact, &sircc.old_sigact_sigterm);
+    sigaction(SIGWINCH, &sigact, &sircc.old_sigact_sigwinch);
 
     if (pipe(sircc.signal_pipe) == -1)
         die("cannot create pipe: %m");
@@ -541,6 +553,7 @@ sircc_shutdown(void) {
 
     sigaction(SIGINT, &sircc.old_sigact_sigint, NULL);
     sigaction(SIGTERM, &sircc.old_sigact_sigterm, NULL);
+    sigaction(SIGWINCH, &sircc.old_sigact_sigwinch, NULL);
 }
 
 static void
@@ -601,6 +614,10 @@ sircc_poll(void) {
         case SIGTERM:
             sircc.do_exit = true;
             break;
+
+        case SIGWINCH:
+            sircc_ui_on_resize();
+            break;
         }
     }
 
@@ -640,4 +657,12 @@ sircc_on_msg_ping(struct sircc_server *server, struct sircc_msg *msg) {
     }
 
     sircc_server_printf(server, "PONG :%s\r\n", msg->params[0]);
+}
+
+static void
+sircc_on_msg_001(struct sircc_server *server, struct sircc_msg *msg) {
+    sircc_server_log_info(server, "registered");
+
+    /* XXX debug */
+    sircc_server_printf(server, "JOIN #test\r\n");
 }
