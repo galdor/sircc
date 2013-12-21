@@ -22,6 +22,7 @@
 #include <stdbool.h>
 #include <stdlib.h>
 
+#include <iconv.h>
 #include <netdb.h>
 #include <poll.h>
 
@@ -40,6 +41,8 @@ char *sircc_strdup(const char *);
 char *sircc_strndup(const char *, size_t);
 
 /* String utils */
+char *sircc_str_to_utf8(char *, size_t);
+
 size_t strlcpy(char *, const char *, size_t);
 
 /* Memory buffers */
@@ -103,6 +106,22 @@ void sircc_ui_initialize(void);
 void sircc_ui_shutdown(void);
 void sircc_ui_on_resize(void);
 
+void sircc_ui_update(void);
+
+void sircc_ui_topic_redraw(void);
+void sircc_ui_main_redraw(void);
+void sircc_ui_chans_redraw(void);
+void sircc_ui_servers_redraw(void);
+void sircc_ui_prompt_redraw(void);
+
+void sircc_ui_select_server(int);
+void sircc_ui_select_previous_server(void);
+void sircc_ui_select_next_server(void);
+
+void sircc_ui_prompt_delete_previous_char(void);
+void sircc_ui_prompt_clear(void);
+void sircc_ui_prompt_execute(void);
+
 /* Main */
 void die(const char *, ...)
     __attribute__((format(printf, 1, 2)));
@@ -158,6 +177,9 @@ void sircc_server_on_pollout(struct sircc_server *);
 void sircc_server_on_connection_established(struct sircc_server *);
 void sircc_server_msg_process(struct sircc_server *, struct sircc_msg *);
 
+struct sircc_server *sircc_server_get_current(void);
+bool sircc_server_is_current(struct sircc_server *);
+
 struct sircc_chan {
     struct sircc_server *server;
 };
@@ -168,6 +190,7 @@ void sircc_chan_delete(struct sircc_chan *);
 struct sircc {
     struct sircc_server **servers;
     size_t nb_servers;
+    int current_server;
 
     struct sircc_chan **chans;
     size_t nb_chans;
@@ -184,9 +207,10 @@ struct sircc {
 
     struct ht_table *msg_handlers;
 
-    /* UI */
-    int tty;
+    struct sircc_buf input_buf;
+    struct sircc_buf prompt_buf;
 
+    /* UI */
     bool ui_setup;
 
     WINDOW *win_topic;

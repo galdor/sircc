@@ -15,6 +15,7 @@
  */
 
 #include <stdio.h>
+#include <string.h>
 
 #include <fcntl.h>
 #include <sys/ioctl.h>
@@ -23,23 +24,10 @@
 #include "sircc.h"
 
 static void sircc_ui_setup_windows(void);
-static void sircc_ui_update(void);
-
-static void sircc_ui_topic_redraw(void);
-static void sircc_ui_main_redraw(void);
-static void sircc_ui_chans_redraw(void);
-static void sircc_ui_servers_redraw(void);
-static void sircc_ui_prompt_redraw(void);
 
 void
 sircc_ui_initialize(void) {
-    char term_dev[L_ctermid];
     int width, height;
-
-    ctermid(term_dev);
-    sircc.tty = open(term_dev, O_RDONLY);
-    if (sircc.tty == -1)
-        die("cannot open %s: %m", term_dev);
 
     initscr();
     keypad(stdscr, 1);
@@ -87,11 +75,6 @@ sircc_ui_shutdown(void) {
 
     endwin();
 
-    if (sircc.tty >= 0) {
-        close(sircc.tty);
-        sircc.tty = -1;
-    }
-
     sircc.ui_setup = false;
 }
 
@@ -99,7 +82,7 @@ void
 sircc_ui_on_resize(void) {
     struct winsize size;
 
-    if (ioctl(sircc.tty, TIOCGWINSZ, &size) == -1)
+    if (ioctl(STDIN_FILENO, TIOCGWINSZ, &size) == -1)
         die("cannot get terminal size: %m");
 
     if (size.ws_row < 8)
@@ -116,6 +99,224 @@ sircc_ui_on_resize(void) {
     sircc_ui_prompt_redraw();
 
     sircc_ui_update();
+}
+
+void
+sircc_ui_update(void) {
+    doupdate();
+}
+
+void
+sircc_ui_topic_redraw(void) {
+    WINDOW *win;
+
+    win = sircc.win_topic;
+
+    wmove(win, 0, 0);
+    wclrtoeol(win);
+    wbkgd(win, A_REVERSE);
+
+    waddstr(win, "topic");
+
+    wnoutrefresh(win);
+}
+
+void
+sircc_ui_main_redraw(void) {
+    WINDOW *win;
+
+    win = sircc.win_main;
+
+    wmove(win, 0, 0);
+    waddstr(win, "main");
+
+    wnoutrefresh(win);
+}
+
+void
+sircc_ui_chans_redraw(void) {
+    WINDOW *win;
+
+    win = sircc.win_chans;
+
+    wmove(win, 0, 0);
+    wclrtoeol(win);
+    wbkgd(win, A_REVERSE);
+
+    waddstr(win, "chans");
+
+    wnoutrefresh(win);
+}
+
+void
+sircc_ui_servers_redraw(void) {
+    WINDOW *win;
+
+    win = sircc.win_servers;
+
+    wmove(win, 0, 0);
+    wclrtoeol(win);
+    wbkgd(win, A_REVERSE);
+
+    for (size_t i = 0; i < sircc.nb_servers; i++) {
+        struct sircc_server *server;
+        bool is_current;
+
+        server = sircc.servers[i];
+        is_current = sircc_server_is_current(server);
+
+        if (i > 0)
+            waddch(win, ' ');
+
+        if (is_current)
+            wattron(win, A_BOLD);
+
+        waddstr(win, server->host);
+
+        if (is_current)
+            wattroff(win, A_BOLD);
+    }
+
+    wnoutrefresh(win);
+}
+
+void
+sircc_ui_prompt_redraw(void) {
+    WINDOW *win;
+    char *str, *utf8_str;
+    size_t len;
+
+    win = sircc.win_prompt;
+
+    wmove(win, 0, 0);
+    wclrtoeol(win);
+
+    wattron(win, A_BOLD);
+    waddstr(win, "> ");
+    wattroff(win, A_BOLD);
+
+    len = sircc_buf_length(&sircc.prompt_buf);
+    str = sircc_buf_data(&sircc.prompt_buf);
+    if (str) {
+        utf8_str = sircc_str_to_utf8(str, len);
+        if (utf8_str) {
+            waddstr(win, utf8_str);
+            sircc_free(utf8_str);
+        } else {
+            sircc_server_log_error(NULL, "%s", sircc_get_error());
+        }
+    }
+
+    wnoutrefresh(win);
+}
+
+void
+sircc_ui_select_server(int idx) {
+    sircc.current_server = idx;
+
+    sircc_ui_topic_redraw();
+    sircc_ui_main_redraw();
+    sircc_ui_servers_redraw();
+    sircc_ui_chans_redraw();
+
+    sircc_ui_update();
+}
+
+void
+sircc_ui_select_previous_server(void) {
+    int idx;
+
+    idx = sircc.current_server - 1;
+    if (idx < 0)
+        idx = sircc.nb_servers - 1;
+
+    sircc_ui_select_server(idx);
+}
+
+void
+sircc_ui_select_next_server(void) {
+    int idx;
+
+    idx = sircc.current_server + 1;
+    if ((size_t)idx >= sircc.nb_servers)
+        idx = 0;
+
+    sircc_ui_select_server(idx);
+}
+
+void
+sircc_ui_prompt_delete_previous_char(void) {
+    char *prompt, *utf8_prompt = NULL;
+    const char *ptr;
+    size_t len, sz = 0;
+
+    /* XXX overkill */
+
+    if (sircc_buf_length(&sircc.prompt_buf) == 0)
+        return;
+
+    prompt = sircc_buf_data(&sircc.prompt_buf);
+    len = sircc_buf_length(&sircc.prompt_buf);
+
+    utf8_prompt = sircc_str_to_utf8(prompt, len);
+    if (!utf8_prompt) {
+        sircc_server_log_error(NULL, "%s", sircc_get_error());
+        goto error;
+    }
+
+    len = strlen(utf8_prompt);
+    if (len == 0)
+        return;
+
+    ptr = utf8_prompt + len - 1;
+    for (;;) {
+        if ((*ptr & 0xc0) == 0x80) {
+            /* UTF-8 continuation byte */
+            if (ptr == utf8_prompt) {
+                /* The first byte cannot be a continuation */
+                sircc_server_log_error(NULL,
+                                       "invalid first byte in UTF-8 string");
+                goto error;
+            }
+
+            ptr--;
+            sz++;
+        } else {
+            sz++;
+            break;
+        }
+    }
+
+    sircc_free(utf8_prompt);
+
+    sircc_buf_remove(&sircc.prompt_buf, sz);
+
+    sircc_ui_prompt_redraw();
+    sircc_ui_update();
+    return;
+
+error:
+    sircc_free(utf8_prompt);
+    sircc_ui_prompt_clear();
+}
+
+void
+sircc_ui_prompt_clear(void) {
+    sircc_buf_clear(&sircc.prompt_buf);
+
+    sircc_ui_prompt_redraw();
+    sircc_ui_update();
+}
+
+void
+sircc_ui_prompt_execute(void) {
+    const char *cmd;
+
+    cmd = sircc_buf_data(&sircc.prompt_buf);
+
+    sircc_server_log_info(NULL, "execute command: %s", cmd);
+
+    sircc_ui_prompt_clear();
 }
 
 static void
@@ -143,69 +344,4 @@ sircc_ui_setup_windows(void) {
     if (sircc.win_prompt)
         delwin(sircc.win_prompt);
     sircc.win_prompt = subwin(stdscr, 1, width, height - 1, 0);
-}
-
-static void
-sircc_ui_update(void) {
-    doupdate();
-}
-
-static void
-sircc_ui_topic_redraw(void) {
-    WINDOW *win;
-
-    win = sircc.win_topic;
-
-    wmove(win, 0, 0);
-    waddstr(win, "topic");
-
-    wnoutrefresh(win);
-}
-
-static void
-sircc_ui_main_redraw(void) {
-    WINDOW *win;
-
-    win = sircc.win_main;
-
-    wmove(win, 0, 0);
-    waddstr(win, "main");
-
-    wnoutrefresh(win);
-}
-
-static void
-sircc_ui_chans_redraw(void) {
-    WINDOW *win;
-
-    win = sircc.win_chans;
-
-    wmove(win, 0, 0);
-    waddstr(win, "chans");
-
-    wnoutrefresh(win);
-}
-
-static void
-sircc_ui_servers_redraw(void) {
-    WINDOW *win;
-
-    win = sircc.win_servers;
-
-    wmove(win, 0, 0);
-    waddstr(win, "servers");
-
-    wnoutrefresh(win);
-}
-
-static void
-sircc_ui_prompt_redraw(void) {
-    WINDOW *win;
-
-    win = sircc.win_prompt;
-
-    wmove(win, 0, 0);
-    waddstr(win, "prompt");
-
-    wnoutrefresh(win);
 }

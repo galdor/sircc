@@ -16,6 +16,7 @@
 
 #include <assert.h>
 #include <errno.h>
+#include <locale.h>
 #include <stdio.h>
 #include <string.h>
 
@@ -40,6 +41,8 @@ static void sircc_shutdown(void);
 static void sircc_server_add(struct sircc_server *);
 static void sircc_setup_poll_array(void);
 static void sircc_poll(void);
+static void sircc_read_signal(void);
+static void sircc_read_input(void);
 static void sircc_set_msg_handler(const char *, sircc_msg_handler);
 
 static void sircc_on_msg_ping(struct sircc_server *, struct sircc_msg *);
@@ -62,6 +65,8 @@ main(int argc, char **argv) {
     struct sircc_server *server;
     int opt, nb_args;
 
+    setlocale(LC_ALL, "");
+
     ht_set_memory_allocator(&sircc_ht_allocator);
 
     opterr = 0;
@@ -78,8 +83,6 @@ main(int argc, char **argv) {
 
     nb_args = argc - optind;
 
-    sircc_ui_initialize();
-
     server = sircc_server_new();
     server->host = "localhost";
     server->port = "6667";
@@ -87,7 +90,22 @@ main(int argc, char **argv) {
     server->realname = "Simple IRC Client";
     sircc_server_add(server);
 
+    server = sircc_server_new();
+    server->host = "127.0.0.1";
+    server->port = "6667";
+    server->nickname = "sircc2";
+    server->realname = "Simple IRC Client";
+    sircc_server_add(server);
+
+    server = sircc_server_new();
+    server->host = "::1";
+    server->port = "6667";
+    server->nickname = "sircc3";
+    server->realname = "Simple IRC Client";
+    sircc_server_add(server);
+
     sircc_initialize();
+    sircc_ui_initialize();
 
     sircc_set_msg_handler("PING", sircc_on_msg_ping);
     sircc_set_msg_handler("001", sircc_on_msg_001);
@@ -96,8 +114,8 @@ main(int argc, char **argv) {
         sircc_poll();
     }
 
-    sircc_shutdown();
     sircc_ui_shutdown();
+    sircc_shutdown();
     return 0;
 }
 
@@ -275,6 +293,9 @@ sircc_server_trace(struct sircc_server *server, const char *fmt, ...) {
     char buf[SIRCC_ERROR_BUFSZ];
     va_list ap;
 
+    if (!server)
+        server = sircc_server_get_current();
+
     va_start(ap, fmt);
     vsnprintf(buf, sizeof(buf), fmt, ap);
     va_end(ap);
@@ -282,7 +303,9 @@ sircc_server_trace(struct sircc_server *server, const char *fmt, ...) {
     buf[strcspn(buf, "\r\n")] = '\0';
 
     /* XXX debug */
+#if 0
     printf("%-20s  %s\n", server->host, buf);
+#endif
 }
 
 void
@@ -290,6 +313,9 @@ sircc_server_log_info(struct sircc_server *server, const char *fmt, ...) {
     char buf[SIRCC_ERROR_BUFSZ];
     va_list ap;
 
+    if (!server)
+        server = sircc_server_get_current();
+
     va_start(ap, fmt);
     vsnprintf(buf, sizeof(buf), fmt, ap);
     va_end(ap);
@@ -297,7 +323,9 @@ sircc_server_log_info(struct sircc_server *server, const char *fmt, ...) {
     buf[strcspn(buf, "\r\n")] = '\0';
 
     /* XXX debug */
+#if 0
     printf("%-20s  %s\n", server->host, buf);
+#endif
 }
 
 void
@@ -305,6 +333,9 @@ sircc_server_log_error(struct sircc_server *server, const char *fmt, ...) {
     char buf[SIRCC_ERROR_BUFSZ];
     va_list ap;
 
+    if (!server)
+        server = sircc_server_get_current();
+
     va_start(ap, fmt);
     vsnprintf(buf, sizeof(buf), fmt, ap);
     va_end(ap);
@@ -312,7 +343,9 @@ sircc_server_log_error(struct sircc_server *server, const char *fmt, ...) {
     buf[strcspn(buf, "\r\n")] = '\0';
 
     /* XXX debug */
+#if 0
     printf("%-20s  %s\n", server->host, buf);
+#endif
 }
 
 void
@@ -489,6 +522,16 @@ sircc_server_msg_process(struct sircc_server *server, struct sircc_msg *msg) {
     handler(server, msg);
 }
 
+struct sircc_server *
+sircc_server_get_current(void) {
+    return sircc.servers[sircc.current_server];
+}
+
+bool
+sircc_server_is_current(struct sircc_server *server) {
+    return sircc_server_get_current() == server;
+}
+
 struct sircc_chan *
 sircc_chan_new(struct sircc_server *server) {
     struct sircc_chan *chan;
@@ -524,6 +567,9 @@ sircc_initialize(void) {
 
     sircc.msg_handlers = ht_table_new(ht_hash_string, ht_equal_string);
 
+    sircc_buf_init(&sircc.input_buf);
+    sircc_buf_init(&sircc.prompt_buf);
+
     sircc_setup_poll_array();
 
     for (size_t i = 0; i < sircc.nb_servers; i++) {
@@ -546,10 +592,13 @@ sircc_shutdown(void) {
 
     free(sircc.pollfds);
 
-    ht_table_delete(sircc.msg_handlers);
-
     close(sircc.signal_pipe[0]);
     close(sircc.signal_pipe[1]);
+
+    ht_table_delete(sircc.msg_handlers);
+
+    sircc_buf_free(&sircc.input_buf);
+    sircc_buf_free(&sircc.prompt_buf);
 
     sigaction(SIGINT, &sircc.old_sigact_sigint, NULL);
     sigaction(SIGTERM, &sircc.old_sigact_sigterm, NULL);
@@ -560,14 +609,14 @@ static void
 sircc_server_add(struct sircc_server *server) {
     if (!sircc.servers) {
         sircc.nb_servers = 1;
-        sircc.servers = malloc(sizeof(struct sircc_server *));
+        sircc.servers = sircc_malloc(sizeof(struct sircc_server *));
         sircc.servers[0] = server;
     } else {
         size_t sz;
 
         sircc.nb_servers++;
         sz = sircc.nb_servers * sizeof(struct sircc_server *);
-        sircc.servers = realloc(sircc.servers, sz);
+        sircc.servers = sircc_realloc(sircc.servers, sz);
         sircc.servers[sircc.nb_servers - 1] = server;
     }
 }
@@ -576,18 +625,23 @@ static void
 sircc_setup_poll_array(void) {
     free(sircc.pollfds);
 
-    /* One pollfd for each server, plus one for the signal pipe */
-    sircc.nb_pollfds = sircc.nb_servers + 1;
+    /* - 1 pollfd for the signal pipe.
+     * - 1 pollfd for the stdin file descriptor.
+     * - 1 pollfd for the socket of each server. */
+    sircc.nb_pollfds = sircc.nb_servers + 2;
     sircc.pollfds = calloc(sircc.nb_pollfds, sizeof(struct pollfd));
 
     sircc.pollfds[0].fd = sircc.signal_pipe[0];
     sircc.pollfds[0].events = POLLIN;
 
+    sircc.pollfds[1].fd = STDIN_FILENO;
+    sircc.pollfds[1].events = POLLIN;
+
     for (size_t i = 0; i < sircc.nb_servers; i++) {
         struct sircc_server *server;
 
         server = sircc.servers[i];
-        server->pollfd = &sircc.pollfds[i + 1];
+        server->pollfd = &sircc.pollfds[i + 2];
     }
 }
 
@@ -601,32 +655,18 @@ sircc_poll(void) {
         }
     }
 
-    if (sircc.pollfds[0].revents & POLLIN) {
-        ssize_t ret;
-        int signo;
+    if (sircc.pollfds[0].revents & POLLIN)
+        sircc_read_signal();
 
-        ret = read(sircc.signal_pipe[0], &signo, sizeof(int));
-        if (ret < (ssize_t)sizeof(int))
-            die("cannot read pipe: %m");
-
-        switch (signo) {
-        case SIGINT:
-        case SIGTERM:
-            sircc.do_exit = true;
-            break;
-
-        case SIGWINCH:
-            sircc_ui_on_resize();
-            break;
-        }
-    }
+    if (sircc.pollfds[1].revents & POLLIN)
+        sircc_read_input();
 
     for (size_t i = 0; i < sircc.nb_servers; i++) {
         struct sircc_server *server;
         int revents;
 
         server = sircc.servers[i];
-        revents = sircc.pollfds[i + 1].revents;
+        revents = sircc.pollfds[i + 2].revents;
 
         if (revents & POLLIN) {
             sircc_server_on_pollin(server);
@@ -642,6 +682,81 @@ sircc_poll(void) {
             sircc_server_on_pollout(server);
         }
     }
+}
+
+static void
+sircc_read_signal(void) {
+    ssize_t ret;
+    int signo;
+
+    ret = read(sircc.signal_pipe[0], &signo, sizeof(int));
+    if (ret < (ssize_t)sizeof(int))
+        die("cannot read pipe: %m");
+
+    switch (signo) {
+    case SIGINT:
+    case SIGTERM:
+        sircc.do_exit = true;
+        break;
+
+    case SIGWINCH:
+        sircc_ui_on_resize();
+        break;
+    }
+}
+
+static void
+sircc_read_input(void) {
+    static bool escape = false;
+
+    struct sircc_server *server;
+    ssize_t ret;
+    unsigned char *ptr;
+    size_t len;
+
+    server = sircc_server_get_current();
+
+    ret = sircc_buf_read(&sircc.input_buf, STDIN_FILENO, 64);
+    if (ret < 0)
+        die("cannot read terminal device: %m");
+    if (ret == 0)
+        die("eof on terminal device");
+
+    len = sircc_buf_length(&sircc.input_buf);
+    ptr = (unsigned char *)sircc_buf_data(&sircc.input_buf);
+
+    for (size_t i = 0; i < len; i++) {
+        unsigned char c;
+
+        c = ptr[i];
+
+        if (c == 8) {
+            /* Backspace */
+            sircc_ui_prompt_delete_previous_char();
+        } else if (c == 13) {
+            /* Return */
+            sircc_ui_prompt_execute();
+            sircc_ui_prompt_clear();
+        } else if (c == 27) {
+            /* Escape */
+            escape = true;
+        } else if (escape) {
+            if (c == 'p') {
+                sircc_ui_select_previous_server();
+            } else if (c == 'n') {
+                sircc_ui_select_next_server();
+            }
+
+            escape = false;
+        } else {
+            sircc_buf_add_printf(&sircc.prompt_buf, "%c", (char)c);
+        }
+    }
+
+    sircc_buf_skip(&sircc.input_buf, len);
+
+    sircc_ui_prompt_redraw();
+    sircc_ui_update();
 }
 
 static void

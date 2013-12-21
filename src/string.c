@@ -14,7 +14,49 @@
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
+#include <errno.h>
+#include <string.h>
+
 #include "sircc.h"
+
+char *
+sircc_str_to_utf8(char *buf, size_t len) {
+    iconv_t conv;
+    char *out, *tmp;
+    size_t inlen, outlen;
+
+    conv = iconv_open("", "UTF-8");
+    if (conv == (iconv_t)-1)
+        die("cannot create iconv conversion descriptor: %m");
+
+    inlen = len;
+
+    outlen = inlen + 1;
+    tmp = sircc_malloc(outlen);
+    out = tmp;
+
+    for (;;) {
+        if (iconv(conv, &buf, &inlen, &out, &outlen) == (size_t)-1) {
+            if (errno == E2BIG) {
+                outlen = (outlen - 1) * 2 + 1;
+                tmp = sircc_realloc(tmp, outlen);
+                out = tmp;
+                continue;
+            } else {
+                sircc_set_error("cannot convert string to UTF-8: %m");
+                free(tmp);
+                return NULL;
+            }
+        }
+
+        break;
+    }
+
+    *out = '\0';
+    iconv_close(conv);
+
+    return tmp;
+}
 
 #ifndef strlcpy
 /*
