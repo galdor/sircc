@@ -184,7 +184,7 @@ void
 sircc_ui_prompt_redraw(void) {
     WINDOW *win;
     char *str, *utf8_str;
-    size_t len;
+    size_t len, nb_bytes;
 
     win = sircc.win_prompt;
 
@@ -198,9 +198,9 @@ sircc_ui_prompt_redraw(void) {
     len = sircc_buf_length(&sircc.prompt_buf);
     str = sircc_buf_data(&sircc.prompt_buf);
     if (str) {
-        utf8_str = sircc_str_to_utf8(str, len);
+        utf8_str = sircc_str_to_utf8(str, len, &nb_bytes);
         if (utf8_str) {
-            waddstr(win, utf8_str);
+            waddnstr(win, str, nb_bytes);
             sircc_free(utf8_str);
         } else {
             sircc_server_log_error(NULL, "%s", sircc_get_error());
@@ -258,7 +258,7 @@ sircc_ui_prompt_delete_previous_char(void) {
     prompt = sircc_buf_data(&sircc.prompt_buf);
     len = sircc_buf_length(&sircc.prompt_buf);
 
-    utf8_prompt = sircc_str_to_utf8(prompt, len);
+    utf8_prompt = sircc_str_to_utf8(prompt, len, NULL);
     if (!utf8_prompt) {
         sircc_server_log_error(NULL, "%s", sircc_get_error());
         goto error;

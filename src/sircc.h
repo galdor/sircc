@@ -41,7 +41,7 @@ char *sircc_strdup(const char *);
 char *sircc_strndup(const char *, size_t);
 
 /* String utils */
-char *sircc_str_to_utf8(char *, size_t);
+char *sircc_str_to_utf8(char *, size_t, size_t *);
 
 size_t strlcpy(char *, const char *, size_t);
 

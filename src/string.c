@@ -20,10 +20,12 @@
 #include "sircc.h"
 
 char *
-sircc_str_to_utf8(char *buf, size_t len) {
+sircc_str_to_utf8(char *buf, size_t len, size_t *nb_bytes) {
     iconv_t conv;
-    char *out, *tmp;
+    char *out, *tmp, *buf_orig;
     size_t inlen, outlen;
+
+    buf_orig = buf;
 
     conv = iconv_open("", "UTF-8");
     if (conv == (iconv_t)-1)
@@ -35,6 +37,9 @@ sircc_str_to_utf8(char *buf, size_t len) {
     tmp = sircc_malloc(outlen);
     out = tmp;
 
+    if (nb_bytes)
+        *nb_bytes = 0;
+
     for (;;) {
         if (iconv(conv, &buf, &inlen, &out, &outlen) == (size_t)-1) {
             if (errno == E2BIG) {
@@ -42,6 +47,9 @@ sircc_str_to_utf8(char *buf, size_t len) {
                 tmp = sircc_realloc(tmp, outlen);
                 out = tmp;
                 continue;
+            } else if (errno == EINVAL) {
+                /* Truncated sequence */
+                break;
             } else {
                 sircc_set_error("cannot convert string to UTF-8: %m");
                 free(tmp);
@@ -54,6 +62,9 @@ sircc_str_to_utf8(char *buf, size_t len) {
 
     *out = '\0';
     iconv_close(conv);
+
+    if (nb_bytes)
+        *nb_bytes = (size_t)(buf - buf_orig);
 
     return tmp;
 }
