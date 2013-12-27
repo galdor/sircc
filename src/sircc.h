@@ -32,6 +32,8 @@
 
 #define SIRCC_ERROR_BUFSZ 1024
 
+#define SIRCC_NICKNAME_MAXSZ 32
+
 /* Memory */
 void *sircc_malloc(size_t);
 void *sircc_calloc(size_t, size_t);
@@ -83,6 +85,42 @@ char *sircc_buf_dup_str(const struct sircc_buf *);
 ssize_t sircc_buf_read(struct sircc_buf *, int, size_t);
 ssize_t sircc_buf_write(struct sircc_buf *, int);
 
+/* History */
+enum sircc_history_entry_type {
+    SIRCC_HISTORY_CHAN_MSG,
+    SIRCC_HISTORY_SERVER_MSG,
+    SIRCC_HISTORY_TRACE,
+    SIRCC_HISTORY_INFO,
+    SIRCC_HISTORY_ERROR,
+};
+
+struct sircc_history_entry {
+    enum sircc_history_entry_type type;
+
+    time_t date;
+    char *src; /* The source nickname for SIRCC_HISTORY_CHAN_MSG */
+    char *text;
+};
+
+struct sircc_history {
+    struct sircc_history_entry *entries;
+    size_t sz;
+
+    size_t nb_entries;
+    size_t start_idx;
+};
+
+void sircc_history_init(struct sircc_history *, size_t sz);
+void sircc_history_free(struct sircc_history *);
+
+void sircc_history_add_entry(struct sircc_history *,
+                             struct sircc_history_entry *);
+void sircc_history_add_chan_msg(struct sircc_history *, char *, char *);
+void sircc_history_add_server_msg(struct sircc_history *, char *);
+void sircc_history_add_trace(struct sircc_history *, char *);
+void sircc_history_add_info(struct sircc_history *, char *);
+void sircc_history_add_error(struct sircc_history *, char *);
+
 /* Network */
 int sircc_address_resolve(const char *, const char *,
                           struct addrinfo ***, size_t *);
@@ -100,27 +138,9 @@ struct sircc_msg {
 
 void sircc_msg_free(struct sircc_msg *);
 int sircc_msg_parse(struct sircc_msg *, struct sircc_buf *);
+int sircc_msg_prefix_nickname(const struct sircc_msg *, char *, size_t);
 
-/* User interface */
-void sircc_ui_initialize(void);
-void sircc_ui_shutdown(void);
-void sircc_ui_on_resize(void);
-
-void sircc_ui_update(void);
-
-void sircc_ui_topic_redraw(void);
-void sircc_ui_main_redraw(void);
-void sircc_ui_chans_redraw(void);
-void sircc_ui_servers_redraw(void);
-void sircc_ui_prompt_redraw(void);
-
-void sircc_ui_select_server(int);
-void sircc_ui_select_previous_server(void);
-void sircc_ui_select_next_server(void);
-
-void sircc_ui_prompt_delete_previous_char(void);
-void sircc_ui_prompt_clear(void);
-void sircc_ui_prompt_execute(void);
+bool sircc_irc_is_chan_prefix(int);
 
 /* Main */
 void die(const char *, ...)
@@ -128,6 +148,21 @@ void die(const char *, ...)
 
 const char *sircc_get_error();
 void sircc_set_error(const char *, ...);
+
+struct sircc_chan {
+    char *name;
+    struct sircc_server *server;
+
+    struct sircc_history history;
+};
+
+struct sircc_chan *sircc_chan_new(struct sircc_server *, const char *);
+void sircc_chan_delete(struct sircc_chan *);
+
+void sircc_chan_log_info(struct sircc_chan *, const char *, ...)
+    __attribute__((format(printf, 2, 3)));
+void sircc_chan_log_msg(struct sircc_chan *, const char *, const char *, ...)
+    __attribute__((format(printf, 3, 4)));
 
 enum sircc_server_state {
     SIRCC_SERVER_DISCONNECTED,
@@ -155,6 +190,12 @@ struct sircc_server {
 
     struct sircc_buf rbuf;
     struct sircc_buf wbuf;
+
+    struct sircc_history history;
+
+    struct sircc_chan **chans;
+    size_t nb_chans;
+    int current_chan; /* -1 when there is no selected chan */
 };
 
 struct sircc_server *sircc_server_new(void);
@@ -177,23 +218,18 @@ void sircc_server_on_pollout(struct sircc_server *);
 void sircc_server_on_connection_established(struct sircc_server *);
 void sircc_server_msg_process(struct sircc_server *, struct sircc_msg *);
 
+struct sircc_chan *sircc_server_get_current_chan(struct sircc_server *);
+struct sircc_chan *sircc_server_get_chan(struct sircc_server *, const char *);
+bool sircc_chan_is_current(struct sircc_chan *);
+void sircc_server_add_chan(struct sircc_server *, struct sircc_chan *);
+
 struct sircc_server *sircc_server_get_current(void);
 bool sircc_server_is_current(struct sircc_server *);
-
-struct sircc_chan {
-    struct sircc_server *server;
-};
-
-struct sircc_chan *sircc_chan_new(struct sircc_server *);
-void sircc_chan_delete(struct sircc_chan *);
 
 struct sircc {
     struct sircc_server **servers;
     size_t nb_servers;
     int current_server;
-
-    struct sircc_chan **chans;
-    size_t nb_chans;
 
     struct pollfd *pollfds;
     size_t nb_pollfds;
@@ -221,5 +257,29 @@ struct sircc {
 };
 
 extern struct sircc sircc;
+
+/* User interface */
+void sircc_ui_initialize(void);
+void sircc_ui_shutdown(void);
+void sircc_ui_on_resize(void);
+
+void sircc_ui_update(void);
+
+void sircc_ui_topic_redraw(void);
+void sircc_ui_main_redraw(void);
+void sircc_ui_chans_redraw(void);
+void sircc_ui_servers_redraw(void);
+void sircc_ui_prompt_redraw(void);
+
+void sircc_ui_server_select(int);
+void sircc_ui_server_select_previous(void);
+void sircc_ui_server_select_next(void);
+void sircc_ui_server_select_chan(struct sircc_server *, int);
+void sircc_ui_server_select_previous_chan(struct sircc_server *);
+void sircc_ui_server_select_next_chan(struct sircc_server *);
+
+void sircc_ui_prompt_delete_previous_char(void);
+void sircc_ui_prompt_clear(void);
+void sircc_ui_prompt_execute(void);
 
 #endif

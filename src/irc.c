@@ -196,6 +196,35 @@ error:
     return -1;
 }
 
+int
+sircc_msg_prefix_nickname(const struct sircc_msg *msg,
+                          char *buf, size_t bufsz) {
+    size_t len;
+
+    if (!msg->prefix) {
+        sircc_set_error("no prefix in message");
+        return -1;
+    }
+
+    len = strcspn(msg->prefix, "!@");
+    if (len >= bufsz) {
+        sircc_set_error("nickname buffer too small");
+        return -1;
+    }
+
+    memcpy(buf, msg->prefix, len);
+    buf[len] = '\0';
+    return 0;
+}
+
+bool
+sircc_irc_is_chan_prefix(int c) {
+    return c == '&'  /* local */
+        || c == '#'  /* network */
+        || c == '!'  /* network + safe */
+        || c == '+'; /* network + unmoderated */
+}
+
 static void
 sircc_msg_add_param(struct sircc_msg *msg, char *param) {
     if (!msg->params) {

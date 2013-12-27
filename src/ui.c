@@ -14,8 +14,10 @@
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
+#include <assert.h>
 #include <stdio.h>
 #include <string.h>
+#include <time.h>
 
 #include <fcntl.h>
 #include <sys/ioctl.h>
@@ -123,18 +125,92 @@ sircc_ui_topic_redraw(void) {
 
 void
 sircc_ui_main_redraw(void) {
+    struct sircc_server *server;
+    struct sircc_chan *chan;
+    struct sircc_history *history;
     WINDOW *win;
+    size_t idx;
+    int y;
 
     win = sircc.win_main;
 
     wmove(win, 0, 0);
-    waddstr(win, "main");
+    werase(win);
+
+    y = 0;
+
+    server = sircc_server_get_current();
+    chan = sircc_server_get_current_chan(server);
+    if (chan) {
+        history = &chan->history;
+    } else {
+        history = &server->history;
+    }
+
+    idx = history->start_idx;
+    for (size_t i = 0; i < history->nb_entries; i++) {
+        const struct sircc_history_entry *entry;
+        char date_str[32];
+        struct tm *tm;
+        int attrs;
+
+        entry = history->entries + idx;
+
+        attrs = 0;
+
+        switch (entry->type) {
+        case SIRCC_HISTORY_CHAN_MSG:
+            attrs = 0;
+            break;
+
+        case SIRCC_HISTORY_SERVER_MSG:
+            attrs = COLOR_PAIR(4);
+            break;
+
+        case SIRCC_HISTORY_TRACE:
+            attrs = COLOR_PAIR(8) | A_BOLD;
+            break;
+
+        case SIRCC_HISTORY_INFO:
+            attrs = COLOR_PAIR(3);
+            break;
+
+        case SIRCC_HISTORY_ERROR:
+            attrs = COLOR_PAIR(1);
+            break;
+        }
+
+        wattron(win, attrs);
+
+        tm = localtime(&entry->date);
+        strftime(date_str, sizeof(date_str), "%H:%M:%S", tm);
+        if (entry->src) {
+            mvwprintw(win, y, 0, "%s %-*s  %s",
+                      date_str,
+                      9, entry->src,
+                      entry->text);
+        } else {
+            mvwprintw(win, y, 0, "%s %-*s  %s",
+                      date_str,
+                      9, "",
+                      entry->text);
+        }
+
+        wattroff(win, attrs);
+
+        y++;
+
+        idx++;
+        if (idx >= history->sz)
+            idx = 0;
+    }
 
     wnoutrefresh(win);
 }
 
 void
 sircc_ui_chans_redraw(void) {
+    struct sircc_server *server;
     WINDOW *win;
 
     win = sircc.win_chans;
@@ -143,7 +219,33 @@ sircc_ui_chans_redraw(void) {
     wclrtoeol(win);
     wbkgd(win, A_REVERSE);
 
-    waddstr(win, "chans");
+    server = sircc_server_get_current();
+
+    if (server->current_chan == -1)
+        wattron(win, A_BOLD);
+
+    waddstr(win, server->host);
+
+    if (server->current_chan == -1)
+        wattroff(win, A_BOLD);
+
+    for (size_t i = 0; i < server->nb_chans; i++) {
+        struct sircc_chan *chan;
+        bool is_current;
+
+        chan = server->chans[i];
+        is_current = sircc_chan_is_current(chan);
+
+        waddch(win, ' ');
+
+        if (is_current)
+            wattron(win, A_BOLD);
+
+        waddstr(win, chan->name);
+
+        if (is_current)
+            wattroff(win, A_BOLD);
+    }
 
     wnoutrefresh(win);
 }
@@ -211,7 +313,9 @@ sircc_ui_prompt_redraw(void) {
 }
 
 void
-sircc_ui_select_server(int idx) {
+sircc_ui_server_select(int idx) {
+    assert(idx >= 0 && (size_t)idx < sircc.nb_servers);
+
     sircc.current_server = idx;
 
     sircc_ui_topic_redraw();
@@ -223,25 +327,74 @@ sircc_ui_select_server(int idx) {
 }
 
 void
-sircc_ui_select_previous_server(void) {
+sircc_ui_server_select_previous(void) {
     int idx;
 
     idx = sircc.current_server - 1;
     if (idx < 0)
         idx = sircc.nb_servers - 1;
 
-    sircc_ui_select_server(idx);
+    sircc_ui_server_select(idx);
 }
 
 void
-sircc_ui_select_next_server(void) {
+sircc_ui_server_select_next(void) {
     int idx;
 
     idx = sircc.current_server + 1;
     if ((size_t)idx >= sircc.nb_servers)
         idx = 0;
 
-    sircc_ui_select_server(idx);
+    sircc_ui_server_select(idx);
+}
+
+void
+sircc_ui_server_select_chan(struct sircc_server *server, int idx) {
+    assert(idx == -1 || (idx >= 0 && (size_t)idx < server->nb_chans));
+
+    server->current_chan = idx;
+
+    sircc_ui_topic_redraw();
+    sircc_ui_main_redraw();
+    sircc_ui_chans_redraw();
+
+    sircc_ui_update();
+}
+
+void
+sircc_ui_server_select_previous_chan(struct sircc_server *server) {
+    int idx;
+
+    if (server->nb_chans == 0)
+        return;
+
+    if (server->current_chan >= 0) {
+        idx = server->current_chan - 1;
+        if (idx < 0)
+            idx = -1;
+    } else {
+        idx = server->nb_chans - 1;
+    }
+
+    sircc_ui_server_select_chan(server, idx);
+}
+
+void
+sircc_ui_server_select_next_chan(struct sircc_server *server) {
+    int idx;
+
+    if (server->nb_chans == 0)
+        return;
+
+    if (server->current_chan >= 0) {
+        idx = server->current_chan + 1;
+        if ((size_t)idx >= server->nb_chans)
+            idx = -1;
+    } else {
+        idx = 0;
+    }
+
+    sircc_ui_server_select_chan(server, idx);
 }
 
 void
@@ -335,11 +488,11 @@ sircc_ui_setup_windows(void) {
 
     if (sircc.win_servers)
         delwin(sircc.win_servers);
-    sircc.win_servers = subwin(stdscr, 1, width, height - 3, 0);
+    sircc.win_servers = subwin(stdscr, 1, width, height - 2, 0);
 
     if (sircc.win_chans)
         delwin(sircc.win_chans);
-    sircc.win_chans = subwin(stdscr, 1, width, height - 2, 0);
+    sircc.win_chans = subwin(stdscr, 1, width, height - 3, 0);
 
     if (sircc.win_prompt)
         delwin(sircc.win_prompt);

@@ -45,7 +45,9 @@ static void sircc_read_signal(void);
 static void sircc_read_input(void);
 static void sircc_set_msg_handler(const char *, sircc_msg_handler);
 
+static void sircc_on_msg_join(struct sircc_server *, struct sircc_msg *);
 static void sircc_on_msg_ping(struct sircc_server *, struct sircc_msg *);
+static void sircc_on_msg_privmsg(struct sircc_server *, struct sircc_msg *);
 static void sircc_on_msg_001(struct sircc_server *, struct sircc_msg *);
 
 
@@ -104,18 +106,20 @@ main(int argc, char **argv) {
     server->realname = "Simple IRC Client";
     sircc_server_add(server);
 
-    sircc_initialize();
     sircc_ui_initialize();
+    sircc_initialize();
 
+    sircc_set_msg_handler("JOIN", sircc_on_msg_join);
     sircc_set_msg_handler("PING", sircc_on_msg_ping);
+    sircc_set_msg_handler("PRIVMSG", sircc_on_msg_privmsg);
     sircc_set_msg_handler("001", sircc_on_msg_001);
 
     while (!sircc.do_exit) {
         sircc_poll();
     }
 
-    sircc_ui_shutdown();
     sircc_shutdown();
+    sircc_ui_shutdown();
     return 0;
 }
 
@@ -180,6 +184,91 @@ sircc_set_error(const char *fmt, ...) {
     sircc_error_buf[ret] = '\0';
 }
 
+struct sircc_chan *
+sircc_chan_new(struct sircc_server *server, const char *name) {
+    struct sircc_chan *chan;
+
+    chan = sircc_malloc(sizeof(struct sircc_chan));
+    memset(chan, 0, sizeof(struct sircc_chan));
+
+    chan->name = sircc_strdup(name);
+    chan->server = server;
+
+    sircc_history_init(&chan->history, 1024);
+
+    return chan;
+}
+
+void
+sircc_chan_delete(struct sircc_chan *chan) {
+    if (!chan)
+        return;
+
+    sircc_history_free(&chan->history);
+    sircc_free(chan->name);
+    sircc_free(chan);
+}
+
+void
+sircc_chan_log_info(struct sircc_chan *chan, const char *fmt, ...) {
+    struct sircc_buf buf;
+    va_list ap;
+
+    if (!chan) {
+        struct sircc_server *server;
+
+        server = sircc_server_get_current();
+        chan = sircc_server_get_current_chan(server);
+        if (!chan)
+            return;
+    }
+
+    sircc_buf_init(&buf);
+
+    va_start(ap, fmt);
+    sircc_buf_add_vprintf(&buf, fmt, ap);
+    va_end(ap);
+
+    sircc_history_add_info(&chan->history, sircc_buf_dup_str(&buf));
+    sircc_buf_free(&buf);
+
+    if (sircc_chan_is_current(chan)) {
+        sircc_ui_main_redraw();
+        sircc_ui_update();
+    }
+}
+
+void
+sircc_chan_log_msg(struct sircc_chan *chan, const char *src,
+                   const char *fmt, ...) {
+    struct sircc_buf buf;
+    va_list ap;
+
+    if (!chan) {
+        struct sircc_server *server;
+
+        server = sircc_server_get_current();
+        chan = sircc_server_get_current_chan(server);
+        if (!chan)
+            return;
+    }
+
+    sircc_buf_init(&buf);
+
+    va_start(ap, fmt);
+    sircc_buf_add_vprintf(&buf, fmt, ap);
+    va_end(ap);
+
+    sircc_history_add_chan_msg(&chan->history, sircc_strdup(src),
+                               sircc_buf_dup_str(&buf));
+    sircc_buf_free(&buf);
+
+    if (sircc_chan_is_current(chan)) {
+        sircc_ui_main_redraw();
+        sircc_ui_update();
+    }
+}
+
 struct sircc_server *
 sircc_server_new(void) {
     struct sircc_server *server;
@@ -192,6 +281,10 @@ sircc_server_new(void) {
     sircc_buf_init(&server->rbuf);
     sircc_buf_init(&server->wbuf);
 
+    sircc_history_init(&server->history, 1024);
+
+    server->current_chan = -1;
+
     server->state = SIRCC_SERVER_DISCONNECTED;
 
     return server;
@@ -202,11 +295,19 @@ sircc_server_delete(struct sircc_server *server) {
     if (!server)
         return;
 
-    freeaddrinfo(server->addresses[0]);
-    sircc_free(server->addresses);
+    if (server->addresses) {
+        freeaddrinfo(server->addresses[0]);
+        sircc_free(server->addresses);
+    }
 
     sircc_buf_free(&server->rbuf);
     sircc_buf_free(&server->wbuf);
+
+    sircc_history_free(&server->history);
+
+    for (size_t i = 0; i < server->nb_chans; i++)
+        sircc_chan_delete(server->chans[i]);
+    sircc_free(server->chans);
 
     sircc_free(server);
 }
@@ -253,6 +354,9 @@ sircc_server_connect(struct sircc_server *server) {
         server->state = SIRCC_SERVER_CONNECTING;
     }
 
+    sircc_server_trace(server, "connecting to %s:%s",
+                       server->host, server->port);
+
     if (connect(server->sock, ai->ai_addr, ai->ai_addrlen) == -1) {
         if (errno == EINPROGRESS) {
             server->pollfd->events = POLLOUT;
@@ -290,84 +394,84 @@ sircc_server_disconnect(struct sircc_server *server) {
 
 void
 sircc_server_trace(struct sircc_server *server, const char *fmt, ...) {
-    char buf[SIRCC_ERROR_BUFSZ];
+    struct sircc_buf buf;
     va_list ap;
 
     if (!server)
         server = sircc_server_get_current();
 
+    sircc_buf_init(&buf);
+
     va_start(ap, fmt);
-    vsnprintf(buf, sizeof(buf), fmt, ap);
+    sircc_buf_add_vprintf(&buf, fmt, ap);
     va_end(ap);
 
-    buf[strcspn(buf, "\r\n")] = '\0';
+    sircc_history_add_trace(&server->history, sircc_buf_dup_str(&buf));
+    sircc_buf_free(&buf);
 
-    /* XXX debug */
-#if 0
-    printf("%-20s  %s\n", server->host, buf);
-#endif
+    if (server == sircc_server_get_current()) {
+        sircc_ui_main_redraw();
+        sircc_ui_update();
+    }
 }
 
 void
 sircc_server_log_info(struct sircc_server *server, const char *fmt, ...) {
-    char buf[SIRCC_ERROR_BUFSZ];
+    struct sircc_buf buf;
     va_list ap;
 
     if (!server)
         server = sircc_server_get_current();
 
+    sircc_buf_init(&buf);
+
     va_start(ap, fmt);
-    vsnprintf(buf, sizeof(buf), fmt, ap);
+    sircc_buf_add_vprintf(&buf, fmt, ap);
     va_end(ap);
 
-    buf[strcspn(buf, "\r\n")] = '\0';
+    sircc_history_add_info(&server->history, sircc_buf_dup_str(&buf));
+    sircc_buf_free(&buf);
 
-    /* XXX debug */
-#if 0
-    printf("%-20s  %s\n", server->host, buf);
-#endif
+    if (server == sircc_server_get_current()) {
+        sircc_ui_main_redraw();
+        sircc_ui_update();
+    }
 }
 
 void
 sircc_server_log_error(struct sircc_server *server, const char *fmt, ...) {
-    char buf[SIRCC_ERROR_BUFSZ];
+    struct sircc_buf buf;
     va_list ap;
 
     if (!server)
         server = sircc_server_get_current();
 
+    sircc_buf_init(&buf);
+
     va_start(ap, fmt);
-    vsnprintf(buf, sizeof(buf), fmt, ap);
+    sircc_buf_add_vprintf(&buf, fmt, ap);
     va_end(ap);
 
-    buf[strcspn(buf, "\r\n")] = '\0';
+    sircc_history_add_error(&server->history, sircc_buf_dup_str(&buf));
+    sircc_buf_free(&buf);
 
-    /* XXX debug */
-#if 0
-    printf("%-20s  %s\n", server->host, buf);
-#endif
+    if (server == sircc_server_get_current()) {
+        sircc_ui_main_redraw();
+        sircc_ui_update();
+    }
 }
 
 void
 sircc_server_write(struct sircc_server *server, const char *buf, size_t sz) {
     sircc_buf_add(&server->wbuf, buf, sz);
 
-    sircc_server_trace(server, "> %s", buf);
-
     server->pollfd->events |= POLLOUT;
 }
 
 int
 sircc_server_vprintf(struct sircc_server *server, const char *fmt, va_list ap) {
-    size_t old_len;
-
-    old_len = sircc_buf_length(&server->wbuf);
-
     if (sircc_buf_add_vprintf(&server->wbuf, fmt, ap) == -1)
         return -1;
-
-    sircc_server_trace(server, "> %s",
-                       sircc_buf_data(&server->wbuf) + old_len);
 
     server->pollfd->events |= POLLOUT;
     return 0;
@@ -420,7 +524,7 @@ sircc_server_on_pollin(struct sircc_server *server) {
                     cr = strchr(ptr, '\r');
                     if (cr) {
                         *cr = '\0';
-                        sircc_server_trace(server, "< %s", ptr);
+                        sircc_server_trace(server, "%s", ptr);
                         *cr = '\r';
                     }
                 }
@@ -500,7 +604,8 @@ sircc_server_on_pollout(struct sircc_server *server) {
 
 void
 sircc_server_on_connection_established(struct sircc_server *server) {
-    sircc_server_log_info(server, "connected");
+    sircc_server_log_info(server, "connected to %s:%s",
+                          server->host, server->port);
 
     server->pollfd->events = POLLIN;
 
@@ -522,6 +627,51 @@ sircc_server_msg_process(struct sircc_server *server, struct sircc_msg *msg) {
     handler(server, msg);
 }
 
+struct sircc_chan *
+sircc_server_get_current_chan(struct sircc_server *server) {
+    if (server->chans && server->current_chan >= 0) {
+        return server->chans[server->current_chan];
+    } else {
+        return NULL;
+    }
+}
+
+struct sircc_chan *
+sircc_server_get_chan(struct sircc_server *server, const char *name) {
+    for (size_t i = 0; i < server->nb_chans; i++) {
+        if (strcmp(server->chans[i]->name, name) == 0)
+            return server->chans[i];
+    }
+
+    return NULL;
+}
+
+bool
+sircc_chan_is_current(struct sircc_chan *chan) {
+    return sircc_server_get_current_chan(chan->server) == chan;
+}
+
+void
+sircc_server_add_chan(struct sircc_server *server, struct sircc_chan *chan) {
+    if (server->chans) {
+        size_t sz;
+
+        sz = (server->nb_chans + 1) * sizeof(struct sircc_chan *);
+        server->chans = sircc_realloc(server->chans, sz);
+        server->chans[server->nb_chans] = chan;
+
+        server->nb_chans++;
+    } else {
+        server->chans = sircc_malloc(sizeof(struct sircc_chan *));
+        server->chans[0] = chan;
+
+        server->nb_chans = 1;
+    }
+
+    sircc_ui_chans_redraw();
+    sircc_ui_update();
+}
+
 struct sircc_server *
 sircc_server_get_current(void) {
     return sircc.servers[sircc.current_server];
@@ -530,26 +680,6 @@ sircc_server_get_current(void) {
 bool
 sircc_server_is_current(struct sircc_server *server) {
     return sircc_server_get_current() == server;
-}
-
-struct sircc_chan *
-sircc_chan_new(struct sircc_server *server) {
-    struct sircc_chan *chan;
-
-    chan = sircc_malloc(sizeof(struct sircc_chan));
-    memset(chan, 0, sizeof(struct sircc_chan));
-
-    chan->server = server;
-
-    return chan;
-}
-
-void
-sircc_chan_delete(struct sircc_chan *chan) {
-    if (!chan)
-        return;
-
-    sircc_free(chan);
 }
 
 static void
@@ -573,17 +703,20 @@ sircc_initialize(void) {
     sircc_setup_poll_array();
 
     for (size_t i = 0; i < sircc.nb_servers; i++) {
-        sircc_server_prepare_connection(sircc.servers[i]);
-        sircc_server_connect(sircc.servers[i]);
+        struct sircc_server *server;
+
+        server = sircc.servers[i];
+
+        sircc_server_prepare_connection(server);
+        if (server->state == SIRCC_SERVER_BROKEN)
+            continue;
+
+        sircc_server_connect(server);
     }
 }
 
 static void
 sircc_shutdown(void) {
-    for (size_t i = 0; i < sircc.nb_chans; i++)
-        sircc_chan_delete(sircc.chans[i]);
-    sircc_free(sircc.chans);
-
     for (size_t i = 0; i < sircc.nb_servers; i++) {
         sircc_server_disconnect(sircc.servers[i]);
         sircc_server_delete(sircc.servers[i]);
@@ -737,14 +870,20 @@ sircc_read_input(void) {
             /* Return */
             sircc_ui_prompt_execute();
             sircc_ui_prompt_clear();
+        } else if (c == 14) {
+            /* ^N */
+            sircc_ui_server_select_next_chan(server);
+        } else if (c == 16) {
+            /* ^P */
+            sircc_ui_server_select_previous_chan(server);
         } else if (c == 27) {
             /* Escape */
             escape = true;
         } else if (escape) {
             if (c == 'p') {
-                sircc_ui_select_previous_server();
+                sircc_ui_server_select_previous();
             } else if (c == 'n') {
-                sircc_ui_select_next_server();
+                sircc_ui_server_select_next();
             }
 
             escape = false;
@@ -765,6 +904,44 @@ sircc_set_msg_handler(const char *command, sircc_msg_handler handler) {
 }
 
 static void
+sircc_on_msg_join(struct sircc_server *server, struct sircc_msg *msg) {
+    struct sircc_chan *chan;
+    const char *chan_name;
+    char nickname[SIRCC_NICKNAME_MAXSZ];
+
+    if (!msg->prefix) {
+        sircc_server_log_error(server, "missing prefix in JOIN message");
+        return;
+    }
+
+    if (msg->nb_params < 1) {
+        sircc_server_log_error(server, "missing argument in JOIN message");
+        return;
+    }
+
+    if (sircc_msg_prefix_nickname(msg, nickname, sizeof(nickname)) == -1) {
+        sircc_server_log_error(server, "cannot get message nickname: %s",
+                               sircc_get_error());
+        return;
+    }
+
+    chan_name = msg->params[0];
+    chan = sircc_server_get_chan(server, chan_name);
+    if (!chan) {
+        chan = sircc_chan_new(server, chan_name);
+        sircc_server_add_chan(server, chan);
+    }
+
+    if (strcmp(nickname, server->nickname) == 0) {
+        /* We just joined the chan */
+        sircc_chan_log_info(chan, "You have joined %s", chan_name);
+    } else {
+        /* Someone else joined the chan */
+        sircc_chan_log_info(chan, "%s has joined %s", nickname, chan_name);
+    }
+}
+
+static void
 sircc_on_msg_ping(struct sircc_server *server, struct sircc_msg *msg) {
     if (msg->nb_params < 1) {
         sircc_server_log_error(server, "missing argument in PING message");
@@ -772,6 +949,49 @@ sircc_on_msg_ping(struct sircc_server *server, struct sircc_msg *msg) {
     }
 
     sircc_server_printf(server, "PONG :%s\r\n", msg->params[0]);
+}
+
+static void
+sircc_on_msg_privmsg(struct sircc_server *server, struct sircc_msg *msg) {
+    char nickname[SIRCC_NICKNAME_MAXSZ];
+    const char *target, *text;
+    struct sircc_chan *chan;
+    const char *chan_name;
+
+    if (!msg->prefix) {
+        sircc_server_log_error(server, "missing prefix in PRIVMSG message");
+        return;
+    }
+
+    if (msg->nb_params < 2) {
+        sircc_server_log_error(server, "missing arguments in PRIVMSG message");
+        return;
+    }
+
+    if (sircc_msg_prefix_nickname(msg, nickname, sizeof(nickname)) == -1) {
+        sircc_server_log_error(server, "cannot get message nickname: %s",
+                               sircc_get_error());
+        return;
+    }
+
+    target = msg->params[0];
+    text = msg->params[1];
+
+    if (sircc_irc_is_chan_prefix(target[0])) {
+        /* Public message */
+        chan_name = target;
+    } else {
+        /* Private message */
+        chan_name = nickname;
+    }
+
+    chan = sircc_server_get_chan(server, chan_name);
+    if (!chan) {
+        chan = sircc_chan_new(server, chan_name);
+        sircc_server_add_chan(server, chan);
+    }
+
+    sircc_chan_log_msg(chan, nickname, "%s", text);
 }
 
 static void
