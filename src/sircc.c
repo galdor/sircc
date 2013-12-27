@@ -950,11 +950,6 @@ sircc_on_msg_join(struct sircc_server *server, struct sircc_msg *msg) {
     const char *chan_name;
     char nickname[SIRCC_NICKNAME_MAXSZ];
 
-    if (!msg->prefix) {
-        sircc_server_log_error(server, "missing prefix in JOIN message");
-        return;
-    }
-
     if (msg->nb_params < 1) {
         sircc_server_log_error(server, "missing argument in JOIN message");
         return;
@@ -988,11 +983,6 @@ sircc_on_msg_part(struct sircc_server *server, struct sircc_msg *msg) {
     struct sircc_chan *chan;
     const char *chan_name;
     char nickname[SIRCC_NICKNAME_MAXSZ];
-
-    if (!msg->prefix) {
-        sircc_server_log_error(server, "missing prefix in PART message");
-        return;
-    }
 
     if (msg->nb_params < 1) {
         sircc_server_log_error(server, "missing argument in PART message");
@@ -1039,11 +1029,6 @@ sircc_on_msg_privmsg(struct sircc_server *server, struct sircc_msg *msg) {
     struct sircc_chan *chan;
     const char *chan_name;
 
-    if (!msg->prefix) {
-        sircc_server_log_error(server, "missing prefix in PRIVMSG message");
-        return;
-    }
-
     if (msg->nb_params < 2) {
         sircc_server_log_error(server, "missing arguments in PRIVMSG message");
         return;
@@ -1080,11 +1065,6 @@ sircc_on_msg_topic(struct sircc_server *server, struct sircc_msg *msg) {
     struct sircc_chan *chan;
     const char *chan_name, *topic;
     char nickname[SIRCC_NICKNAME_MAXSZ];
-
-    if (!msg->prefix) {
-        sircc_server_log_error(server, "missing prefix in TOPIC message");
-        return;
-    }
 
     if (msg->nb_params < 2) {
         sircc_server_log_error(server, "missing arguments in TOPIC message");
