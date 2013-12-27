@@ -110,15 +110,21 @@ sircc_ui_update(void) {
 
 void
 sircc_ui_topic_redraw(void) {
+    struct sircc_server *server;
+    struct sircc_chan *chan;
     WINDOW *win;
 
     win = sircc.win_topic;
+
+    server = sircc_server_get_current();
+    chan = server->current_chan;
 
     wmove(win, 0, 0);
     wclrtoeol(win);
     wbkgd(win, A_REVERSE);
 
-    waddstr(win, "topic");
+    if (chan && chan->topic)
+        waddstr(win, chan->topic);
 
     wnoutrefresh(win);
 }
@@ -134,11 +140,6 @@ sircc_ui_main_redraw(void) {
 
     win = sircc.win_main;
 
-    wmove(win, 0, 0);
-    werase(win);
-
-    y = 0;
-
     server = sircc_server_get_current();
     chan = server->current_chan;
     if (chan) {
@@ -146,6 +147,11 @@ sircc_ui_main_redraw(void) {
     } else {
         history = &server->history;
     }
+
+    wmove(win, 0, 0);
+    werase(win);
+
+    y = 0;
 
     idx = history->start_idx;
     for (size_t i = 0; i < history->nb_entries; i++) {

@@ -157,10 +157,13 @@ struct sircc_chan {
 
     struct sircc_chan *prev;
     struct sircc_chan *next;
+
+    char *topic;
 };
 
 struct sircc_chan *sircc_chan_new(struct sircc_server *, const char *);
 void sircc_chan_delete(struct sircc_chan *);
+void sircc_chan_set_topic(struct sircc_chan *, const char *);
 
 void sircc_chan_log_info(struct sircc_chan *, const char *, ...)
     __attribute__((format(printf, 2, 3)));

@@ -49,7 +49,10 @@ static void sircc_on_msg_join(struct sircc_server *, struct sircc_msg *);
 static void sircc_on_msg_part(struct sircc_server *, struct sircc_msg *);
 static void sircc_on_msg_ping(struct sircc_server *, struct sircc_msg *);
 static void sircc_on_msg_privmsg(struct sircc_server *, struct sircc_msg *);
-static void sircc_on_msg_001(struct sircc_server *, struct sircc_msg *);
+static void sircc_on_msg_topic(struct sircc_server *, struct sircc_msg *);
+static void sircc_on_msg_rpl_welcome(struct sircc_server *, struct sircc_msg *);
+static void sircc_on_msg_rpl_notopic(struct sircc_server *, struct sircc_msg *);
+static void sircc_on_msg_rpl_topic(struct sircc_server *, struct sircc_msg *);
 
 
 static struct ht_memory_allocator sircc_ht_allocator = {
@@ -114,7 +117,10 @@ main(int argc, char **argv) {
     sircc_set_msg_handler("PART", sircc_on_msg_part);
     sircc_set_msg_handler("PING", sircc_on_msg_ping);
     sircc_set_msg_handler("PRIVMSG", sircc_on_msg_privmsg);
-    sircc_set_msg_handler("001", sircc_on_msg_001);
+    sircc_set_msg_handler("TOPIC", sircc_on_msg_topic);
+    sircc_set_msg_handler("001", sircc_on_msg_rpl_welcome);
+    sircc_set_msg_handler("331", sircc_on_msg_rpl_notopic);
+    sircc_set_msg_handler("332", sircc_on_msg_rpl_topic);
 
     while (!sircc.do_exit) {
         sircc_poll();
@@ -208,7 +214,24 @@ sircc_chan_delete(struct sircc_chan *chan) {
 
     sircc_history_free(&chan->history);
     sircc_free(chan->name);
+    sircc_free(chan->topic);
     sircc_free(chan);
+}
+
+void
+sircc_chan_set_topic(struct sircc_chan *chan, const char *topic) {
+    if (chan->topic) {
+        sircc_free(chan->topic);
+        chan->topic = NULL;
+    }
+
+    if (topic)
+        chan->topic = sircc_strdup(topic);
+
+    if (sircc_chan_is_current(chan)) {
+        sircc_ui_topic_redraw();
+        sircc_ui_update();
+    }
 }
 
 void
@@ -652,7 +675,8 @@ sircc_server_get_chan(struct sircc_server *server, const char *name) {
 
 bool
 sircc_chan_is_current(struct sircc_chan *chan) {
-    return chan->server->current_chan == chan;
+    return sircc_server_is_current(chan->server)
+        && chan->server->current_chan == chan;
 }
 
 void
@@ -1052,9 +1076,94 @@ sircc_on_msg_privmsg(struct sircc_server *server, struct sircc_msg *msg) {
 }
 
 static void
-sircc_on_msg_001(struct sircc_server *server, struct sircc_msg *msg) {
+sircc_on_msg_topic(struct sircc_server *server, struct sircc_msg *msg) {
+    struct sircc_chan *chan;
+    const char *chan_name, *topic;
+    char nickname[SIRCC_NICKNAME_MAXSZ];
+
+    if (!msg->prefix) {
+        sircc_server_log_error(server, "missing prefix in TOPIC message");
+        return;
+    }
+
+    if (msg->nb_params < 2) {
+        sircc_server_log_error(server, "missing arguments in TOPIC message");
+        return;
+    }
+
+    if (sircc_msg_prefix_nickname(msg, nickname, sizeof(nickname)) == -1) {
+        sircc_server_log_error(server, "cannot get message nickname: %s",
+                               sircc_get_error());
+        return;
+    }
+
+    chan_name = msg->params[0];
+    topic = msg->params[1];
+
+    chan = sircc_server_get_chan(server, chan_name);
+    if (!chan) {
+        sircc_server_log_error(server, "unknown chan '%s' in TOPIC message",
+                               chan_name);
+        return;
+    }
+
+    sircc_chan_set_topic(chan, topic);
+    sircc_chan_log_info(chan, "%s changed the topic of %s to: %s",
+                        nickname, chan_name, topic);
+}
+
+static void
+sircc_on_msg_rpl_welcome(struct sircc_server *server, struct sircc_msg *msg) {
     sircc_server_log_info(server, "registered");
 
     /* XXX debug */
     sircc_server_printf(server, "JOIN #test\r\n");
+}
+
+static void
+sircc_on_msg_rpl_notopic(struct sircc_server *server, struct sircc_msg *msg) {
+    struct sircc_chan *chan;
+    const char *chan_name;
+
+    if (msg->nb_params < 2) {
+        sircc_server_log_error(server,
+                               "missing arguments in RPL_NOTOPIC message");
+        return;
+    }
+
+    chan_name = msg->params[1];
+    chan = sircc_server_get_chan(server, chan_name);
+    if (!chan) {
+        sircc_server_log_error(server,
+                               "unknown chan '%s' in RPL_NOTOPIC message",
+                               chan_name);
+        return;
+    }
+
+    sircc_chan_set_topic(chan, NULL);
+}
+
+static void
+sircc_on_msg_rpl_topic(struct sircc_server *server, struct sircc_msg *msg) {
+    struct sircc_chan *chan;
+    const char *chan_name, *topic;
+
+    if (msg->nb_params < 3) {
+        sircc_server_log_error(server,
+                               "missing arguments in RPL_TOPIC message");
+        return;
+    }
+
+    chan_name = msg->params[1];
+    topic = msg->params[2];
+
+    chan = sircc_server_get_chan(server, chan_name);
+    if (!chan) {
+        sircc_server_log_error(server,
+                               "unknown chan '%s' in RPL_TOPIC message",
+                               chan_name);
+        return;
+    }
+
+    sircc_chan_set_topic(chan, topic);
 }
