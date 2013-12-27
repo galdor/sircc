@@ -118,11 +118,6 @@ sircc_msg_parse(struct sircc_msg *msg, struct sircc_buf *buf) {
                 goto needmore;
             ptr++;
 
-            if (cr - ptr == 0) {
-                sircc_set_error("empty trailing parameter");
-                goto error;
-            }
-
             toklen = (size_t)(cr - ptr);
             param = sircc_strndup(ptr, toklen);
             sircc_msg_add_param(msg, param);

@@ -46,6 +46,7 @@ static void sircc_read_input(void);
 static void sircc_set_msg_handler(const char *, sircc_msg_handler);
 
 static void sircc_on_msg_join(struct sircc_server *, struct sircc_msg *);
+static void sircc_on_msg_part(struct sircc_server *, struct sircc_msg *);
 static void sircc_on_msg_ping(struct sircc_server *, struct sircc_msg *);
 static void sircc_on_msg_privmsg(struct sircc_server *, struct sircc_msg *);
 static void sircc_on_msg_001(struct sircc_server *, struct sircc_msg *);
@@ -110,6 +111,7 @@ main(int argc, char **argv) {
     sircc_initialize();
 
     sircc_set_msg_handler("JOIN", sircc_on_msg_join);
+    sircc_set_msg_handler("PART", sircc_on_msg_part);
     sircc_set_msg_handler("PING", sircc_on_msg_ping);
     sircc_set_msg_handler("PRIVMSG", sircc_on_msg_privmsg);
     sircc_set_msg_handler("001", sircc_on_msg_001);
@@ -672,6 +674,21 @@ sircc_server_add_chan(struct sircc_server *server, struct sircc_chan *chan) {
     sircc_ui_update();
 }
 
+void
+sircc_server_remove_chan(struct sircc_server *server,
+                         struct sircc_chan *chan) {
+    if (chan->prev)
+        chan->prev->next = chan->next;
+    if (chan->next)
+        chan->next->prev = chan->prev;
+
+    if (server->chans == chan)
+        server->chans = chan->next;
+
+    if (server->current_chan == chan)
+        sircc_ui_server_select_next_chan(server);
+}
+
 struct sircc_server *
 sircc_server_get_current(void) {
     return sircc.servers[sircc.current_server];
@@ -939,6 +956,45 @@ sircc_on_msg_join(struct sircc_server *server, struct sircc_msg *msg) {
     } else {
         /* Someone else joined the chan */
         sircc_chan_log_info(chan, "%s has joined %s", nickname, chan_name);
+    }
+}
+
+static void
+sircc_on_msg_part(struct sircc_server *server, struct sircc_msg *msg) {
+    struct sircc_chan *chan;
+    const char *chan_name;
+    char nickname[SIRCC_NICKNAME_MAXSZ];
+
+    if (!msg->prefix) {
+        sircc_server_log_error(server, "missing prefix in PART message");
+        return;
+    }
+
+    if (msg->nb_params < 1) {
+        sircc_server_log_error(server, "missing argument in PART message");
+        return;
+    }
+
+    if (sircc_msg_prefix_nickname(msg, nickname, sizeof(nickname)) == -1) {
+        sircc_server_log_error(server, "cannot get message nickname: %s",
+                               sircc_get_error());
+        return;
+    }
+
+    chan_name = msg->params[0];
+    chan = sircc_server_get_chan(server, chan_name);
+    if (!chan) {
+        chan = sircc_chan_new(server, chan_name);
+        sircc_server_add_chan(server, chan);
+    }
+
+    if (strcmp(nickname, server->nickname) == 0) {
+        /* We just left the chan */
+        sircc_server_remove_chan(server, chan);
+        sircc_chan_delete(chan);
+    } else {
+        /* Someone else left the chan */
+        sircc_chan_log_info(chan, "%s has left %s", nickname, chan_name);
     }
 }
 

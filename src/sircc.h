@@ -224,6 +224,7 @@ struct sircc_chan *sircc_server_get_current_chan(struct sircc_server *);
 struct sircc_chan *sircc_server_get_chan(struct sircc_server *, const char *);
 bool sircc_chan_is_current(struct sircc_chan *);
 void sircc_server_add_chan(struct sircc_server *, struct sircc_chan *);
+void sircc_server_remove_chan(struct sircc_server *, struct sircc_chan *);
 
 struct sircc_server *sircc_server_get_current(void);
 bool sircc_server_is_current(struct sircc_server *);
