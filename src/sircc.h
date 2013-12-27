@@ -154,6 +154,9 @@ struct sircc_chan {
     struct sircc_server *server;
 
     struct sircc_history history;
+
+    struct sircc_chan *prev;
+    struct sircc_chan *next;
 };
 
 struct sircc_chan *sircc_chan_new(struct sircc_server *, const char *);
@@ -193,9 +196,8 @@ struct sircc_server {
 
     struct sircc_history history;
 
-    struct sircc_chan **chans;
-    size_t nb_chans;
-    int current_chan; /* -1 when there is no selected chan */
+    struct sircc_chan *chans;
+    struct sircc_chan *current_chan;
 };
 
 struct sircc_server *sircc_server_new(void);
@@ -271,12 +273,10 @@ void sircc_ui_chans_redraw(void);
 void sircc_ui_servers_redraw(void);
 void sircc_ui_prompt_redraw(void);
 
-void sircc_ui_chan_select(struct sircc_chan *);
-
 void sircc_ui_server_select(int);
 void sircc_ui_server_select_previous(void);
 void sircc_ui_server_select_next(void);
-void sircc_ui_server_select_chan_idx(struct sircc_server *, int);
+void sircc_ui_server_select_chan(struct sircc_server *, struct sircc_chan *);
 void sircc_ui_server_select_previous_chan(struct sircc_server *);
 void sircc_ui_server_select_next_chan(struct sircc_server *);
 

@@ -218,7 +218,7 @@ sircc_chan_log_info(struct sircc_chan *chan, const char *fmt, ...) {
         struct sircc_server *server;
 
         server = sircc_server_get_current();
-        chan = sircc_server_get_current_chan(server);
+        chan = server->current_chan;
         if (!chan)
             return;
     }
@@ -248,7 +248,7 @@ sircc_chan_log_msg(struct sircc_chan *chan, const char *src,
         struct sircc_server *server;
 
         server = sircc_server_get_current();
-        chan = sircc_server_get_current_chan(server);
+        chan = server->current_chan;
         if (!chan)
             return;
     }
@@ -283,8 +283,6 @@ sircc_server_new(void) {
 
     sircc_history_init(&server->history, 1024);
 
-    server->current_chan = -1;
-
     server->state = SIRCC_SERVER_DISCONNECTED;
 
     return server;
@@ -292,6 +290,8 @@ sircc_server_new(void) {
 
 void
 sircc_server_delete(struct sircc_server *server) {
+    struct sircc_chan *chan;
+
     if (!server)
         return;
 
@@ -305,9 +305,15 @@ sircc_server_delete(struct sircc_server *server) {
 
     sircc_history_free(&server->history);
 
-    for (size_t i = 0; i < server->nb_chans; i++)
-        sircc_chan_delete(server->chans[i]);
-    sircc_free(server->chans);
+    chan = server->chans;
+    while (chan) {
+        struct sircc_chan *next;
+
+        next = chan->next;
+        sircc_chan_delete(chan);
+
+        chan = next;
+    }
 
     sircc_free(server);
 }
@@ -628,19 +634,15 @@ sircc_server_msg_process(struct sircc_server *server, struct sircc_msg *msg) {
 }
 
 struct sircc_chan *
-sircc_server_get_current_chan(struct sircc_server *server) {
-    if (server->chans && server->current_chan >= 0) {
-        return server->chans[server->current_chan];
-    } else {
-        return NULL;
-    }
-}
-
-struct sircc_chan *
 sircc_server_get_chan(struct sircc_server *server, const char *name) {
-    for (size_t i = 0; i < server->nb_chans; i++) {
-        if (strcmp(server->chans[i]->name, name) == 0)
-            return server->chans[i];
+    struct sircc_chan *chan;
+
+    chan = server->chans;
+    while (chan) {
+        if (strcmp(chan->name, name) == 0)
+            return chan;
+
+        chan = chan->next;
     }
 
     return NULL;
@@ -648,25 +650,23 @@ sircc_server_get_chan(struct sircc_server *server, const char *name) {
 
 bool
 sircc_chan_is_current(struct sircc_chan *chan) {
-    return sircc_server_get_current_chan(chan->server) == chan;
+    return chan->server->current_chan == chan;
 }
 
 void
 sircc_server_add_chan(struct sircc_server *server, struct sircc_chan *chan) {
-    if (server->chans) {
-        size_t sz;
+    struct sircc_chan *last;
 
-        sz = (server->nb_chans + 1) * sizeof(struct sircc_chan *);
-        server->chans = sircc_realloc(server->chans, sz);
-        server->chans[server->nb_chans] = chan;
+    last = server->chans;
+    while (last && last->next)
+        last = last->next;
 
-        server->nb_chans++;
-    } else {
-        server->chans = sircc_malloc(sizeof(struct sircc_chan *));
-        server->chans[0] = chan;
-
-        server->nb_chans = 1;
-    }
+    if (!last)
+        server->chans = chan;
+    if (last)
+        last->next = chan;
+    chan->prev = last;
+    chan->next = NULL;
 
     sircc_ui_chans_redraw();
     sircc_ui_update();
@@ -935,7 +935,7 @@ sircc_on_msg_join(struct sircc_server *server, struct sircc_msg *msg) {
     if (strcmp(nickname, server->nickname) == 0) {
         /* We just joined the chan */
         sircc_chan_log_info(chan, "You have joined %s", chan_name);
-        sircc_ui_chan_select(chan);
+        sircc_ui_server_select_chan(server, chan);
     } else {
         /* Someone else joined the chan */
         sircc_chan_log_info(chan, "%s has joined %s", nickname, chan_name);
