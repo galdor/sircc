@@ -313,6 +313,18 @@ sircc_ui_prompt_redraw(void) {
 }
 
 void
+sircc_ui_chan_select(struct sircc_chan *chan) {
+    /* XXX Ugly */
+
+    for (size_t i = 0; i < chan->server->nb_chans; i++) {
+        if (chan->server->chans[i] == chan) {
+            sircc_ui_server_select_chan_idx(chan->server, i);
+            return;
+        }
+    }
+}
+
+void
 sircc_ui_server_select(int idx) {
     assert(idx >= 0 && (size_t)idx < sircc.nb_servers);
 
@@ -349,7 +361,7 @@ sircc_ui_server_select_next(void) {
 }
 
 void
-sircc_ui_server_select_chan(struct sircc_server *server, int idx) {
+sircc_ui_server_select_chan_idx(struct sircc_server *server, int idx) {
     assert(idx == -1 || (idx >= 0 && (size_t)idx < server->nb_chans));
 
     server->current_chan = idx;
@@ -376,7 +388,7 @@ sircc_ui_server_select_previous_chan(struct sircc_server *server) {
         idx = server->nb_chans - 1;
     }
 
-    sircc_ui_server_select_chan(server, idx);
+    sircc_ui_server_select_chan_idx(server, idx);
 }
 
 void
@@ -394,7 +406,7 @@ sircc_ui_server_select_next_chan(struct sircc_server *server) {
         idx = 0;
     }
 
-    sircc_ui_server_select_chan(server, idx);
+    sircc_ui_server_select_chan_idx(server, idx);
 }
 
 void

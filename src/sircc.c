@@ -935,6 +935,7 @@ sircc_on_msg_join(struct sircc_server *server, struct sircc_msg *msg) {
     if (strcmp(nickname, server->nickname) == 0) {
         /* We just joined the chan */
         sircc_chan_log_info(chan, "You have joined %s", chan_name);
+        sircc_ui_chan_select(chan);
     } else {
         /* Someone else joined the chan */
         sircc_chan_log_info(chan, "%s has joined %s", nickname, chan_name);

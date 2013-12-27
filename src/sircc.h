@@ -271,10 +271,12 @@ void sircc_ui_chans_redraw(void);
 void sircc_ui_servers_redraw(void);
 void sircc_ui_prompt_redraw(void);
 
+void sircc_ui_chan_select(struct sircc_chan *);
+
 void sircc_ui_server_select(int);
 void sircc_ui_server_select_previous(void);
 void sircc_ui_server_select_next(void);
-void sircc_ui_server_select_chan(struct sircc_server *, int);
+void sircc_ui_server_select_chan_idx(struct sircc_server *, int);
 void sircc_ui_server_select_previous_chan(struct sircc_server *);
 void sircc_ui_server_select_next_chan(struct sircc_server *);
 
