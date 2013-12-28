@@ -73,6 +73,10 @@ main(int argc, char **argv) {
 
     setlocale(LC_ALL, "");
 
+    SSL_library_init();
+    SSL_load_error_strings();
+    OpenSSL_add_all_algorithms();
+
     ht_set_memory_allocator(&sircc_ht_allocator);
 
     opterr = 0;
@@ -102,10 +106,12 @@ main(int argc, char **argv) {
     server->nickname = "sircc2";
     server->realname = "Simple IRC Client";
     sircc_server_add(server);
+#endif
 
     server = sircc_server_new();
-    server->host = "::1";
-    server->port = "6667";
+    server->host = "galdor.org";
+    server->port = "6668";
+    server->use_ssl = true;
     server->nickname = "sircc3";
     server->realname = "Simple IRC Client";
     sircc_server_add(server);
@@ -128,6 +134,8 @@ main(int argc, char **argv) {
 
     sircc_shutdown();
     sircc_ui_shutdown();
+
+    EVP_cleanup();
     return 0;
 }
 
@@ -405,8 +413,98 @@ sircc_server_connect(struct sircc_server *server) {
     }
 
     server->state = SIRCC_SERVER_CONNECTED;
+    if (server->use_ssl) {
+        if (sircc_server_ssl_connect(server) == -1)
+            return -1;
+    } else {
+        sircc_server_on_connection_established(server);
+    }
+
+    return 0;
+}
+
+int
+sircc_server_ssl_connect(struct sircc_server *server) {
+    long options;
+    int ret;
+
+    assert(server->state == SIRCC_SERVER_CONNECTED
+        || server->state == SIRCC_SERVER_SSL_CONNECTING);
+
+    if (server->state == SIRCC_SERVER_CONNECTED) {
+        server->ssl_ctx = SSL_CTX_new(SSLv23_client_method());
+        if (!server->ssl_ctx) {
+            sircc_server_log_error(server, "cannot create ssl context: %s",
+                                   sircc_ssl_get_error());
+            goto error;
+        }
+
+        options = SSL_OP_ALL | SSL_OP_NO_SSLv2;
+        SSL_CTX_set_options(server->ssl_ctx, options);
+
+        options  = SSL_MODE_ENABLE_PARTIAL_WRITE;
+        options |= SSL_MODE_ACCEPT_MOVING_WRITE_BUFFER;
+        SSL_CTX_set_mode(server->ssl_ctx, options);
+
+        if (SSL_CTX_set_cipher_list(server->ssl_ctx, "HIGH") == 0) {
+            sircc_server_log_error(server, "cannot set cipher list: %s",
+                                   sircc_ssl_get_error());
+            goto error;
+        }
+
+        server->ssl = SSL_new(server->ssl_ctx);
+        if (!server->ssl) {
+            sircc_server_log_error(server, "cannot create ssl structure: %s",
+                                   sircc_ssl_get_error());
+            goto error;
+        }
+
+        if (SSL_set_fd(server->ssl, server->sock) == 0) {
+            sircc_server_log_error(server, "cannot set ssl file descriptor: %s",
+                                   sircc_ssl_get_error());
+            goto error;
+        }
+
+        server->state = SIRCC_SERVER_SSL_CONNECTING;
+    }
+
+    ret = SSL_connect(server->ssl);
+    if (ret <= 0) {
+        int err;
+
+        err = SSL_get_error(server->ssl, ret);
+        switch (err) {
+        case SSL_ERROR_WANT_READ:
+            server->pollfd->events = POLLIN;
+            break;
+
+        case SSL_ERROR_WANT_WRITE:
+            server->pollfd->events = POLLOUT;
+            break;
+
+        case SSL_ERROR_WANT_CONNECT:
+            break;
+
+        default:
+            sircc_server_log_error(server,
+                                   "cannot establish ssl connection: %s",
+                                   sircc_ssl_get_error());
+            goto error;
+        }
+
+        return -1;
+    }
+
+    server->state = SIRCC_SERVER_SSL_CONNECTED;
     sircc_server_on_connection_established(server);
     return 0;
+
+error:
+    close(server->sock);
+    server->sock = -1;
+
+    server->state = SIRCC_SERVER_BROKEN;
+    return -1;
 }
 
 void
@@ -419,6 +517,11 @@ sircc_server_disconnect(struct sircc_server *server) {
 
     sircc_buf_clear(&server->rbuf);
     sircc_buf_clear(&server->wbuf);
+
+    if (server->ssl_ctx)
+        SSL_CTX_free(server->ssl_ctx);
+    if (server->ssl)
+        SSL_free(server->ssl);
 
     server->state = SIRCC_SERVER_DISCONNECTED;
 }
@@ -525,6 +628,10 @@ sircc_server_printf(struct sircc_server *server, const char *fmt, ...) {
 void
 sircc_server_on_pollin(struct sircc_server *server) {
     switch (server->state) {
+    case SIRCC_SERVER_SSL_CONNECTING:
+        sircc_server_ssl_connect(server);
+        break;
+
     case SIRCC_SERVER_CONNECTED:
         {
             ssize_t ret;
@@ -542,40 +649,44 @@ sircc_server_on_pollin(struct sircc_server *server) {
                 return;
             }
 
-            while (sircc_buf_length(&server->rbuf) > 0) {
-                struct sircc_msg msg;
-                int ret;
+            sircc_server_read_msgs(server);
+        }
+        break;
 
-                {
-                    const char *ptr;
-                    char *cr;
+    case SIRCC_SERVER_SSL_CONNECTED:
+        {
+            int ret, err;
+            char buf[BUFSIZ];
 
-                    ptr = sircc_buf_data(&server->rbuf);
+            ret = SSL_read(server->ssl, buf, sizeof(buf));
+            if (ret <= 0) {
+                err = SSL_get_error(server->ssl, ret);
 
-                    cr = strchr(ptr, '\r');
-                    if (cr) {
-                        *cr = '\0';
-                        sircc_server_trace(server, "%s", ptr);
-                        *cr = '\r';
-                    }
-                }
-
-                ret = sircc_msg_parse(&msg, &server->rbuf);
-                if (ret == -1) {
-                    sircc_server_log_error(server, "cannot parse message: %s",
-                                           sircc_get_error());
-                    sircc_server_disconnect(server);
-                    return;
-                }
-
-                if (ret == 0)
+                switch (err) {
+                case SSL_ERROR_WANT_READ:
                     break;
 
-                sircc_buf_skip(&server->rbuf, (size_t)ret);
+                case SSL_ERROR_WANT_WRITE:
+                    server->pollfd->events |= POLLOUT;
+                    break;
 
-                sircc_server_msg_process(server, &msg);
-                sircc_msg_free(&msg);
+                case SSL_ERROR_ZERO_RETURN:
+                    sircc_server_log_info(server, "connection closed");
+                    sircc_server_disconnect(server);
+                    break;
+
+                default:
+                    sircc_server_log_error(server, "cannot read socket: %s",
+                                           sircc_ssl_get_error());
+                    sircc_server_disconnect(server);
+                    break;
+                }
+
+                return;
             }
+
+            sircc_buf_add(&server->rbuf, buf, (size_t)ret);
+            sircc_server_read_msgs(server);
         }
         break;
 
@@ -601,14 +712,24 @@ sircc_server_on_pollout(struct sircc_server *server) {
 
             if (err == 0) {
                 server->state = SIRCC_SERVER_CONNECTED;
-                sircc_server_on_connection_established(server);
+                if (server->use_ssl) {
+                    sircc_server_ssl_connect(server);
+                } else {
+                    sircc_server_on_connection_established(server);
+                }
             } else if (err == EINPROGRESS) {
                 return;
             } else {
-                sircc_server_log_error(server, "%s", sircc_get_error());
+                sircc_server_log_error(server, "cannot connect to %s:%s: %s",
+                                       server->host, server->port,
+                                       strerror(err));
                 sircc_server_disconnect(server);
             }
         }
+        break;
+
+    case SIRCC_SERVER_SSL_CONNECTING:
+        sircc_server_ssl_connect(server);
         break;
 
     case SIRCC_SERVER_CONNECTED:
@@ -626,6 +747,59 @@ sircc_server_on_pollout(struct sircc_server *server) {
         }
         break;
 
+    case SIRCC_SERVER_SSL_CONNECTED:
+        {
+            const char *data;
+            int len, ret, err;
+
+            data = sircc_buf_data(&server->wbuf);
+
+            if (server->ssl_last_write_length > 0) {
+                len = server->ssl_last_write_length;
+            } else {
+                len = (int)sircc_buf_length(&server->wbuf);
+            }
+
+            ret = SSL_write(server->ssl, data, len);
+            if (ret <= 0) {
+                err = SSL_get_error(server->ssl, ret);
+
+                switch (err) {
+                case SSL_ERROR_WANT_READ:
+                case SSL_ERROR_WANT_WRITE:
+                    /* From SSL_write(3):
+                     *
+                     * When an SSL_write() operation has to be repeated
+                     * because of SSL_ERROR_WANT_READ or SSL_ERROR_WANT_WRITE,
+                     * it must be repeated with the same arguments.
+                     *
+                     * So we save the length we used to reuse it next time. */
+                    server->ssl_last_write_length = len;
+                    break;
+
+                case SSL_ERROR_ZERO_RETURN:
+                    sircc_server_log_info(server, "connection closed");
+                    sircc_server_disconnect(server);
+                    break;
+
+                default:
+                    sircc_server_log_error(server, "cannot write to socket: %s",
+                                           sircc_ssl_get_error());
+                    sircc_server_disconnect(server);
+                    break;
+                }
+
+                return;
+            }
+
+            server->ssl_last_write_length = 0;
+
+            sircc_buf_skip(&server->wbuf, (size_t)ret);
+            if (sircc_buf_length(&server->wbuf) == 0)
+                server->pollfd->events &= ~POLLOUT;
+        }
+        break;
+
     default:
         sircc_server_log_error(server, "ignoring pollout event in state %d",
                                server->state);
@@ -635,6 +809,9 @@ sircc_server_on_pollout(struct sircc_server *server) {
 
 void
 sircc_server_on_connection_established(struct sircc_server *server) {
+    assert(server->state == SIRCC_SERVER_CONNECTED
+        || server->state == SIRCC_SERVER_SSL_CONNECTED);
+
     sircc_server_log_info(server, "connected to %s:%s",
                           server->host, server->port);
 
@@ -644,6 +821,44 @@ sircc_server_on_connection_established(struct sircc_server *server) {
                         server->nickname);
     sircc_server_printf(server, "USER %s 0 * :%s\r\n",
                         server->nickname, server->realname);
+}
+
+void
+sircc_server_read_msgs(struct sircc_server *server) {
+    while (sircc_buf_length(&server->rbuf) > 0) {
+        struct sircc_msg msg;
+        int ret;
+
+        {
+            const char *ptr;
+            char *cr;
+
+            ptr = sircc_buf_data(&server->rbuf);
+
+            cr = strchr(ptr, '\r');
+            if (cr) {
+                *cr = '\0';
+                sircc_server_trace(server, "%s", ptr);
+                *cr = '\r';
+            }
+        }
+
+        ret = sircc_msg_parse(&msg, &server->rbuf);
+        if (ret == -1) {
+            sircc_server_log_error(server, "cannot parse message: %s",
+                                   sircc_get_error());
+            sircc_server_disconnect(server);
+            return;
+        }
+
+        if (ret == 0)
+            break;
+
+        sircc_buf_skip(&server->rbuf, (size_t)ret);
+
+        sircc_server_msg_process(server, &msg);
+        sircc_msg_free(&msg);
+    }
 }
 
 void

@@ -26,6 +26,9 @@
 #include <netdb.h>
 #include <poll.h>
 
+#include <openssl/ssl.h>
+#include <openssl/evp.h>
+
 #include <curses.h>
 
 #include "hashtable.h"
@@ -127,6 +130,9 @@ int sircc_address_resolve(const char *, const char *,
 int sircc_socket_open(struct addrinfo *);
 int sircc_socket_get_so_error(int, int *);
 
+/* SSL */
+const char *sircc_ssl_get_error(void);
+
 /* IRC */
 struct sircc_msg {
     char *prefix;
@@ -174,6 +180,8 @@ enum sircc_server_state {
     SIRCC_SERVER_DISCONNECTED,
     SIRCC_SERVER_CONNECTING,
     SIRCC_SERVER_CONNECTED,
+    SIRCC_SERVER_SSL_CONNECTING,
+    SIRCC_SERVER_SSL_CONNECTED,
 
     SIRCC_SERVER_BROKEN
 };
@@ -181,6 +189,8 @@ enum sircc_server_state {
 struct sircc_server {
     const char *host;
     const char *port;
+    bool use_ssl;
+
     const char *nickname;
     const char *realname;
 
@@ -201,12 +211,17 @@ struct sircc_server {
 
     struct sircc_chan *chans;
     struct sircc_chan *current_chan;
+
+    SSL_CTX *ssl_ctx;
+    SSL *ssl;
+    int ssl_last_write_length;
 };
 
 struct sircc_server *sircc_server_new(void);
 void sircc_server_delete(struct sircc_server *);
 int sircc_server_prepare_connection(struct sircc_server *);
 int sircc_server_connect(struct sircc_server *);
+int sircc_server_ssl_connect(struct sircc_server *);
 void sircc_server_disconnect(struct sircc_server *);
 void sircc_server_trace(struct sircc_server *, const char *, ...)
     __attribute__((format(printf, 2, 3)));
@@ -221,6 +236,7 @@ int sircc_server_printf(struct sircc_server *, const char *, ...)
 void sircc_server_on_pollin(struct sircc_server *);
 void sircc_server_on_pollout(struct sircc_server *);
 void sircc_server_on_connection_established(struct sircc_server *);
+void sircc_server_read_msgs(struct sircc_server *);
 void sircc_server_msg_process(struct sircc_server *, struct sircc_msg *);
 
 struct sircc_chan *sircc_server_get_current_chan(struct sircc_server *);
