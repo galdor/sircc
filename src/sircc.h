@@ -173,8 +173,9 @@ void sircc_chan_set_topic(struct sircc_chan *, const char *);
 
 void sircc_chan_log_info(struct sircc_chan *, const char *, ...)
     __attribute__((format(printf, 2, 3)));
-void sircc_chan_add_msg(struct sircc_chan *, const char *, const char *, ...)
-    __attribute__((format(printf, 3, 4)));
+void sircc_chan_log_error(struct sircc_chan *, const char *, ...)
+    __attribute__((format(printf, 2, 3)));
+void sircc_chan_add_msg(struct sircc_chan *, const char *, const char *);
 
 enum sircc_server_state {
     SIRCC_SERVER_DISCONNECTED,
@@ -305,5 +306,17 @@ void sircc_ui_server_select_next_chan(struct sircc_server *);
 void sircc_ui_prompt_delete_previous_char(void);
 void sircc_ui_prompt_clear(void);
 void sircc_ui_prompt_execute(void);
+
+/* Commands */
+struct sircc_cmd {
+    char *name;
+
+    size_t nb_args;
+    char **args;
+};
+
+void sircc_cmd_free(struct sircc_cmd *);
+int sircc_cmd_parse(struct sircc_cmd *, struct sircc_buf *);
+void sircc_cmd_run(struct sircc_cmd *cmd);
 
 #endif

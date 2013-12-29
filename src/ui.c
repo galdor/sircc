@@ -470,17 +470,46 @@ void
 sircc_ui_prompt_execute(void) {
     struct sircc_server *server;
     struct sircc_chan *chan;
-    const char *text;
+    bool is_cmd;
 
-    text = sircc_buf_data(&sircc.prompt_buf);
+    if (sircc_buf_length(&sircc.prompt_buf) == 0)
+        return;
+
+
+    is_cmd = sircc_buf_data(&sircc.prompt_buf)[0] == '/';
 
     server = sircc_server_get_current();
     chan = server->current_chan;
-    if (chan) {
-        sircc_server_send_privmsg(server, chan->name, text);
-        sircc_chan_add_msg(chan, server->nickname, "%s", text);
+    if (chan || is_cmd) {
+        if (is_cmd) {
+            struct sircc_cmd cmd;
+            int ret;
+
+            ret = sircc_cmd_parse(&cmd, &sircc.prompt_buf);
+            if (ret == -1) {
+                sircc_chan_log_error(NULL, "cannot parse command: %s",
+                                     sircc_get_error());
+            } else if (ret == 0) {
+                sircc_chan_log_error(NULL, "cannot parse command:"
+                                     " truncated input");
+            } else {
+                sircc_cmd_run(&cmd);
+                sircc_cmd_free(&cmd);
+            }
+        } else {
+            char *text;
+
+            text = sircc_buf_dup_str(&sircc.prompt_buf);
+
+            sircc_server_send_privmsg(server, chan->name, text);
+            sircc_chan_add_msg(chan, server->nickname, text);
+
+            sircc_free(text);
+        }
     } else {
-        sircc_server_printf(server, "%s\r\n", text);
+        sircc_server_write(server, sircc_buf_data(&sircc.prompt_buf),
+                           sircc_buf_length(&sircc.prompt_buf));
+        sircc_server_write(server, "\r\n", 2);
     }
 
     sircc_ui_prompt_clear();

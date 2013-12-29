@@ -243,16 +243,26 @@ sircc_chan_set_topic(struct sircc_chan *chan, const char *topic) {
 
 void
 sircc_chan_log_info(struct sircc_chan *chan, const char *fmt, ...) {
+    struct sircc_history *history;
     struct sircc_buf buf;
+    bool redraw;
     va_list ap;
 
-    if (!chan) {
+    if (chan) {
+        history = &chan->history;
+        redraw = sircc_chan_is_current(chan);
+    } else {
         struct sircc_server *server;
 
         server = sircc_server_get_current();
         chan = server->current_chan;
-        if (!chan)
-            return;
+        if (chan) {
+            history = &chan->history;
+            redraw = sircc_chan_is_current(chan);
+        } else {
+            history = &server->history;
+            redraw = sircc_server_is_current(server);
+        }
     }
 
     sircc_buf_init(&buf);
@@ -261,10 +271,49 @@ sircc_chan_log_info(struct sircc_chan *chan, const char *fmt, ...) {
     sircc_buf_add_vprintf(&buf, fmt, ap);
     va_end(ap);
 
-    sircc_history_add_info(&chan->history, sircc_buf_dup_str(&buf));
+    sircc_history_add_info(history, sircc_buf_dup_str(&buf));
     sircc_buf_free(&buf);
 
-    if (sircc_chan_is_current(chan)) {
+    if (redraw) {
+        sircc_ui_main_redraw();
+        sircc_ui_update();
+    }
+}
+
+void
+sircc_chan_log_error(struct sircc_chan *chan, const char *fmt, ...) {
+    struct sircc_history *history;
+    struct sircc_buf buf;
+    bool redraw;
+    va_list ap;
+
+    if (chan) {
+        history = &chan->history;
+        redraw = sircc_chan_is_current(chan);
+    } else {
+        struct sircc_server *server;
+
+        server = sircc_server_get_current();
+        chan = server->current_chan;
+        if (chan) {
+            history = &chan->history;
+            redraw = sircc_chan_is_current(chan);
+        } else {
+            history = &server->history;
+            redraw = sircc_server_is_current(server);
+        }
+    }
+
+    sircc_buf_init(&buf);
+
+    va_start(ap, fmt);
+    sircc_buf_add_vprintf(&buf, fmt, ap);
+    va_end(ap);
+
+    sircc_history_add_error(history, sircc_buf_dup_str(&buf));
+    sircc_buf_free(&buf);
+
+    if (redraw) {
         sircc_ui_main_redraw();
         sircc_ui_update();
     }
@@ -272,30 +321,31 @@ sircc_chan_log_info(struct sircc_chan *chan, const char *fmt, ...) {
 
 void
 sircc_chan_add_msg(struct sircc_chan *chan, const char *src,
-                   const char *fmt, ...) {
-    struct sircc_buf buf;
-    va_list ap;
+                   const char *text) {
+    struct sircc_history *history;
+    bool redraw;
 
-    if (!chan) {
+    if (chan) {
+        history = &chan->history;
+        redraw = sircc_chan_is_current(chan);
+    } else {
         struct sircc_server *server;
 
         server = sircc_server_get_current();
         chan = server->current_chan;
-        if (!chan)
-            return;
+        if (chan) {
+            history = &chan->history;
+            redraw = sircc_chan_is_current(chan);
+        } else {
+            history = &server->history;
+            redraw = sircc_server_is_current(server);
+        }
     }
 
-    sircc_buf_init(&buf);
+    sircc_history_add_chan_msg(history, sircc_strdup(src),
+                               sircc_strdup(text));
 
-    va_start(ap, fmt);
-    sircc_buf_add_vprintf(&buf, fmt, ap);
-    va_end(ap);
-
-    sircc_history_add_chan_msg(&chan->history, sircc_strdup(src),
-                               sircc_buf_dup_str(&buf));
-    sircc_buf_free(&buf);
-
-    if (sircc_chan_is_current(chan)) {
+    if (redraw) {
         sircc_ui_main_redraw();
         sircc_ui_update();
     }
@@ -925,6 +975,9 @@ sircc_server_remove_chan(struct sircc_server *server,
 
     if (server->current_chan == chan)
         sircc_ui_server_select_next_chan(server);
+
+    sircc_ui_chans_redraw();
+    sircc_ui_update();
 }
 
 struct sircc_server *
@@ -1227,9 +1280,6 @@ sircc_on_msg_part(struct sircc_server *server, struct sircc_msg *msg) {
         /* We just left the chan */
         sircc_server_remove_chan(server, chan);
         sircc_chan_delete(chan);
-
-        sircc_ui_chans_redraw();
-        sircc_ui_update();
     } else {
         /* Someone else left the chan */
         sircc_chan_log_info(chan, "%s has left %s", nickname, chan_name);
@@ -1281,7 +1331,7 @@ sircc_on_msg_privmsg(struct sircc_server *server, struct sircc_msg *msg) {
         sircc_server_add_chan(server, chan);
     }
 
-    sircc_chan_add_msg(chan, nickname, "%s", text);
+    sircc_chan_add_msg(chan, nickname, text);
 }
 
 static void
