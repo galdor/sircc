@@ -468,11 +468,20 @@ sircc_ui_prompt_clear(void) {
 
 void
 sircc_ui_prompt_execute(void) {
-    const char *cmd;
+    struct sircc_server *server;
+    struct sircc_chan *chan;
+    const char *text;
 
-    cmd = sircc_buf_data(&sircc.prompt_buf);
+    text = sircc_buf_data(&sircc.prompt_buf);
 
-    sircc_server_log_info(NULL, "execute command: %s", cmd);
+    server = sircc_server_get_current();
+    chan = server->current_chan;
+    if (chan) {
+        sircc_server_send_privmsg(server, chan->name, text);
+        sircc_chan_add_msg(chan, server->nickname, "%s", text);
+    } else {
+        sircc_server_printf(server, "%s\r\n", text);
+    }
 
     sircc_ui_prompt_clear();
 }

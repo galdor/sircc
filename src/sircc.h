@@ -173,7 +173,7 @@ void sircc_chan_set_topic(struct sircc_chan *, const char *);
 
 void sircc_chan_log_info(struct sircc_chan *, const char *, ...)
     __attribute__((format(printf, 2, 3)));
-void sircc_chan_log_msg(struct sircc_chan *, const char *, const char *, ...)
+void sircc_chan_add_msg(struct sircc_chan *, const char *, const char *, ...)
     __attribute__((format(printf, 3, 4)));
 
 enum sircc_server_state {
@@ -239,7 +239,6 @@ void sircc_server_on_connection_established(struct sircc_server *);
 void sircc_server_read_msgs(struct sircc_server *);
 void sircc_server_msg_process(struct sircc_server *, struct sircc_msg *);
 
-struct sircc_chan *sircc_server_get_current_chan(struct sircc_server *);
 struct sircc_chan *sircc_server_get_chan(struct sircc_server *, const char *);
 bool sircc_chan_is_current(struct sircc_chan *);
 void sircc_server_add_chan(struct sircc_server *, struct sircc_chan *);
@@ -247,6 +246,9 @@ void sircc_server_remove_chan(struct sircc_server *, struct sircc_chan *);
 
 struct sircc_server *sircc_server_get_current(void);
 bool sircc_server_is_current(struct sircc_server *);
+
+void sircc_server_send_privmsg(struct sircc_server *, const char *,
+                               const char *);
 
 struct sircc {
     struct sircc_server **servers;

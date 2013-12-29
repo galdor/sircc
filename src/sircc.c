@@ -106,7 +106,6 @@ main(int argc, char **argv) {
     server->nickname = "sircc2";
     server->realname = "Simple IRC Client";
     sircc_server_add(server);
-#endif
 
     server = sircc_server_new();
     server->host = "galdor.org";
@@ -272,7 +271,7 @@ sircc_chan_log_info(struct sircc_chan *chan, const char *fmt, ...) {
 }
 
 void
-sircc_chan_log_msg(struct sircc_chan *chan, const char *src,
+sircc_chan_add_msg(struct sircc_chan *chan, const char *src,
                    const char *fmt, ...) {
     struct sircc_buf buf;
     va_list ap;
@@ -938,6 +937,13 @@ sircc_server_is_current(struct sircc_server *server) {
     return sircc_server_get_current() == server;
 }
 
+void
+sircc_server_send_privmsg(struct sircc_server *server, const char *target,
+                          const char *text) {
+    sircc_server_printf(server, "PRIVMSG %s :%s\r\n",
+                        target, text);
+}
+
 static void
 sircc_initialize(void) {
     struct sigaction sigact;
@@ -1221,6 +1227,9 @@ sircc_on_msg_part(struct sircc_server *server, struct sircc_msg *msg) {
         /* We just left the chan */
         sircc_server_remove_chan(server, chan);
         sircc_chan_delete(chan);
+
+        sircc_ui_chans_redraw();
+        sircc_ui_update();
     } else {
         /* Someone else left the chan */
         sircc_chan_log_info(chan, "%s has left %s", nickname, chan_name);
@@ -1272,7 +1281,7 @@ sircc_on_msg_privmsg(struct sircc_server *server, struct sircc_msg *msg) {
         sircc_server_add_chan(server, chan);
     }
 
-    sircc_chan_log_msg(chan, nickname, "%s", text);
+    sircc_chan_add_msg(chan, nickname, "%s", text);
 }
 
 static void
