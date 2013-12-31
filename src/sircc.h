@@ -308,8 +308,18 @@ void sircc_ui_prompt_clear(void);
 void sircc_ui_prompt_execute(void);
 
 /* Commands */
+enum sircc_cmd_id {
+    SIRCC_CMD_JOIN = 0,
+    SIRCC_CMD_MSG,
+    SIRCC_CMD_PART,
+    SIRCC_CMD_QUIT,
+    SIRCC_CMD_TOPIC,
+
+    SIRCC_CMD_COUNT
+};
+
 struct sircc_cmd {
-    char *name;
+    enum sircc_cmd_id id;
 
     size_t nb_args;
     char **args;

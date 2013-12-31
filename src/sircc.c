@@ -19,6 +19,7 @@
 #include <locale.h>
 #include <stdio.h>
 #include <string.h>
+#include <time.h>
 
 #include <unistd.h>
 #include <sys/socket.h>
@@ -53,6 +54,7 @@ static void sircc_on_msg_topic(struct sircc_server *, struct sircc_msg *);
 static void sircc_on_msg_rpl_welcome(struct sircc_server *, struct sircc_msg *);
 static void sircc_on_msg_rpl_notopic(struct sircc_server *, struct sircc_msg *);
 static void sircc_on_msg_rpl_topic(struct sircc_server *, struct sircc_msg *);
+static void sircc_on_msg_rpl_topicwhotime(struct sircc_server *, struct sircc_msg *);
 
 
 static struct ht_memory_allocator sircc_ht_allocator = {
@@ -126,6 +128,7 @@ main(int argc, char **argv) {
     sircc_set_msg_handler("001", sircc_on_msg_rpl_welcome);
     sircc_set_msg_handler("331", sircc_on_msg_rpl_notopic);
     sircc_set_msg_handler("332", sircc_on_msg_rpl_topic);
+    sircc_set_msg_handler("333", sircc_on_msg_rpl_topicwhotime); /* non-standard */
 
     while (!sircc.do_exit) {
         sircc_poll();
@@ -1395,6 +1398,8 @@ sircc_on_msg_rpl_notopic(struct sircc_server *server, struct sircc_msg *msg) {
     }
 
     sircc_chan_set_topic(chan, NULL);
+
+    sircc_chan_log_info(chan, "No topic for channel %s", chan_name);
 }
 
 static void
@@ -1420,4 +1425,44 @@ sircc_on_msg_rpl_topic(struct sircc_server *server, struct sircc_msg *msg) {
     }
 
     sircc_chan_set_topic(chan, topic);
+
+    sircc_chan_log_info(chan, "Topic of channel %s: %s", chan_name, topic);
+}
+
+static void
+sircc_on_msg_rpl_topicwhotime(struct sircc_server *server,
+                              struct sircc_msg *msg) {
+    struct sircc_chan *chan;
+    const char *chan_name, *nickname, *timestamp;
+    struct tm tm;
+    char date[32];
+
+    if (msg->nb_params < 4) {
+        sircc_server_log_error(server, "missing arguments in RPL_TOPICWHOTIME"
+                               " message");
+        return;
+    }
+
+    chan_name = msg->params[1];
+    nickname = msg->params[2];
+    timestamp = msg->params[3];
+
+    chan = sircc_server_get_chan(server, chan_name);
+    if (!chan) {
+        sircc_server_log_error(server,
+                               "unknown chan '%s' in RPL_TOPICWHOTIME message",
+                               chan_name);
+        return;
+    }
+
+    if (!strptime(timestamp, "%s", &tm)) {
+        sircc_server_log_error(server, "invalid timestamp format in"
+                               " RPL_TOPICWHOTIME message");
+        return;
+    }
+
+    strftime(date, sizeof(date), "%F %T %z", &tm);
+
+    sircc_chan_log_info(chan, "Topic of channel %s set by %s on %s",
+                        chan_name, nickname, date);
 }

@@ -15,7 +15,7 @@ platform= $(shell uname -s)
 
 ifeq ($(platform), Linux)
 	CFLAGS+= -DSIRCC_PLATFORM_LINUX
-	CFLAGS+= -D_POSIX_C_SOURCE=200809L -D_BSD_SOURCE
+	CFLAGS+= -D_XOPEN_SOURCE=700 -D_BSD_SOURCE
 endif
 ifeq ($(platform), FreeBSD)
 	CFLAGS+= -DSIRCC_PLATFORM_FREEBSD
