@@ -968,6 +968,10 @@ sircc_server_add_chan(struct sircc_server *server, struct sircc_chan *chan) {
 void
 sircc_server_remove_chan(struct sircc_server *server,
                          struct sircc_chan *chan) {
+    struct sircc_chan *previous_chan;
+
+    previous_chan = chan->prev;
+
     if (chan->prev)
         chan->prev->next = chan->next;
     if (chan->next)
@@ -977,7 +981,7 @@ sircc_server_remove_chan(struct sircc_server *server,
         server->chans = chan->next;
 
     if (server->current_chan == chan)
-        sircc_ui_server_select_next_chan(server);
+        sircc_ui_server_select_chan(server, previous_chan);
 
     sircc_ui_chans_redraw();
     sircc_ui_update();
@@ -1247,7 +1251,7 @@ sircc_on_msg_join(struct sircc_server *server, struct sircc_msg *msg) {
 
     if (strcmp(nickname, server->nickname) == 0) {
         /* We just joined the chan */
-        sircc_chan_log_info(chan, "You have joined %s", chan_name);
+        sircc_chan_log_info(chan, "you have joined %s", chan_name);
         sircc_ui_server_select_chan(server, chan);
     } else {
         /* Someone else joined the chan */
@@ -1285,7 +1289,13 @@ sircc_on_msg_part(struct sircc_server *server, struct sircc_msg *msg) {
         sircc_chan_delete(chan);
     } else {
         /* Someone else left the chan */
-        sircc_chan_log_info(chan, "%s has left %s", nickname, chan_name);
+        if (msg->nb_params > 1 && msg->params[1] != '\0') {
+            sircc_chan_log_info(chan, "%s has left %s: %s",
+                                nickname, chan_name, msg->params[1]);
+        } else {
+            sircc_chan_log_info(chan, "%s has left %s",
+                                nickname, chan_name);
+        }
     }
 }
 
@@ -1399,7 +1409,7 @@ sircc_on_msg_rpl_notopic(struct sircc_server *server, struct sircc_msg *msg) {
 
     sircc_chan_set_topic(chan, NULL);
 
-    sircc_chan_log_info(chan, "No topic for channel %s", chan_name);
+    sircc_chan_log_info(chan, "no topic for channel %s", chan_name);
 }
 
 static void
@@ -1426,7 +1436,7 @@ sircc_on_msg_rpl_topic(struct sircc_server *server, struct sircc_msg *msg) {
 
     sircc_chan_set_topic(chan, topic);
 
-    sircc_chan_log_info(chan, "Topic of channel %s: %s", chan_name, topic);
+    sircc_chan_log_info(chan, "topic of channel %s: %s", chan_name, topic);
 }
 
 static void
@@ -1463,6 +1473,6 @@ sircc_on_msg_rpl_topicwhotime(struct sircc_server *server,
 
     strftime(date, sizeof(date), "%F %T %z", &tm);
 
-    sircc_chan_log_info(chan, "Topic of channel %s set by %s on %s",
+    sircc_chan_log_info(chan, "topic of channel %s set by %s on %s",
                         chan_name, nickname, date);
 }

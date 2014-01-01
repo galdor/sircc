@@ -23,7 +23,7 @@ enum sircc_cmd_args_fmt {
     SIRCC_CMD_ARGS_TRAILING, /* X args + trailing */
 };
 
-typedef void (*sircc_cmd_handler)(struct sircc_cmd *);
+typedef void (*sircc_cmd_handler)(struct sircc_server *, struct sircc_cmd *);
 
 /* ARGS_RANGE:    the command must have between 'min' and 'max' arguments.
  * ARGS_TRAILING: the command must have 'min' arguments. If 'max' is
@@ -43,11 +43,11 @@ static int sircc_cmd_parse_arg(const char **, size_t *, char **);
 
 static struct sircc_cmd_desc *sircc_cmd_get_desc(const char *);
 
-static void sircc_cmdh_join(struct sircc_cmd *);
-static void sircc_cmdh_msg(struct sircc_cmd *);
-static void sircc_cmdh_part(struct sircc_cmd *);
-static void sircc_cmdh_quit(struct sircc_cmd *);
-static void sircc_cmdh_topic(struct sircc_cmd *);
+static void sircc_cmdh_join(struct sircc_server *, struct sircc_cmd *);
+static void sircc_cmdh_msg(struct sircc_server *, struct sircc_cmd *);
+static void sircc_cmdh_part(struct sircc_server *, struct sircc_cmd *);
+static void sircc_cmdh_quit(struct sircc_server *, struct sircc_cmd *);
+static void sircc_cmdh_topic(struct sircc_server *, struct sircc_cmd *);
 
 static struct sircc_cmd_desc
 sircc_cmd_descs[SIRCC_CMD_COUNT] = {
@@ -55,7 +55,7 @@ sircc_cmd_descs[SIRCC_CMD_COUNT] = {
         sircc_cmdh_join,  "/join <chan> [<key>]"},
     {"msg", SIRCC_CMD_MSG,   SIRCC_CMD_ARGS_TRAILING,   1, 2,
         sircc_cmdh_msg,   "/msg <target> <message...>"},
-    {"part", SIRCC_CMD_PART,  SIRCC_CMD_ARGS_TRAILING,  1, 1,
+    {"part", SIRCC_CMD_PART,  SIRCC_CMD_ARGS_TRAILING,  0, 0,
         sircc_cmdh_part,  "/part <chan> [<message...>]"},
     {"quit", SIRCC_CMD_QUIT,  SIRCC_CMD_ARGS_RANGE,     0, 0,
         sircc_cmdh_quit,  "/quit [<message...>]"},
@@ -191,10 +191,12 @@ error:
 
 void
 sircc_cmd_run(struct sircc_cmd *cmd) {
+    struct sircc_server *server;
     struct sircc_cmd_desc *desc;
 
     desc = &sircc_cmd_descs[cmd->id];
-    desc->handler(cmd);
+    server = sircc_server_get_current();
+    desc->handler(server, cmd);
 }
 
 static void
@@ -265,32 +267,54 @@ sircc_cmd_get_desc(const char *name) {
 }
 
 static void
-sircc_cmdh_join(struct sircc_cmd *cmd) {
+sircc_cmdh_join(struct sircc_server *server, struct sircc_cmd *cmd) {
+    if (cmd->nb_args > 1) {
+        sircc_server_printf(server, "JOIN %s %s\r\n",
+                            cmd->args[0], cmd->args[1]);
+    } else {
+        sircc_server_printf(server, "JOIN %s\r\n",
+                            cmd->args[0]);
+    }
+}
+
+static void
+sircc_cmdh_msg(struct sircc_server *server, struct sircc_cmd *cmd) {
     /* TODO */
 }
 
 static void
-sircc_cmdh_msg(struct sircc_cmd *cmd) {
-    /* TODO */
+sircc_cmdh_part(struct sircc_server *server, struct sircc_cmd *cmd) {
+    struct sircc_chan *chan;
+
+    chan = server->current_chan;
+    if (!chan) {
+        sircc_server_log_error(server, "no channel selected");
+        return;
+    }
+
+    if (cmd->nb_args == 0) {
+        sircc_server_printf(server, "PART %s\r\n",
+                            chan->name);
+    } else {
+        sircc_server_printf(server, "PART %s :%s\r\n",
+                            chan->name, cmd->args[0]);
+    }
 }
 
 static void
-sircc_cmdh_part(struct sircc_cmd *cmd) {
-    /* TODO */
-}
-
-static void
-sircc_cmdh_quit(struct sircc_cmd *cmd) {
+sircc_cmdh_quit(struct sircc_server *server, struct sircc_cmd *cmd) {
     sircc.do_exit = true;
 }
 
 static void
-sircc_cmdh_topic(struct sircc_cmd *cmd) {
-    struct sircc_server *server;
+sircc_cmdh_topic(struct sircc_server *server, struct sircc_cmd *cmd) {
     struct sircc_chan *chan;
 
-    server = sircc_server_get_current();
     chan = server->current_chan;
+    if (!chan) {
+        sircc_server_log_error(server, "no channel selected");
+        return;
+    }
 
     if (cmd->args == 0) {
         sircc_server_printf(server, "TOPIC %s\r\n",
