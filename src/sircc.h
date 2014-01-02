@@ -42,10 +42,15 @@ void *sircc_malloc(size_t);
 void *sircc_calloc(size_t, size_t);
 void *sircc_realloc(void *, size_t);
 void sircc_free(void *);
+
+/* String utils */
 char *sircc_strdup(const char *);
 char *sircc_strndup(const char *, size_t);
 
-/* String utils */
+int sircc_vasprintf(char **, const char *, va_list);
+int sircc_asprintf(char **, const char *, ...)
+    __attribute__((format(printf, 2, 3)));
+
 char *sircc_str_to_utf8(char *, size_t, size_t *);
 
 size_t strlcpy(char *, const char *, size_t);
@@ -101,7 +106,8 @@ struct sircc_history_entry {
     enum sircc_history_entry_type type;
 
     time_t date;
-    char *src; /* The source nickname for SIRCC_HISTORY_CHAN_MSG */
+    char *src;         /* The source nickname for SIRCC_HISTORY_CHAN_MSG */
+    char *margin_text; /* Formatted date and src */
     char *text;
 };
 

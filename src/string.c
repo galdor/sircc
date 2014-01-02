@@ -20,6 +20,22 @@
 #include "sircc.h"
 
 char *
+sircc_strdup(const char *str) {
+    return strndup(str, strlen(str));
+}
+
+char *
+sircc_strndup(const char *str, size_t len) {
+    char *nstr;
+
+    nstr = sircc_malloc(len + 1);
+    memcpy(nstr, str, len);
+    nstr[len] = '\0';
+
+    return nstr;
+}
+
+char *
 sircc_str_to_utf8(char *buf, size_t len, size_t *nb_bytes) {
     iconv_t conv;
     char *out, *tmp, *buf_orig;
@@ -67,6 +83,31 @@ sircc_str_to_utf8(char *buf, size_t len, size_t *nb_bytes) {
         *nb_bytes = (size_t)(buf - buf_orig);
 
     return tmp;
+}
+
+int
+sircc_vasprintf(char **pstr, const char *fmt, va_list ap) {
+    struct sircc_buf buf;
+
+    sircc_buf_init(&buf);
+
+    sircc_buf_add_vprintf(&buf, fmt, ap);
+    *pstr = sircc_buf_dup_str(&buf);
+
+    sircc_buf_free(&buf);
+    return 0;
+}
+
+int
+sircc_asprintf(char **pstr, const char *fmt, ...) {
+    va_list ap;
+    int ret;
+
+    va_start(ap, fmt);
+    ret = sircc_vasprintf(pstr, fmt, ap);
+    va_end(ap);
+
+    return ret;
 }
 
 #ifndef strlcpy

@@ -56,20 +56,3 @@ void
 sircc_free(void *ptr) {
     free(ptr);
 }
-
-char *
-sircc_strdup(const char *str) {
-    return strndup(str, strlen(str));
-}
-
-char *
-sircc_strndup(const char *str, size_t len) {
-    char *nstr;
-
-    nstr = sircc_malloc(len + 1);
-    memcpy(nstr, str, len);
-    nstr[len] = '\0';
-
-    return nstr;
-}
-

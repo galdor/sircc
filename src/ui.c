@@ -156,8 +156,6 @@ sircc_ui_main_redraw(void) {
     idx = history->start_idx;
     for (size_t i = 0; i < history->nb_entries; i++) {
         const struct sircc_history_entry *entry;
-        char date_str[32];
-        struct tm *tm;
         int attrs;
 
         entry = history->entries + idx;
@@ -186,22 +184,12 @@ sircc_ui_main_redraw(void) {
             break;
         }
 
+        wmove(win, y, 0);
+        waddstr(win, entry->margin_text);
+        waddstr(win, "  ");
+
         wattron(win, attrs);
-
-        tm = localtime(&entry->date);
-        strftime(date_str, sizeof(date_str), "%H:%M:%S", tm);
-        if (entry->src) {
-            mvwprintw(win, y, 0, "%s %-*s  %s",
-                      date_str,
-                      9, entry->src,
-                      entry->text);
-        } else {
-            mvwprintw(win, y, 0, "%s %-*s  %s",
-                      date_str,
-                      9, "",
-                      entry->text);
-        }
-
+        waddstr(win, entry->text);
         wattroff(win, attrs);
 
         y++;

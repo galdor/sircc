@@ -19,6 +19,9 @@
 
 #include "sircc.h"
 
+static void sircc_history_entry_free(struct sircc_history_entry *);
+static void sircc_history_entry_update_margin_text(struct sircc_history_entry *);
+
 void
 sircc_history_init(struct sircc_history *history, size_t sz) {
     memset(history, 0, sizeof(struct sircc_history));
@@ -30,13 +33,8 @@ sircc_history_init(struct sircc_history *history, size_t sz) {
 void
 sircc_history_free(struct sircc_history *history) {
 
-    for (size_t i = 0; i < history->sz; i++) {
-        struct sircc_history_entry *entry;
-
-        entry = history->entries + i;
-        sircc_free(entry->src);
-        sircc_free(entry->text);
-    }
+    for (size_t i = 0; i < history->sz; i++)
+        sircc_history_entry_free(history->entries + i);
 
     free(history->entries);
 }
@@ -52,11 +50,12 @@ sircc_history_add_entry(struct sircc_history *history,
 
     if ((history->nb_entries + 1) >= history->sz) {
         /* We are overwriting the oldest entry */
-        sircc_free(head->src);
-        sircc_free(head->text);
+        sircc_history_entry_free(head);
 
         history->start_idx = (history->start_idx + 1) % history->sz;
     }
+
+    sircc_history_entry_update_margin_text(entry);
 
     *head = *entry;
 
@@ -127,4 +126,48 @@ sircc_history_add_error(struct sircc_history *history, char *text) {
     entry.text = text;
 
     sircc_history_add_entry(history, &entry);
+}
+
+static void
+sircc_history_entry_free(struct sircc_history_entry *entry) {
+    if (!entry)
+        return;
+
+    sircc_free(entry->src);
+    sircc_free(entry->margin_text);
+    sircc_free(entry->text);
+}
+
+static void
+sircc_history_entry_update_margin_text(struct sircc_history_entry *entry) {
+    const char *date_fmt;
+    int src_field_sz;
+
+    char date_str[32];
+    struct tm *tm;
+    char *str;
+
+    date_fmt = "%H:%M:%S";
+    src_field_sz = 9;
+
+    tm = localtime(&entry->date);
+    strftime(date_str, sizeof(date_str), date_fmt, tm);
+
+    switch (entry->type) {
+    case SIRCC_HISTORY_CHAN_MSG:
+        sircc_asprintf(&str, "%s %-*s", date_str, src_field_sz, entry->src);
+        break;
+
+    case SIRCC_HISTORY_SERVER_MSG:
+    case SIRCC_HISTORY_TRACE:
+    case SIRCC_HISTORY_INFO:
+    case SIRCC_HISTORY_ERROR:
+        sircc_asprintf(&str, "%s %-*s", date_str, src_field_sz, "");
+        break;
+
+    }
+
+    if (entry->margin_text)
+        sircc_free(entry->margin_text);
+    entry->margin_text = str;
 }
