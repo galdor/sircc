@@ -134,6 +134,28 @@ sircc_history_add_error(struct sircc_history *history, char *text) {
     sircc_history_add_entry(history, &entry);
 }
 
+void
+sircc_history_recompute_layout(struct sircc_history *history) {
+    size_t idx;
+
+    sircc_layout_free(&history->layout);
+    sircc_layout_init(&history->layout);
+
+    idx = history->start_idx;
+    for (size_t i = 0; i < history->nb_entries; i++) {
+        struct sircc_history_entry *entry;
+
+        entry = history->entries + idx;
+        sircc_layout_add_history_entry(&history->layout, entry);
+
+        idx++;
+        if (idx >= history->sz)
+            idx = 0;
+    }
+
+    history->layout.dirty = false;
+}
+
 size_t
 sircc_history_margin_size() {
     const char *date_fmt;

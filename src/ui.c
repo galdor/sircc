@@ -94,6 +94,21 @@ sircc_ui_on_resize(void) {
 
     sircc_ui_setup_windows();
 
+    for (size_t i = 0; i < sircc.nb_servers; i++) {
+        struct sircc_server *server;
+        struct sircc_chan *chan;
+
+        server = sircc.servers[i];
+
+        server->history.layout.dirty = true;
+
+        chan = server->chans;
+        while (chan) {
+            chan->history.layout.dirty = true;
+            chan = chan->next;
+        }
+    }
+
     sircc_ui_topic_redraw();
     sircc_ui_main_redraw();
     sircc_ui_chans_redraw();
@@ -133,6 +148,7 @@ void
 sircc_ui_main_redraw(void) {
     struct sircc_server *server;
     struct sircc_chan *chan;
+    struct sircc_history *history;
     struct sircc_layout *layout;
     size_t margin_sz = 0;
     size_t nb_rows;
@@ -145,10 +161,14 @@ sircc_ui_main_redraw(void) {
     server = sircc_server_get_current();
     chan = server->current_chan;
     if (chan) {
-        layout = &chan->history.layout;
+        history = &chan->history;
     } else {
-        layout = &server->history.layout;
+        history = &server->history;
     }
+
+    layout = &history->layout;
+    if (layout->dirty)
+        sircc_history_recompute_layout(history);
 
     wmove(win, 0, 0);
     werase(win);

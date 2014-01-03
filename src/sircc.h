@@ -110,6 +110,8 @@ struct sircc_layout {
     size_t rows_sz;
     size_t nb_rows;
     size_t start_idx;
+
+    bool dirty; /* true if the layout needs to be recomputed (after a resize) */
 };
 
 void sircc_layout_init(struct sircc_layout *);
@@ -160,6 +162,8 @@ void sircc_history_add_server_msg(struct sircc_history *, char *);
 void sircc_history_add_trace(struct sircc_history *, char *);
 void sircc_history_add_info(struct sircc_history *, char *);
 void sircc_history_add_error(struct sircc_history *, char *);
+
+void sircc_history_recompute_layout(struct sircc_history *);
 
 size_t sircc_history_margin_size();
 
