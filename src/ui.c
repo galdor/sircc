@@ -135,7 +135,9 @@ sircc_ui_main_redraw(void) {
     struct sircc_chan *chan;
     struct sircc_layout *layout;
     size_t margin_sz = 0;
+    size_t nb_rows;
     WINDOW *win;
+    int win_height;
     int y;
 
     win = sircc.win_main;
@@ -153,9 +155,14 @@ sircc_ui_main_redraw(void) {
 
     y = 0;
 
-    /* TODO Only redraw the last <window height> rows */
+    win_height = getmaxy(win);
+    if (layout->nb_rows > (size_t)win_height) {
+        nb_rows = (size_t)win_height;
+    } else {
+        nb_rows = layout->nb_rows;
+    }
 
-    for (size_t i = layout->start_idx;
+    for (size_t i = layout->start_idx + layout->nb_rows - nb_rows;
          i < layout->start_idx + layout->nb_rows; i++) {
         const struct sircc_layout_row *row;
         const struct sircc_history_entry *entry;
