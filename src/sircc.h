@@ -208,6 +208,8 @@ struct sircc_chan {
     struct sircc_chan *next;
 
     char *topic;
+
+    bool is_user;
 };
 
 struct sircc_chan *sircc_chan_new(struct sircc_server *, const char *);

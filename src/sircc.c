@@ -182,6 +182,8 @@ struct sircc_chan *
 sircc_chan_new(struct sircc_server *server, const char *name) {
     struct sircc_chan *chan;
 
+    assert(strlen(name) > 0);
+
     chan = sircc_malloc(sizeof(struct sircc_chan));
     memset(chan, 0, sizeof(struct sircc_chan));
 
@@ -189,6 +191,9 @@ sircc_chan_new(struct sircc_server *server, const char *name) {
     chan->server = server;
 
     sircc_history_init(&chan->history, 1024);
+
+    if (!sircc_irc_is_chan_prefix(name[0]))
+        chan->is_user = true;
 
     return chan;
 }

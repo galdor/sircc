@@ -306,6 +306,11 @@ sircc_cmdh_names(struct sircc_server *server, struct sircc_cmd *cmd) {
 
     chan = server->current_chan;
     if (chan) {
+        if (chan->is_user) {
+            sircc_chan_log_error(NULL, "private discussions have no user list");
+            return;
+        }
+
         sircc_server_printf(server, "NAMES %s\r\n", chan->name);
     } else {
         sircc_server_printf(server, "NAMES\r\n");
@@ -322,12 +327,19 @@ sircc_cmdh_part(struct sircc_server *server, struct sircc_cmd *cmd) {
         return;
     }
 
-    if (cmd->nb_args == 0) {
-        sircc_server_printf(server, "PART %s\r\n",
-                            chan->name);
+    if (chan->is_user) {
+        /* While using /part on a user chan is invalid, the right thing to do
+         * is to just close the chan. */
+        sircc_server_remove_chan(server, chan);
+        sircc_chan_delete(chan);
     } else {
-        sircc_server_printf(server, "PART %s :%s\r\n",
-                            chan->name, cmd->args[0]);
+        if (cmd->nb_args == 0) {
+            sircc_server_printf(server, "PART %s\r\n",
+                                chan->name);
+        } else {
+            sircc_server_printf(server, "PART %s :%s\r\n",
+                                chan->name, cmd->args[0]);
+        }
     }
 }
 
@@ -342,7 +354,12 @@ sircc_cmdh_topic(struct sircc_server *server, struct sircc_cmd *cmd) {
 
     chan = server->current_chan;
     if (!chan) {
-        sircc_server_log_error(server, "no channel selected");
+        sircc_chan_log_error(NULL, "no channel selected");
+        return;
+    }
+
+    if (chan->is_user) {
+        sircc_chan_log_error(NULL, "private discussions have no topic");
         return;
     }
 
