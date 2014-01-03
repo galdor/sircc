@@ -326,6 +326,10 @@ struct sircc {
 
 extern struct sircc sircc;
 
+/* Messages */
+void sircc_init_msg_handlers(void);
+void sircc_call_msg_handler(struct sircc_server *, struct sircc_msg *);
+
 /* User interface */
 void sircc_ui_initialize(void);
 void sircc_ui_shutdown(void);
