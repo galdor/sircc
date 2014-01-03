@@ -282,7 +282,22 @@ sircc_cmdh_join(struct sircc_server *server, struct sircc_cmd *cmd) {
 
 static void
 sircc_cmdh_msg(struct sircc_server *server, struct sircc_cmd *cmd) {
-    /* TODO */
+    const char *target, *text;
+    struct sircc_chan *chan;
+
+    target = cmd->args[0];
+    text = cmd->args[1];
+
+    chan = sircc_server_get_chan(server, target);
+    if (!chan) {
+        chan = sircc_chan_new(server, target);
+        sircc_server_add_chan(server, chan);
+        sircc_ui_server_select_chan(server, chan);
+    }
+
+    sircc_server_printf(server, "PRIVMSG %s :%s\r\n", target, text);
+
+    sircc_chan_add_msg(chan, target, text);
 }
 
 static void
