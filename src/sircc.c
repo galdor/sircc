@@ -570,10 +570,15 @@ sircc_server_disconnect(struct sircc_server *server) {
     sircc_buf_clear(&server->rbuf);
     sircc_buf_clear(&server->wbuf);
 
-    if (server->ssl_ctx)
+    if (server->ssl_ctx) {
         SSL_CTX_free(server->ssl_ctx);
-    if (server->ssl)
+        server->ssl_ctx = NULL;
+    }
+
+    if (server->ssl) {
         SSL_free(server->ssl);
+        server->ssl = NULL;
+    }
 
     server->state = SIRCC_SERVER_DISCONNECTED;
 }
