@@ -93,12 +93,12 @@ sircc_layout_add_history_entry(struct sircc_layout *layout,
 
         if ((*ptr & 0x80) == 0x0) {
             nb_bytes = 1;
-        } else if ((*ptr & 0xd0) == 0xc0) {
+        } else if ((*ptr & 0xe0) == 0xc0) {
             nb_bytes = 2;
 
             if (*(ptr + 1) == '\0')
                 truncated_seq = true;
-        } else if ((*ptr & 0xf0) == 0xd0) {
+        } else if ((*ptr & 0xf0) == 0xe0) {
             nb_bytes = 3;
 
             if (*(ptr + 1) == '\0' || *(ptr + 2) == '\0')
