@@ -155,6 +155,8 @@ sircc_ui_main_redraw(void) {
 
     y = 0;
 
+    margin_sz = sircc_history_margin_size();
+
     win_height = getmaxy(win);
     if (layout->nb_rows > (size_t)win_height) {
         nb_rows = (size_t)win_height;
@@ -196,8 +198,6 @@ sircc_ui_main_redraw(void) {
         }
 
         if (row->is_entry_first_row) {
-            margin_sz = strlen(entry->margin_text);
-
             wmove(win, y, 0);
             waddstr(win, entry->margin_text);
 

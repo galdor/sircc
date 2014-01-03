@@ -161,6 +161,8 @@ void sircc_history_add_trace(struct sircc_history *, char *);
 void sircc_history_add_info(struct sircc_history *, char *);
 void sircc_history_add_error(struct sircc_history *, char *);
 
+size_t sircc_history_margin_size();
+
 /* Network */
 int sircc_address_resolve(const char *, const char *,
                           struct addrinfo ***, size_t *);

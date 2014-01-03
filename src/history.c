@@ -134,6 +134,26 @@ sircc_history_add_error(struct sircc_history *history, char *text) {
     sircc_history_add_entry(history, &entry);
 }
 
+size_t
+sircc_history_margin_size() {
+    const char *date_fmt;
+    size_t src_field_sz;
+
+    time_t date;
+    char date_str[32];
+    struct tm *tm;
+
+    /* XXX Use the parameters in the configuration */
+    date_fmt = "%H:%M:%S";
+    src_field_sz = 9;
+
+    date = time(NULL);
+    tm = localtime(&date);
+    strftime(date_str, sizeof(date_str), date_fmt, tm);
+
+    return strlen(date_str) + 1 + src_field_sz + 2;
+}
+
 static void
 sircc_history_entry_free(struct sircc_history_entry *entry) {
     if (!entry)
@@ -153,6 +173,7 @@ sircc_history_entry_update_margin_text(struct sircc_history_entry *entry) {
     struct tm *tm;
     char *str;
 
+    /* XXX Use the parameters in the configuration */
     date_fmt = "%H:%M:%S";
     src_field_sz = 9;
 
