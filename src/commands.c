@@ -45,21 +45,24 @@ static struct sircc_cmd_desc *sircc_cmd_get_desc(const char *);
 
 static void sircc_cmdh_join(struct sircc_server *, struct sircc_cmd *);
 static void sircc_cmdh_msg(struct sircc_server *, struct sircc_cmd *);
+static void sircc_cmdh_names(struct sircc_server *, struct sircc_cmd *);
 static void sircc_cmdh_part(struct sircc_server *, struct sircc_cmd *);
 static void sircc_cmdh_quit(struct sircc_server *, struct sircc_cmd *);
 static void sircc_cmdh_topic(struct sircc_server *, struct sircc_cmd *);
 
 static struct sircc_cmd_desc
 sircc_cmd_descs[SIRCC_CMD_COUNT] = {
-    {"join", SIRCC_CMD_JOIN,  SIRCC_CMD_ARGS_RANGE,     1, 2,
+    {"join",  SIRCC_CMD_JOIN,  SIRCC_CMD_ARGS_RANGE,      1, 2,
         sircc_cmdh_join,  "/join <chan> [<key>]"},
-    {"msg", SIRCC_CMD_MSG,   SIRCC_CMD_ARGS_TRAILING,   1, 2,
+    {"msg",   SIRCC_CMD_MSG,   SIRCC_CMD_ARGS_TRAILING,   1, 2,
         sircc_cmdh_msg,   "/msg <target> <message...>"},
-    {"part", SIRCC_CMD_PART,  SIRCC_CMD_ARGS_TRAILING,  0, 0,
+    {"names", SIRCC_CMD_NAMES, SIRCC_CMD_ARGS_RANGE,      0, 0,
+        sircc_cmdh_names,  "/names"},
+    {"part",  SIRCC_CMD_PART,  SIRCC_CMD_ARGS_TRAILING,   0, 0,
         sircc_cmdh_part,  "/part <chan> [<message...>]"},
-    {"quit", SIRCC_CMD_QUIT,  SIRCC_CMD_ARGS_RANGE,     0, 0,
-        sircc_cmdh_quit,  "/quit [<message...>]"},
-    {"topic", SIRCC_CMD_TOPIC, SIRCC_CMD_ARGS_TRAILING, 0, 0,
+    {"quit",  SIRCC_CMD_QUIT,  SIRCC_CMD_ARGS_RANGE,      0, 0,
+        sircc_cmdh_quit,  "/quit"},
+    {"topic", SIRCC_CMD_TOPIC, SIRCC_CMD_ARGS_TRAILING,   0, 0,
         sircc_cmdh_topic, "/topic [<message...>]"},
 };
 
@@ -280,6 +283,18 @@ sircc_cmdh_join(struct sircc_server *server, struct sircc_cmd *cmd) {
 static void
 sircc_cmdh_msg(struct sircc_server *server, struct sircc_cmd *cmd) {
     /* TODO */
+}
+
+static void
+sircc_cmdh_names(struct sircc_server *server, struct sircc_cmd *cmd) {
+    struct sircc_chan *chan;
+
+    chan = server->current_chan;
+    if (chan) {
+        sircc_server_printf(server, "NAMES %s\r\n", chan->name);
+    } else {
+        sircc_server_printf(server, "NAMES\r\n");
+    }
 }
 
 static void

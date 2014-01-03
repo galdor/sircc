@@ -29,6 +29,8 @@ static void sircc_msgh_rpl_welcome(struct sircc_server *, struct sircc_msg *);
 static void sircc_msgh_rpl_notopic(struct sircc_server *, struct sircc_msg *);
 static void sircc_msgh_rpl_topic(struct sircc_server *, struct sircc_msg *);
 static void sircc_msgh_rpl_topicwhotime(struct sircc_server *, struct sircc_msg *);
+static void sircc_msgh_rpl_namreply(struct sircc_server *, struct sircc_msg *);
+static void sircc_msgh_err_notregistered(struct sircc_server *, struct sircc_msg *);
 
 void
 sircc_init_msg_handlers(void) {
@@ -41,6 +43,8 @@ sircc_init_msg_handlers(void) {
     sircc_set_msg_handler("331", sircc_msgh_rpl_notopic);
     sircc_set_msg_handler("332", sircc_msgh_rpl_topic);
     sircc_set_msg_handler("333", sircc_msgh_rpl_topicwhotime); /* non-standard */
+    sircc_set_msg_handler("353", sircc_msgh_rpl_namreply);
+    sircc_set_msg_handler("451", sircc_msgh_err_notregistered);
 }
 
 static void
@@ -67,7 +71,7 @@ sircc_msgh_join(struct sircc_server *server, struct sircc_msg *msg) {
     char nickname[SIRCC_NICKNAME_MAXSZ];
 
     if (msg->nb_params < 1) {
-        sircc_server_log_error(server, "missing argument in JOIN message");
+        sircc_server_log_error(server, "missing argument in JOIN");
         return;
     }
 
@@ -101,7 +105,7 @@ sircc_msgh_part(struct sircc_server *server, struct sircc_msg *msg) {
     char nickname[SIRCC_NICKNAME_MAXSZ];
 
     if (msg->nb_params < 1) {
-        sircc_server_log_error(server, "missing argument in PART message");
+        sircc_server_log_error(server, "missing argument in PART");
         return;
     }
 
@@ -137,7 +141,7 @@ sircc_msgh_part(struct sircc_server *server, struct sircc_msg *msg) {
 static void
 sircc_msgh_ping(struct sircc_server *server, struct sircc_msg *msg) {
     if (msg->nb_params < 1) {
-        sircc_server_log_error(server, "missing argument in PING message");
+        sircc_server_log_error(server, "missing argument in PING");
         return;
     }
 
@@ -152,7 +156,7 @@ sircc_msgh_privmsg(struct sircc_server *server, struct sircc_msg *msg) {
     const char *chan_name;
 
     if (msg->nb_params < 2) {
-        sircc_server_log_error(server, "missing arguments in PRIVMSG message");
+        sircc_server_log_error(server, "missing arguments in PRIVMSG");
         return;
     }
 
@@ -189,7 +193,7 @@ sircc_msgh_topic(struct sircc_server *server, struct sircc_msg *msg) {
     char nickname[SIRCC_NICKNAME_MAXSZ];
 
     if (msg->nb_params < 2) {
-        sircc_server_log_error(server, "missing arguments in TOPIC message");
+        sircc_server_log_error(server, "missing arguments in TOPIC");
         return;
     }
 
@@ -204,7 +208,7 @@ sircc_msgh_topic(struct sircc_server *server, struct sircc_msg *msg) {
 
     chan = sircc_server_get_chan(server, chan_name);
     if (!chan) {
-        sircc_server_log_error(server, "unknown chan '%s' in TOPIC message",
+        sircc_server_log_error(server, "unknown chan '%s' in TOPIC",
                                chan_name);
         return;
     }
@@ -228,16 +232,14 @@ sircc_msgh_rpl_notopic(struct sircc_server *server, struct sircc_msg *msg) {
     const char *chan_name;
 
     if (msg->nb_params < 2) {
-        sircc_server_log_error(server,
-                               "missing arguments in RPL_NOTOPIC message");
+        sircc_server_log_error(server, "missing arguments in RPL_NOTOPIC");
         return;
     }
 
     chan_name = msg->params[1];
     chan = sircc_server_get_chan(server, chan_name);
     if (!chan) {
-        sircc_server_log_error(server,
-                               "unknown chan '%s' in RPL_NOTOPIC message",
+        sircc_server_log_error(server, "unknown chan '%s' in RPL_NOTOPIC",
                                chan_name);
         return;
     }
@@ -253,8 +255,7 @@ sircc_msgh_rpl_topic(struct sircc_server *server, struct sircc_msg *msg) {
     const char *chan_name, *topic;
 
     if (msg->nb_params < 3) {
-        sircc_server_log_error(server,
-                               "missing arguments in RPL_TOPIC message");
+        sircc_server_log_error(server, "missing arguments in RPL_TOPIC");
         return;
     }
 
@@ -263,8 +264,7 @@ sircc_msgh_rpl_topic(struct sircc_server *server, struct sircc_msg *msg) {
 
     chan = sircc_server_get_chan(server, chan_name);
     if (!chan) {
-        sircc_server_log_error(server,
-                               "unknown chan '%s' in RPL_TOPIC message",
+        sircc_server_log_error(server, "unknown chan '%s' in RPL_TOPIC",
                                chan_name);
         return;
     }
@@ -283,8 +283,7 @@ sircc_msgh_rpl_topicwhotime(struct sircc_server *server,
     char date[32];
 
     if (msg->nb_params < 4) {
-        sircc_server_log_error(server, "missing arguments in RPL_TOPICWHOTIME"
-                               " message");
+        sircc_server_log_error(server, "missing arguments in RPL_TOPICWHOTIME");
         return;
     }
 
@@ -294,8 +293,7 @@ sircc_msgh_rpl_topicwhotime(struct sircc_server *server,
 
     chan = sircc_server_get_chan(server, chan_name);
     if (!chan) {
-        sircc_server_log_error(server,
-                               "unknown chan '%s' in RPL_TOPICWHOTIME message",
+        sircc_server_log_error(server, "unknown chan '%s' in RPL_TOPICWHOTIME",
                                chan_name);
         return;
     }
@@ -310,4 +308,33 @@ sircc_msgh_rpl_topicwhotime(struct sircc_server *server,
 
     sircc_chan_log_info(chan, "topic of channel %s set by %s on %s",
                         chan_name, nickname, date);
+}
+
+static void
+sircc_msgh_rpl_namreply(struct sircc_server *server, struct sircc_msg *msg) {
+    const char *chan_name, *users_str;
+    struct sircc_chan *chan;
+
+    if (msg->nb_params < 4) {
+        sircc_server_log_error(server, "missing arguments in RPL_NAMREPLY");
+        return;
+    }
+
+    chan_name = msg->params[2];
+    users_str = msg->params[3];
+
+    chan = sircc_server_get_chan(server, chan_name);
+    if (!chan) {
+        sircc_server_log_error(server, "unknown chan '%s' in RPL_NAMREPLY",
+                               chan_name);
+        return;
+    }
+
+    sircc_chan_log_info(chan, "users on %s: %s",
+                        chan_name, users_str);
+}
+
+static void
+sircc_msgh_err_notregistered(struct sircc_server *server, struct sircc_msg *msg) {
+    sircc_chan_log_error(NULL, "You have not registered");
 }
