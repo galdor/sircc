@@ -28,6 +28,8 @@ sircc_history_init(struct sircc_history *history, size_t sz) {
 
     history->sz = sz;
     history->entries = sircc_calloc(sz, sizeof(struct sircc_history_entry));
+
+    sircc_layout_init(&history->layout);
 }
 
 void
@@ -36,12 +38,14 @@ sircc_history_free(struct sircc_history *history) {
     for (size_t i = 0; i < history->sz; i++)
         sircc_history_entry_free(history->entries + i);
 
+    sircc_layout_free(&history->layout);
+
     free(history->entries);
 }
 
 void
 sircc_history_add_entry(struct sircc_history *history,
-                        struct sircc_history_entry *entry) {
+                        const struct sircc_history_entry *entry) {
     struct sircc_history_entry *head;
     size_t idx;
 
@@ -50,17 +54,19 @@ sircc_history_add_entry(struct sircc_history *history,
 
     if ((history->nb_entries + 1) >= history->sz) {
         /* We are overwriting the oldest entry */
+        sircc_layout_skip_history_entry(&history->layout);
         sircc_history_entry_free(head);
 
         history->start_idx = (history->start_idx + 1) % history->sz;
     }
 
-    sircc_history_entry_update_margin_text(entry);
-
     *head = *entry;
 
     if (history->nb_entries < history->sz)
         history->nb_entries++;
+
+    sircc_history_entry_update_margin_text(head);
+    sircc_layout_add_history_entry(&history->layout, head);
 }
 
 void
@@ -155,14 +161,14 @@ sircc_history_entry_update_margin_text(struct sircc_history_entry *entry) {
 
     switch (entry->type) {
     case SIRCC_HISTORY_CHAN_MSG:
-        sircc_asprintf(&str, "%s %-*s", date_str, src_field_sz, entry->src);
+        sircc_asprintf(&str, "%s %-*s  ", date_str, src_field_sz, entry->src);
         break;
 
     case SIRCC_HISTORY_SERVER_MSG:
     case SIRCC_HISTORY_TRACE:
     case SIRCC_HISTORY_INFO:
     case SIRCC_HISTORY_ERROR:
-        sircc_asprintf(&str, "%s %-*s", date_str, src_field_sz, "");
+        sircc_asprintf(&str, "%s %-*s  ", date_str, src_field_sz, "");
         break;
 
     }

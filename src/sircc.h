@@ -93,6 +93,35 @@ char *sircc_buf_dup_str(const struct sircc_buf *);
 ssize_t sircc_buf_read(struct sircc_buf *, int, size_t);
 ssize_t sircc_buf_write(struct sircc_buf *, int);
 
+/* Layout */
+struct sircc_history_entry;
+
+struct sircc_layout_row {
+    const char *margin_text; /* timestamp and nickname */
+    const char *text;        /* point to some text in a history entry */
+    size_t text_sz;
+
+    struct sircc_history_entry *entry;
+    bool is_entry_first_row; /* true if the row is the first row of an entry */
+};
+
+struct sircc_layout {
+    struct sircc_layout_row *rows;
+    size_t rows_sz;
+    size_t nb_rows;
+    size_t start_idx;
+};
+
+void sircc_layout_init(struct sircc_layout *);
+void sircc_layout_free(struct sircc_layout *);
+
+void sircc_layout_add_row(struct sircc_layout *,
+                          const struct sircc_layout_row *);
+
+void sircc_layout_add_history_entry(struct sircc_layout *,
+                                    struct sircc_history_entry *);
+void sircc_layout_skip_history_entry(struct sircc_layout *);
+
 /* History */
 enum sircc_history_entry_type {
     SIRCC_HISTORY_CHAN_MSG,
@@ -117,13 +146,15 @@ struct sircc_history {
 
     size_t nb_entries;
     size_t start_idx;
+
+    struct sircc_layout layout;
 };
 
 void sircc_history_init(struct sircc_history *, size_t sz);
 void sircc_history_free(struct sircc_history *);
 
 void sircc_history_add_entry(struct sircc_history *,
-                             struct sircc_history_entry *);
+                             const struct sircc_history_entry *);
 void sircc_history_add_chan_msg(struct sircc_history *, char *, char *);
 void sircc_history_add_server_msg(struct sircc_history *, char *);
 void sircc_history_add_trace(struct sircc_history *, char *);
@@ -301,6 +332,8 @@ void sircc_ui_main_redraw(void);
 void sircc_ui_chans_redraw(void);
 void sircc_ui_servers_redraw(void);
 void sircc_ui_prompt_redraw(void);
+
+int sircc_ui_main_window_width(void);
 
 void sircc_ui_server_select(int);
 void sircc_ui_server_select_previous(void);

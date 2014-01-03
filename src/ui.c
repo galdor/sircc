@@ -133,9 +133,9 @@ void
 sircc_ui_main_redraw(void) {
     struct sircc_server *server;
     struct sircc_chan *chan;
-    struct sircc_history *history;
+    struct sircc_layout *layout;
+    size_t margin_sz = 0;
     WINDOW *win;
-    size_t idx;
     int y;
 
     win = sircc.win_main;
@@ -143,9 +143,9 @@ sircc_ui_main_redraw(void) {
     server = sircc_server_get_current();
     chan = server->current_chan;
     if (chan) {
-        history = &chan->history;
+        layout = &chan->history.layout;
     } else {
-        history = &server->history;
+        layout = &server->history.layout;
     }
 
     wmove(win, 0, 0);
@@ -153,12 +153,16 @@ sircc_ui_main_redraw(void) {
 
     y = 0;
 
-    idx = history->start_idx;
-    for (size_t i = 0; i < history->nb_entries; i++) {
+    /* TODO Only redraw the last <window height> rows */
+
+    for (size_t i = layout->start_idx;
+         i < layout->start_idx + layout->nb_rows; i++) {
+        const struct sircc_layout_row *row;
         const struct sircc_history_entry *entry;
         int attrs;
 
-        entry = history->entries + idx;
+        row = layout->rows + i;
+        entry = row->entry;
 
         attrs = 0;
 
@@ -184,19 +188,24 @@ sircc_ui_main_redraw(void) {
             break;
         }
 
-        wmove(win, y, 0);
-        waddstr(win, entry->margin_text);
-        waddstr(win, "  ");
+        if (row->is_entry_first_row) {
+            margin_sz = strlen(entry->margin_text);
 
-        wattron(win, attrs);
-        waddstr(win, entry->text);
-        wattroff(win, attrs);
+            wmove(win, y, 0);
+            waddstr(win, entry->margin_text);
+
+            wattron(win, attrs);
+            waddnstr(win, row->text, row->text_sz);
+            wattroff(win, attrs);
+        } else {
+            wmove(win, y, margin_sz);
+
+            wattron(win, attrs);
+            waddnstr(win, row->text, row->text_sz);
+            wattroff(win, attrs);
+        }
 
         y++;
-
-        idx++;
-        if (idx >= history->sz)
-            idx = 0;
     }
 
     wnoutrefresh(win);
@@ -306,6 +315,11 @@ sircc_ui_prompt_redraw(void) {
     }
 
     wnoutrefresh(win);
+}
+
+int
+sircc_ui_main_window_width(void) {
+    return getmaxx(sircc.win_main);
 }
 
 void
