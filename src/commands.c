@@ -44,6 +44,7 @@ static int sircc_cmd_parse_arg(const char **, size_t *, char **);
 static struct sircc_cmd_desc *sircc_cmd_get_desc(const char *);
 
 static void sircc_cmdh_join(struct sircc_server *, struct sircc_cmd *);
+static void sircc_cmdh_mode(struct sircc_server *, struct sircc_cmd *);
 static void sircc_cmdh_msg(struct sircc_server *, struct sircc_cmd *);
 static void sircc_cmdh_names(struct sircc_server *, struct sircc_cmd *);
 static void sircc_cmdh_part(struct sircc_server *, struct sircc_cmd *);
@@ -54,6 +55,8 @@ static struct sircc_cmd_desc
 sircc_cmd_descs[SIRCC_CMD_COUNT] = {
     {"join",  SIRCC_CMD_JOIN,  SIRCC_CMD_ARGS_RANGE,      1, 2,
         sircc_cmdh_join,  "/join <chan> [<key>]"},
+    {"mode",  SIRCC_CMD_MODE,  SIRCC_CMD_ARGS_TRAILING,   2, 2,
+        sircc_cmdh_mode,  "/mode <target> <flags> [<parameters...>]"},
     {"msg",   SIRCC_CMD_MSG,   SIRCC_CMD_ARGS_TRAILING,   1, 2,
         sircc_cmdh_msg,   "/msg <target> <message...>"},
     {"names", SIRCC_CMD_NAMES, SIRCC_CMD_ARGS_RANGE,      0, 0,
@@ -277,6 +280,22 @@ sircc_cmdh_join(struct sircc_server *server, struct sircc_cmd *cmd) {
     } else {
         sircc_server_printf(server, "JOIN %s\r\n",
                             cmd->args[0]);
+    }
+}
+
+static void
+sircc_cmdh_mode(struct sircc_server *server, struct sircc_cmd *cmd) {
+    const char *target, *flags;
+
+    target = cmd->args[0];
+    flags = cmd->args[1];
+
+    if (cmd->nb_args > 2) {
+        sircc_server_printf(server, "MODE %s %s :%s\r\n",
+                            target, flags, cmd->args[2]);
+    } else {
+        sircc_server_printf(server, "MODE %s %s\r\n",
+                            target, flags);
     }
 }
 

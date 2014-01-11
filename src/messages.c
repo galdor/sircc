@@ -21,6 +21,7 @@ typedef void (*sircc_msg_handler)(struct sircc_server *, struct sircc_msg *);
 static void sircc_set_msg_handler(const char *, sircc_msg_handler);
 
 static void sircc_msgh_join(struct sircc_server *, struct sircc_msg *);
+static void sircc_msgh_mode(struct sircc_server *, struct sircc_msg *);
 static void sircc_msgh_part(struct sircc_server *, struct sircc_msg *);
 static void sircc_msgh_ping(struct sircc_server *, struct sircc_msg *);
 static void sircc_msgh_privmsg(struct sircc_server *, struct sircc_msg *);
@@ -30,11 +31,17 @@ static void sircc_msgh_rpl_notopic(struct sircc_server *, struct sircc_msg *);
 static void sircc_msgh_rpl_topic(struct sircc_server *, struct sircc_msg *);
 static void sircc_msgh_rpl_topicwhotime(struct sircc_server *, struct sircc_msg *);
 static void sircc_msgh_rpl_namreply(struct sircc_server *, struct sircc_msg *);
+static void sircc_msgh_err_nosuchnick(struct sircc_server *, struct sircc_msg *);
 static void sircc_msgh_err_notregistered(struct sircc_server *, struct sircc_msg *);
+static void sircc_msgh_err_unknownmode(struct sircc_server *, struct sircc_msg *);
+static void sircc_msgh_err_noprivileges(struct sircc_server *, struct sircc_msg *);
+static void sircc_msgh_err_chanoprivsneeded(struct sircc_server *, struct sircc_msg *);
+static void sircc_msgh_err_umodeunknownflag(struct sircc_server *, struct sircc_msg *);
 
 void
 sircc_init_msg_handlers(void) {
     sircc_set_msg_handler("JOIN", sircc_msgh_join);
+    sircc_set_msg_handler("MODE", sircc_msgh_mode);
     sircc_set_msg_handler("PART", sircc_msgh_part);
     sircc_set_msg_handler("PING", sircc_msgh_ping);
     sircc_set_msg_handler("PRIVMSG", sircc_msgh_privmsg);
@@ -44,7 +51,12 @@ sircc_init_msg_handlers(void) {
     sircc_set_msg_handler("332", sircc_msgh_rpl_topic);
     sircc_set_msg_handler("333", sircc_msgh_rpl_topicwhotime); /* non-standard */
     sircc_set_msg_handler("353", sircc_msgh_rpl_namreply);
+    sircc_set_msg_handler("401", sircc_msgh_err_nosuchnick);
     sircc_set_msg_handler("451", sircc_msgh_err_notregistered);
+    sircc_set_msg_handler("472", sircc_msgh_err_unknownmode);
+    sircc_set_msg_handler("481", sircc_msgh_err_noprivileges);
+    sircc_set_msg_handler("482", sircc_msgh_err_chanoprivsneeded);
+    sircc_set_msg_handler("501", sircc_msgh_err_umodeunknownflag);
 }
 
 static void
@@ -76,7 +88,7 @@ sircc_msgh_join(struct sircc_server *server, struct sircc_msg *msg) {
     }
 
     if (sircc_msg_prefix_nickname(msg, nickname, sizeof(nickname)) == -1) {
-        sircc_server_log_error(server, "cannot get message nickname: %s",
+        sircc_server_log_error(server, "cannot get prefix nick: %s",
                                sircc_get_error());
         return;
     }
@@ -99,6 +111,41 @@ sircc_msgh_join(struct sircc_server *server, struct sircc_msg *msg) {
 }
 
 static void
+sircc_msgh_mode(struct sircc_server *server, struct sircc_msg *msg) {
+    struct sircc_chan *chan;
+    const char *target, *flags;
+    char nickname[SIRCC_NICKNAME_MAXSZ];
+
+    if (msg->nb_params < 2) {
+        sircc_server_log_error(server, "missing argument in MODE");
+        return;
+    }
+
+    if (sircc_msg_prefix_nickname(msg, nickname, sizeof(nickname)) == -1) {
+        sircc_server_log_error(server, "cannot get prefix nick: %s",
+                               sircc_get_error());
+        return;
+    }
+
+    target = msg->params[0];
+    flags = msg->params[1];
+
+    chan = sircc_server_get_chan(server, target);
+
+    /* We may not have an open channel with the target, for example when
+     * receiving a MODE notification for a user which is not on one of our
+     * channels. */
+
+    if (msg->nb_params > 2) {
+        sircc_chan_log_info(chan, "%s has changed mode for %s to %s %s",
+                            nickname, target, flags, msg->params[2]);
+    } else {
+        sircc_chan_log_info(chan, "%s has changed mode for %s to %s",
+                            nickname, target, flags);
+    }
+}
+
+static void
 sircc_msgh_part(struct sircc_server *server, struct sircc_msg *msg) {
     struct sircc_chan *chan;
     const char *chan_name;
@@ -110,7 +157,7 @@ sircc_msgh_part(struct sircc_server *server, struct sircc_msg *msg) {
     }
 
     if (sircc_msg_prefix_nickname(msg, nickname, sizeof(nickname)) == -1) {
-        sircc_server_log_error(server, "cannot get message nickname: %s",
+        sircc_server_log_error(server, "cannot get prefix nick: %s",
                                sircc_get_error());
         return;
     }
@@ -161,7 +208,7 @@ sircc_msgh_privmsg(struct sircc_server *server, struct sircc_msg *msg) {
     }
 
     if (sircc_msg_prefix_nickname(msg, nickname, sizeof(nickname)) == -1) {
-        sircc_server_log_error(server, "cannot get message nickname: %s",
+        sircc_server_log_error(server, "cannot get prefix nick: %s",
                                sircc_get_error());
         return;
     }
@@ -198,7 +245,7 @@ sircc_msgh_topic(struct sircc_server *server, struct sircc_msg *msg) {
     }
 
     if (sircc_msg_prefix_nickname(msg, nickname, sizeof(nickname)) == -1) {
-        sircc_server_log_error(server, "cannot get message nickname: %s",
+        sircc_server_log_error(server, "cannot get prefix nick: %s",
                                sircc_get_error());
         return;
     }
@@ -246,7 +293,7 @@ sircc_msgh_rpl_notopic(struct sircc_server *server, struct sircc_msg *msg) {
 
     sircc_chan_set_topic(chan, NULL);
 
-    sircc_chan_log_info(chan, "no topic for channel %s", chan_name);
+    sircc_chan_log_info(chan, "no topic for chan %s", chan_name);
 }
 
 static void
@@ -271,7 +318,7 @@ sircc_msgh_rpl_topic(struct sircc_server *server, struct sircc_msg *msg) {
 
     sircc_chan_set_topic(chan, topic);
 
-    sircc_chan_log_info(chan, "topic of channel %s: %s", chan_name, topic);
+    sircc_chan_log_info(chan, "topic of chan %s: %s", chan_name, topic);
 }
 
 static void
@@ -306,7 +353,7 @@ sircc_msgh_rpl_topicwhotime(struct sircc_server *server,
 
     strftime(date, sizeof(date), "%F %T %z", &tm);
 
-    sircc_chan_log_info(chan, "topic of channel %s set by %s on %s",
+    sircc_chan_log_info(chan, "topic of chan %s set by %s on %s",
                         chan_name, nickname, date);
 }
 
@@ -335,6 +382,54 @@ sircc_msgh_rpl_namreply(struct sircc_server *server, struct sircc_msg *msg) {
 }
 
 static void
-sircc_msgh_err_notregistered(struct sircc_server *server, struct sircc_msg *msg) {
-    sircc_chan_log_error(NULL, "You have not registered");
+sircc_msgh_err_nosuchnick(struct sircc_server *server, struct sircc_msg *msg) {
+    struct sircc_chan *chan;
+    const char *nick;
+
+    if (msg->nb_params < 3) {
+        sircc_server_log_error(server, "missing arguments in ERR_NOSUCHNICK");
+        return;
+    }
+
+    nick = msg->params[1];
+
+    chan = sircc_server_get_chan(server, nick);
+    if (chan) {
+        sircc_server_remove_chan(server, chan);
+        sircc_chan_delete(chan);
+    }
+
+    /* This error is also received for unknown channels */
+
+    sircc_chan_log_error(NULL, "unknown nick/chan '%s'", nick);
+}
+
+static void
+sircc_msgh_err_notregistered(struct sircc_server *server,
+                             struct sircc_msg *msg) {
+    sircc_chan_log_error(NULL, "you have not registered");
+}
+
+static void
+sircc_msgh_err_unknownmode(struct sircc_server *server,
+                           struct sircc_msg *msg) {
+    sircc_chan_log_error(NULL, "unknown mode flag");
+}
+
+static void
+sircc_msgh_err_noprivileges(struct sircc_server *server,
+                            struct sircc_msg *msg) {
+    sircc_chan_log_error(NULL, "you are not irc operator");
+}
+
+static void
+sircc_msgh_err_chanoprivsneeded(struct sircc_server *server,
+                                struct sircc_msg *msg) {
+    sircc_chan_log_error(NULL, "you are not chan operator");
+}
+
+static void
+sircc_msgh_err_umodeunknownflag(struct sircc_server *server,
+                                struct sircc_msg *msg) {
+    sircc_chan_log_error(NULL, "unknown user mode flag");
 }
