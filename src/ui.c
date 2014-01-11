@@ -175,7 +175,7 @@ sircc_ui_main_redraw(void) {
 
     y = 0;
 
-    margin_sz = sircc_history_margin_size();
+    margin_sz = sircc_history_margin_size(history);
 
     win_height = getmaxy(win);
     if (layout->nb_rows > (size_t)win_height) {

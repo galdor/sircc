@@ -182,6 +182,7 @@ sircc_chan_new(struct sircc_server *server, const char *name) {
     chan->server = server;
 
     sircc_history_init(&chan->history, 1024);
+    chan->history.max_nickname_length = server->max_nickname_length;
 
     if (!sircc_irc_is_chan_prefix(name[0]))
         chan->is_user = true;
@@ -327,18 +328,23 @@ sircc_chan_add_msg(struct sircc_chan *chan, const char *src,
 }
 
 struct sircc_server *
-sircc_server_new(void) {
+sircc_server_new(const char *name) {
     struct sircc_server *server;
 
     server = sircc_malloc(sizeof(struct sircc_server));
     memset(server, 0, sizeof(struct sircc_server));
+
+    server->name = name;
 
     server->sock = -1;
 
     sircc_buf_init(&server->rbuf);
     sircc_buf_init(&server->wbuf);
 
+    server->max_nickname_length = 9;
+
     sircc_history_init(&server->history, 1024);
+    server->history.max_nickname_length = server->max_nickname_length;
 
     server->state = SIRCC_SERVER_DISCONNECTED;
 
@@ -1040,8 +1046,8 @@ sircc_load_servers(void) {
     for (size_t i = 0; i < sircc.cfg.nb_servers; i++) {
         struct sircc_server *server;
 
-        server = sircc_server_new();
-        server->name = sircc.cfg.servers[i];
+        server = sircc_server_new(sircc.cfg.servers[i]);
+
         server->host = sircc_cfg_get_server_string(server, "host", NULL);
         server->port = sircc_cfg_get_server_string(server, "port", "6667");
         server->use_ssl = sircc_cfg_get_server_boolean(server, "host", false);
@@ -1049,6 +1055,12 @@ sircc_load_servers(void) {
                                                        NULL);
         server->realname = sircc_cfg_get_server_string(server, "realname",
                                                        server->nickname);
+
+        server->max_nickname_length =
+            sircc_cfg_get_server_integer(server, "max_nickname_length", 9);
+        if (server->max_nickname_length <= 0)
+            die("invalid nickname length: %d", server->max_nickname_length);
+        server->history.max_nickname_length = server->max_nickname_length;
 
         if (!server->host)
             die("no host defined for server %s", server->name);

@@ -202,6 +202,8 @@ struct sircc_history {
     size_t start_idx;
 
     struct sircc_layout layout;
+
+    int max_nickname_length;
 };
 
 void sircc_history_init(struct sircc_history *, size_t sz);
@@ -216,8 +218,7 @@ void sircc_history_add_info(struct sircc_history *, char *);
 void sircc_history_add_error(struct sircc_history *, char *);
 
 void sircc_history_recompute_layout(struct sircc_history *);
-
-size_t sircc_history_margin_size();
+size_t sircc_history_margin_size(struct sircc_history *);
 
 /* Network */
 int sircc_address_resolve(const char *, const char *,
@@ -315,9 +316,11 @@ struct sircc_server {
     SSL_CTX *ssl_ctx;
     SSL *ssl;
     int ssl_last_write_length;
+
+    int max_nickname_length;
 };
 
-struct sircc_server *sircc_server_new(void);
+struct sircc_server *sircc_server_new(const char *name);
 void sircc_server_delete(struct sircc_server *);
 int sircc_server_prepare_connection(struct sircc_server *);
 int sircc_server_connect(struct sircc_server *);

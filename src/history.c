@@ -20,7 +20,8 @@
 #include "sircc.h"
 
 static void sircc_history_entry_free(struct sircc_history_entry *);
-static void sircc_history_entry_update_margin_text(struct sircc_history_entry *);
+static void sircc_history_entry_update_margin_text(struct sircc_history *,
+                                                   struct sircc_history_entry *);
 
 void
 sircc_history_init(struct sircc_history *history, size_t sz) {
@@ -30,6 +31,8 @@ sircc_history_init(struct sircc_history *history, size_t sz) {
     history->entries = sircc_calloc(sz, sizeof(struct sircc_history_entry));
 
     sircc_layout_init(&history->layout);
+
+    history->max_nickname_length = 9;
 }
 
 void
@@ -65,7 +68,7 @@ sircc_history_add_entry(struct sircc_history *history,
     if (history->nb_entries < history->sz)
         history->nb_entries++;
 
-    sircc_history_entry_update_margin_text(head);
+    sircc_history_entry_update_margin_text(history, head);
     sircc_layout_add_history_entry(&history->layout, head);
 }
 
@@ -157,7 +160,7 @@ sircc_history_recompute_layout(struct sircc_history *history) {
 }
 
 size_t
-sircc_history_margin_size() {
+sircc_history_margin_size(struct sircc_history *history) {
     const char *date_fmt;
     size_t src_field_sz;
 
@@ -165,9 +168,10 @@ sircc_history_margin_size() {
     char date_str[32];
     struct tm *tm;
 
-    /* XXX Use the parameters in the configuration */
+    /* XXX Use the parameter in the configuration */
     date_fmt = "%H:%M:%S";
-    src_field_sz = 9;
+
+    src_field_sz = (size_t)history->max_nickname_length;
 
     date = time(NULL);
     tm = localtime(&date);
@@ -187,7 +191,8 @@ sircc_history_entry_free(struct sircc_history_entry *entry) {
 }
 
 static void
-sircc_history_entry_update_margin_text(struct sircc_history_entry *entry) {
+sircc_history_entry_update_margin_text(struct sircc_history *history,
+                                       struct sircc_history_entry *entry) {
     const char *date_fmt;
     int src_field_sz;
 
@@ -195,9 +200,10 @@ sircc_history_entry_update_margin_text(struct sircc_history_entry *entry) {
     struct tm *tm;
     char *str;
 
-    /* XXX Use the parameters in the configuration */
+    /* XXX Use the parameter in the configuration */
     date_fmt = "%H:%M:%S";
-    src_field_sz = 9;
+
+    src_field_sz = (size_t)history->max_nickname_length;
 
     tm = localtime(&entry->date);
     strftime(date_str, sizeof(date_str), date_fmt, tm);

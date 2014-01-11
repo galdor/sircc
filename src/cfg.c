@@ -40,13 +40,14 @@ static struct {
     const char *key;
     enum sircc_cfg_entry_type type;
 } sircc_cfg_type_array[] = {
-    {"host",     SIRCC_CFG_STRING},
-    {"port",     SIRCC_CFG_STRING},
-    {"use_ssl",  SIRCC_CFG_BOOLEAN},
-    {"nickname", SIRCC_CFG_STRING},
-    {"realname", SIRCC_CFG_STRING},
+    {"host",                SIRCC_CFG_STRING},
+    {"port",                SIRCC_CFG_STRING},
+    {"use_ssl",             SIRCC_CFG_BOOLEAN},
+    {"nickname",            SIRCC_CFG_STRING},
+    {"realname",            SIRCC_CFG_STRING},
+    {"max_nickname_length", SIRCC_CFG_INTEGER},
 
-    {"autojoin", SIRCC_CFG_BOOLEAN},
+    {"autojoin",            SIRCC_CFG_BOOLEAN},
 };
 
 static struct ht_table *sircc_cfg_types;
