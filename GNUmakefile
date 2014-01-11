@@ -2,7 +2,7 @@
 prefix= /usr/local
 bindir= $(prefix)/bin
 
-CC=   clang
+CC= clang
 
 CFLAGS+= -std=c99
 CFLAGS+= -Wall -Wextra -Werror -Wsign-conversion

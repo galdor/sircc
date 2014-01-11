@@ -93,6 +93,58 @@ char *sircc_buf_dup_str(const struct sircc_buf *);
 ssize_t sircc_buf_read(struct sircc_buf *, int, size_t);
 ssize_t sircc_buf_write(struct sircc_buf *, int);
 
+/* Configuration */
+enum sircc_cfg_entry_type {
+    SIRCC_CFG_STRING,
+    SIRCC_CFG_INTEGER,
+    SIRCC_CFG_BOOLEAN
+};
+
+struct sircc_cfg_entry {
+    char *key;
+
+    enum sircc_cfg_entry_type type;
+
+    union {
+        char *s;
+        int i;
+        bool b;
+    } u;
+};
+
+struct sircc_cfg {
+    struct ht_table *entries;
+
+    char **servers;
+    size_t servers_sz;
+    size_t nb_servers;
+};
+
+int sircc_cfg_initialize(const char *);
+void sircc_cfg_shutdown(void);
+
+void sircc_cfg_init(struct sircc_cfg *);
+void sircc_cfg_free(struct sircc_cfg *);
+
+int sircc_cfg_load_default(struct sircc_cfg *);
+int sircc_cfg_load_directory(struct sircc_cfg *, const char *);
+int sircc_cfg_load_file(struct sircc_cfg *, const char *);
+
+const char *sircc_cfg_get_string(struct sircc_cfg *, const char *,
+                                 const char *, ...)
+    __attribute__((format(printf, 3, 4)));
+int sircc_cfg_get_integer(struct sircc_cfg *, int, const char *, ...)
+    __attribute__((format(printf, 3, 4)));
+bool sircc_cfg_get_boolean(struct sircc_cfg *, bool, const char *, ...)
+    __attribute__((format(printf, 3, 4)));
+
+struct sircc_server;
+
+const char *sircc_cfg_get_server_string(struct sircc_server *, const char *,
+                                        const char *);
+int sircc_cfg_get_server_integer(struct sircc_server *, const char *, int);
+bool sircc_cfg_get_server_boolean(struct sircc_server *, const char *, bool);
+
 /* Layout */
 struct sircc_history_entry;
 
@@ -233,6 +285,7 @@ enum sircc_server_state {
 };
 
 struct sircc_server {
+    const char *name;
     const char *host;
     const char *port;
     bool use_ssl;
@@ -316,6 +369,8 @@ struct sircc {
 
     struct sircc_buf input_buf;
     struct sircc_buf prompt_buf;
+
+    struct sircc_cfg cfg;
 
     /* UI */
     bool ui_setup;

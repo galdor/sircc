@@ -268,9 +268,6 @@ sircc_msgh_topic(struct sircc_server *server, struct sircc_msg *msg) {
 static void
 sircc_msgh_rpl_welcome(struct sircc_server *server, struct sircc_msg *msg) {
     sircc_server_log_info(server, "registered");
-
-    /* XXX debug */
-    sircc_server_printf(server, "JOIN #test\r\n");
 }
 
 static void

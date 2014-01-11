@@ -36,6 +36,7 @@ static void sircc_signal_handler(int);
 
 static void sircc_initialize(void);
 static void sircc_shutdown(void);
+static void sircc_load_servers(void);
 static void sircc_server_add(struct sircc_server *);
 static void sircc_setup_poll_array(void);
 static void sircc_poll(void);
@@ -56,8 +57,8 @@ struct sircc sircc;
 
 int
 main(int argc, char **argv) {
-    struct sircc_server *server;
-    int opt, nb_args;
+    const char *cfgdir;
+    int opt;
 
     setlocale(LC_ALL, "");
 
@@ -67,9 +68,15 @@ main(int argc, char **argv) {
 
     ht_set_memory_allocator(&sircc_ht_allocator);
 
+    cfgdir = NULL;
+
     opterr = 0;
-    while ((opt = getopt(argc, argv, "h")) != -1) {
+    while ((opt = getopt(argc, argv, "c:h")) != -1) {
         switch (opt) {
+        case 'c':
+            cfgdir = optarg;
+            break;
+
         case 'h':
             usage(argv[0], 0);
             break;
@@ -79,30 +86,12 @@ main(int argc, char **argv) {
         }
     }
 
-    nb_args = argc - optind;
+    if (sircc_cfg_initialize(cfgdir) == -1) {
+        fprintf(stderr, "%s\n", sircc_get_error());
+        exit(1);
+    }
 
-    server = sircc_server_new();
-    server->host = "localhost";
-    server->port = "6667";
-    server->nickname = "sircc";
-    server->realname = "Simple IRC Client";
-    sircc_server_add(server);
-
-    server = sircc_server_new();
-    server->host = "127.0.0.1";
-    server->port = "6667";
-    server->nickname = "sircc2";
-    server->realname = "Simple IRC Client";
-    sircc_server_add(server);
-
-    server = sircc_server_new();
-    server->host = "galdor.org";
-    server->port = "6668";
-    server->use_ssl = true;
-    server->nickname = "sircc3";
-    server->realname = "Simple IRC Client";
-    sircc_server_add(server);
-
+    sircc_load_servers();
     sircc_ui_initialize();
     sircc_initialize();
 
@@ -112,6 +101,7 @@ main(int argc, char **argv) {
 
     sircc_shutdown();
     sircc_ui_shutdown();
+    sircc_cfg_shutdown();
 
     EVP_cleanup();
     return 0;
@@ -119,10 +109,11 @@ main(int argc, char **argv) {
 
 static void
 usage(const char *argv0, int exit_code) {
-    printf("Usage: %s [-h]\n"
+    printf("Usage: %s [-ch]\n"
             "\n"
             "Options:\n"
-            "  -h         display help\n",
+            "  -c <dir>  load the configuration from <dir> instead of ~/.sircc\n"
+            "  -h        display help\n",
             argv0);
     exit(exit_code);
 }
@@ -654,8 +645,6 @@ sircc_server_printf(struct sircc_server *server, const char *fmt, ...) {
     va_list ap;
     int ret;
 
-    ret = 0;
-
     va_start(ap, fmt);
     ret = sircc_server_vprintf(server, fmt, ap);
     va_end(ap);
@@ -970,7 +959,11 @@ sircc_server_remove_chan(struct sircc_server *server,
 
 struct sircc_server *
 sircc_server_get_current(void) {
-    return sircc.servers[sircc.current_server];
+    if (sircc.current_server >= 0) {
+        return sircc.servers[sircc.current_server];
+    } else {
+        return NULL;
+    }
 }
 
 bool
@@ -1040,6 +1033,34 @@ sircc_shutdown(void) {
     sigaction(SIGINT, &sircc.old_sigact_sigint, NULL);
     sigaction(SIGTERM, &sircc.old_sigact_sigterm, NULL);
     sigaction(SIGWINCH, &sircc.old_sigact_sigwinch, NULL);
+}
+
+static void
+sircc_load_servers(void) {
+    for (size_t i = 0; i < sircc.cfg.nb_servers; i++) {
+        struct sircc_server *server;
+
+        server = sircc_server_new();
+        server->name = sircc.cfg.servers[i];
+        server->host = sircc_cfg_get_server_string(server, "host", NULL);
+        server->port = sircc_cfg_get_server_string(server, "port", "6667");
+        server->use_ssl = sircc_cfg_get_server_boolean(server, "host", false);
+        server->nickname = sircc_cfg_get_server_string(server, "nickname",
+                                                       NULL);
+        server->realname = sircc_cfg_get_server_string(server, "realname",
+                                                       server->nickname);
+
+        if (!server->host)
+            die("no host defined for server %s", server->name);
+
+        if (!server->nickname)
+            die("no nickname defined for server %s", server->name);
+
+        sircc_server_add(server);
+    }
+
+    if (sircc.nb_servers == 0)
+        die("no server defined in configuration");
 }
 
 static void

@@ -29,7 +29,7 @@ static void sircc_ui_setup_windows(void);
 
 void
 sircc_ui_initialize(void) {
-    int width, height;
+    int height;
 
     initscr();
     keypad(stdscr, 1);
@@ -50,7 +50,7 @@ sircc_ui_initialize(void) {
     clear();
     refresh();
 
-    getmaxyx(stdscr, height, width);
+    height = getmaxy(stdscr);
     if (height < 8)
         die("terminal too small, not enough lines");
 
@@ -192,8 +192,6 @@ sircc_ui_main_redraw(void) {
 
         row = layout->rows + i;
         entry = row->entry;
-
-        attrs = 0;
 
         switch (entry->type) {
         case SIRCC_HISTORY_CHAN_MSG:
