@@ -257,6 +257,7 @@ struct sircc_server {
 
     struct sircc_chan *chans;
     struct sircc_chan *current_chan;
+    struct sircc_chan *last_chan;
 
     SSL_CTX *ssl_ctx;
     SSL *ssl;

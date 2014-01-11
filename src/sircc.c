@@ -947,9 +947,9 @@ sircc_server_add_chan(struct sircc_server *server, struct sircc_chan *chan) {
 void
 sircc_server_remove_chan(struct sircc_server *server,
                          struct sircc_chan *chan) {
-    struct sircc_chan *previous_chan;
+    struct sircc_chan *selected_chan;
 
-    previous_chan = chan->prev;
+    selected_chan = server->last_chan ? server->last_chan : chan->prev;
 
     if (chan->prev)
         chan->prev->next = chan->next;
@@ -960,7 +960,9 @@ sircc_server_remove_chan(struct sircc_server *server,
         server->chans = chan->next;
 
     if (server->current_chan == chan)
-        sircc_ui_server_select_chan(server, previous_chan);
+        sircc_ui_server_select_chan(server, selected_chan);
+
+    server->last_chan = NULL;
 
     sircc_ui_chans_redraw();
     sircc_ui_update();

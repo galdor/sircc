@@ -388,6 +388,7 @@ sircc_ui_server_select_next(void) {
 void
 sircc_ui_server_select_chan(struct sircc_server *server,
                             struct sircc_chan *chan) {
+    server->last_chan = server->current_chan;
     server->current_chan = chan;
 
     sircc_ui_topic_redraw();
