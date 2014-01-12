@@ -437,7 +437,8 @@ void sircc_ui_prompt_execute(void);
 
 /* Commands */
 enum sircc_cmd_id {
-    SIRCC_CMD_JOIN = 0,
+    SIRCC_CMD_HELP = 0,
+    SIRCC_CMD_JOIN,
     SIRCC_CMD_MODE,
     SIRCC_CMD_MSG,
     SIRCC_CMD_NAMES,

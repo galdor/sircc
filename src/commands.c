@@ -36,6 +36,7 @@ struct sircc_cmd_desc {
     size_t min, max;
     sircc_cmd_handler handler;
     const char *usage;
+    const char *help;
 };
 
 static void sircc_cmd_add_arg(struct sircc_cmd *, char *);
@@ -43,6 +44,7 @@ static int sircc_cmd_parse_arg(const char **, size_t *, char **);
 
 static struct sircc_cmd_desc *sircc_cmd_get_desc(const char *);
 
+static void sircc_cmdh_help(struct sircc_server *, struct sircc_cmd *);
 static void sircc_cmdh_join(struct sircc_server *, struct sircc_cmd *);
 static void sircc_cmdh_mode(struct sircc_server *, struct sircc_cmd *);
 static void sircc_cmdh_msg(struct sircc_server *, struct sircc_cmd *);
@@ -54,22 +56,34 @@ static void sircc_cmdh_topic(struct sircc_server *, struct sircc_cmd *);
 
 static struct sircc_cmd_desc
 sircc_cmd_descs[SIRCC_CMD_COUNT] = {
+    {"help",  SIRCC_CMD_HELP,  SIRCC_CMD_ARGS_RANGE,      1, 1,
+        sircc_cmdh_help,  "/help <command>",
+        "display help about a command"},
     {"join",  SIRCC_CMD_JOIN,  SIRCC_CMD_ARGS_RANGE,      1, 2,
-        sircc_cmdh_join,  "/join <chan> [<key>]"},
+        sircc_cmdh_join,  "/join <chan> [<key>]",
+        "join a new channel"},
     {"mode",  SIRCC_CMD_MODE,  SIRCC_CMD_ARGS_TRAILING,   2, 2,
-        sircc_cmdh_mode,  "/mode <target> <flags> [<parameters...>]"},
+        sircc_cmdh_mode,  "/mode <target> <flags> [<parameters...>]",
+        "change the mode flags of a user or channel"},
     {"msg",   SIRCC_CMD_MSG,   SIRCC_CMD_ARGS_TRAILING,   1, 2,
-        sircc_cmdh_msg,   "/msg <target> <message...>"},
+        sircc_cmdh_msg,   "/msg <target> <message...>",
+        "send a message to a user or channel"},
     {"names", SIRCC_CMD_NAMES, SIRCC_CMD_ARGS_RANGE,      0, 0,
-        sircc_cmdh_names,  "/names"},
+        sircc_cmdh_names,  "/names",
+        "display the list of users in the current channel"},
     {"nick",  SIRCC_CMD_NICK,  SIRCC_CMD_ARGS_RANGE,      1, 1,
-        sircc_cmdh_nick,   "/nick <nickname>"},
+        sircc_cmdh_nick,   "/nick <nickname>",
+        "change the current nickname"},
     {"part",  SIRCC_CMD_PART,  SIRCC_CMD_ARGS_TRAILING,   0, 0,
-        sircc_cmdh_part,  "/part [<message...>]"},
+        sircc_cmdh_part,  "/part [<message...>]",
+        "leave the current channel or private chat"},
     {"quit",  SIRCC_CMD_QUIT,  SIRCC_CMD_ARGS_RANGE,      0, 0,
-        sircc_cmdh_quit,  "/quit"},
+        sircc_cmdh_quit,  "/quit",
+        "quit sircc"},
     {"topic", SIRCC_CMD_TOPIC, SIRCC_CMD_ARGS_TRAILING,   0, 0,
-        sircc_cmdh_topic, "/topic [<message...>]"},
+        sircc_cmdh_topic, "/topic [<message...>]",
+        "if an argument is provided, change the topic of the current channel"
+        "; if not, display the topic of the current channel"},
 };
 
 void
@@ -273,6 +287,24 @@ sircc_cmd_get_desc(const char *name) {
     }
 
     return NULL;
+}
+
+static void
+sircc_cmdh_help(struct sircc_server *server, struct sircc_cmd *cmd) {
+    const char *cmd_name;
+    struct sircc_cmd_desc *cmd_desc;
+
+    cmd_name = cmd->args[0];
+
+    cmd_desc = sircc_cmd_get_desc(cmd_name);
+    if (!cmd_desc) {
+        sircc_chan_log_error(server->current_chan, "unknown command '%s'",
+                             cmd_name);
+        return;
+    }
+
+    sircc_chan_log_info(server->current_chan, "%s", cmd_desc->usage);
+    sircc_chan_log_info(server->current_chan, "%s", cmd_desc->help);
 }
 
 static void
