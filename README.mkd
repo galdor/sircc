@@ -1,0 +1,15 @@
+# sircc
+
+## Description
+
+`sircc` is an IRC client designed for simplicity and code legibility. It is
+written in C for Unix platforms.
+
+`sircc` is currently highly experimental: anything can change at any moment.
+It is recommended to build it in debug (`make debug=1`) and to enable core
+files on your machine.
+
+## Contact
+
+If you have found a bug, have an idea or a question, email me at
+<khaelin@gmail.com>.
