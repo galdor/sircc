@@ -65,7 +65,7 @@ sircc_cmd_descs[SIRCC_CMD_COUNT] = {
     {"nick",  SIRCC_CMD_NICK,  SIRCC_CMD_ARGS_RANGE,      1, 1,
         sircc_cmdh_nick,   "/nick <nickname>"},
     {"part",  SIRCC_CMD_PART,  SIRCC_CMD_ARGS_TRAILING,   0, 0,
-        sircc_cmdh_part,  "/part <chan> [<message...>]"},
+        sircc_cmdh_part,  "/part [<message...>]"},
     {"quit",  SIRCC_CMD_QUIT,  SIRCC_CMD_ARGS_RANGE,      0, 0,
         sircc_cmdh_quit,  "/quit"},
     {"topic", SIRCC_CMD_TOPIC, SIRCC_CMD_ARGS_TRAILING,   0, 0,
