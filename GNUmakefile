@@ -19,6 +19,8 @@ ifeq ($(platform), Linux)
 endif
 ifeq ($(platform), FreeBSD)
 	CFLAGS+= -DSIRCC_PLATFORM_FREEBSD
+	CFLAGS+= -I/usr/local/include
+	LDFLAGS+= -L/usr/local/lib
 endif
 
 # Debug

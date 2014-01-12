@@ -19,6 +19,11 @@
 #include <fcntl.h>
 #include <unistd.h>
 
+#ifdef SIRCC_PLATFORM_FREEBSD
+#   include <sys/socket.h>
+#   include <netinet.h>
+#endif
+
 #include "sircc.h"
 
 int

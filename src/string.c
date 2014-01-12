@@ -57,7 +57,14 @@ sircc_str_to_utf8(char *buf, size_t len, size_t *nb_bytes) {
         *nb_bytes = 0;
 
     for (;;) {
-        if (iconv(conv, &buf, &inlen, &out, &outlen) == (size_t)-1) {
+        size_t ret;
+
+#ifdef SIRCC_PLATFORM_FREEBSD
+        ret = iconv(conv, (const char **)&buf, &inlen, &out, &outlen);
+#else
+        ret = iconv(conv, &buf, &inlen, &out, &outlen);
+#endif
+        if (ret == (size_t)-1) {
             if (errno == E2BIG) {
                 outlen = (outlen - 1) * 2 + 1;
                 tmp = sircc_realloc(tmp, outlen);
