@@ -1390,6 +1390,9 @@ sircc_read_input(void) {
         if (c == 8) {
             /* Backspace */
             sircc_ui_prompt_delete_previous_char();
+        } else if (c == 12) {
+            /* ^L */
+            sircc_ui_on_resize();
         } else if (c == 13) {
             /* Return */
             sircc_ui_prompt_execute();
