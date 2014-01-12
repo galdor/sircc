@@ -22,6 +22,7 @@ static void sircc_set_msg_handler(const char *, sircc_msg_handler);
 
 static void sircc_msgh_join(struct sircc_server *, struct sircc_msg *);
 static void sircc_msgh_mode(struct sircc_server *, struct sircc_msg *);
+static void sircc_msgh_nick(struct sircc_server *, struct sircc_msg *);
 static void sircc_msgh_part(struct sircc_server *, struct sircc_msg *);
 static void sircc_msgh_ping(struct sircc_server *, struct sircc_msg *);
 static void sircc_msgh_privmsg(struct sircc_server *, struct sircc_msg *);
@@ -43,6 +44,7 @@ void
 sircc_init_msg_handlers(void) {
     sircc_set_msg_handler("JOIN", sircc_msgh_join);
     sircc_set_msg_handler("MODE", sircc_msgh_mode);
+    sircc_set_msg_handler("NICK", sircc_msgh_nick);
     sircc_set_msg_handler("PART", sircc_msgh_part);
     sircc_set_msg_handler("PING", sircc_msgh_ping);
     sircc_set_msg_handler("PRIVMSG", sircc_msgh_privmsg);
@@ -102,7 +104,7 @@ sircc_msgh_join(struct sircc_server *server, struct sircc_msg *msg) {
         sircc_server_add_chan(server, chan);
     }
 
-    if (strcmp(nickname, server->nickname) == 0) {
+    if (strcmp(nickname, server->current_nickname) == 0) {
         /* We just joined the chan */
         sircc_chan_log_info(chan, "you have joined %s", chan_name);
         sircc_ui_server_select_chan(server, chan);
@@ -148,6 +150,37 @@ sircc_msgh_mode(struct sircc_server *server, struct sircc_msg *msg) {
 }
 
 static void
+sircc_msgh_nick(struct sircc_server *server, struct sircc_msg *msg) {
+    const char *new_nickname;
+    char nickname[SIRCC_NICKNAME_MAXSZ];
+
+    if (msg->nb_params < 1) {
+        sircc_server_log_error(server, "missing argument in NICK");
+        return;
+    }
+
+    if (sircc_msg_prefix_nickname(msg, nickname, sizeof(nickname)) == -1) {
+        sircc_server_log_error(server, "cannot get prefix nick: %s",
+                               sircc_get_error());
+        return;
+    }
+
+    new_nickname = msg->params[0];
+
+    if (strcmp(server->current_nickname, nickname) == 0) {
+        sircc_chan_log_info(server->current_chan,
+                            "you changed your nickname to %s",
+                            new_nickname);
+        sircc_free(server->current_nickname);
+        server->current_nickname = sircc_strdup(new_nickname);
+    } else {
+        sircc_chan_log_info(server->current_chan,
+                            "%s has changed is nickname to %s",
+                            nickname, new_nickname);
+    }
+}
+
+static void
 sircc_msgh_part(struct sircc_server *server, struct sircc_msg *msg) {
     struct sircc_chan *chan;
     const char *chan_name;
@@ -171,7 +204,7 @@ sircc_msgh_part(struct sircc_server *server, struct sircc_msg *msg) {
         sircc_server_add_chan(server, chan);
     }
 
-    if (strcmp(nickname, server->nickname) == 0) {
+    if (strcmp(nickname, server->current_nickname) == 0) {
         /* We just left the chan */
         sircc_server_remove_chan(server, chan);
         sircc_chan_delete(chan);
@@ -275,10 +308,8 @@ sircc_msgh_rpl_welcome(struct sircc_server *server, struct sircc_msg *msg) {
     sircc_server_log_info(server, "irc client registered");
 
     cmds = sircc_cfg_server_strings(server, "auto_command", &nb_cmds);
-    for (size_t i = 0; i < nb_cmds; i++) {
-        sircc_server_trace(server, "auto command: %s", cmds[i]);
+    for (size_t i = 0; i < nb_cmds; i++)
         sircc_server_printf(server, "%s\r\n", cmds[i]);
-    }
 }
 
 static void

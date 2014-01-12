@@ -305,6 +305,8 @@ struct sircc_server {
     bool use_ssl;
 
     const char *nickname;
+    char *current_nickname;
+    int max_nickname_length;
     const char *realname;
     const char *password;
 
@@ -333,8 +335,6 @@ struct sircc_server {
     bool ssl_verify_certificate;
     const char *ssl_ca_certificate;
     bool ssl_allow_self_signed_certificate;
-
-    int max_nickname_length;
 };
 
 struct sircc_server *sircc_server_new(const char *name);
@@ -441,6 +441,7 @@ enum sircc_cmd_id {
     SIRCC_CMD_MODE,
     SIRCC_CMD_MSG,
     SIRCC_CMD_NAMES,
+    SIRCC_CMD_NICK,
     SIRCC_CMD_PART,
     SIRCC_CMD_QUIT,
     SIRCC_CMD_TOPIC,

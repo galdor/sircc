@@ -530,7 +530,7 @@ sircc_ui_prompt_execute(void) {
             text = sircc_buf_dup_str(&sircc.prompt_buf);
 
             sircc_server_send_privmsg(server, chan->name, text);
-            sircc_chan_add_msg(chan, server->nickname, text);
+            sircc_chan_add_msg(chan, server->current_nickname, text);
 
             sircc_free(text);
         }

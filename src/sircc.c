@@ -358,6 +358,8 @@ sircc_server_delete(struct sircc_server *server) {
     if (!server)
         return;
 
+    sircc_free(server->current_nickname);
+
     if (server->addresses) {
         freeaddrinfo(server->addresses[0]);
         sircc_free(server->addresses);
@@ -1203,6 +1205,8 @@ sircc_load_servers(void) {
 
         if (!server->nickname)
             die("no nickname defined for server %s", server->name);
+
+        server->current_nickname = sircc_strdup(server->nickname);
 
         sircc_server_add(server);
     }

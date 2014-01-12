@@ -47,6 +47,7 @@ static void sircc_cmdh_join(struct sircc_server *, struct sircc_cmd *);
 static void sircc_cmdh_mode(struct sircc_server *, struct sircc_cmd *);
 static void sircc_cmdh_msg(struct sircc_server *, struct sircc_cmd *);
 static void sircc_cmdh_names(struct sircc_server *, struct sircc_cmd *);
+static void sircc_cmdh_nick(struct sircc_server *, struct sircc_cmd *);
 static void sircc_cmdh_part(struct sircc_server *, struct sircc_cmd *);
 static void sircc_cmdh_quit(struct sircc_server *, struct sircc_cmd *);
 static void sircc_cmdh_topic(struct sircc_server *, struct sircc_cmd *);
@@ -61,6 +62,8 @@ sircc_cmd_descs[SIRCC_CMD_COUNT] = {
         sircc_cmdh_msg,   "/msg <target> <message...>"},
     {"names", SIRCC_CMD_NAMES, SIRCC_CMD_ARGS_RANGE,      0, 0,
         sircc_cmdh_names,  "/names"},
+    {"nick",  SIRCC_CMD_NICK,  SIRCC_CMD_ARGS_RANGE,      1, 1,
+        sircc_cmdh_nick,   "/nick <nickname>"},
     {"part",  SIRCC_CMD_PART,  SIRCC_CMD_ARGS_TRAILING,   0, 0,
         sircc_cmdh_part,  "/part <chan> [<message...>]"},
     {"quit",  SIRCC_CMD_QUIT,  SIRCC_CMD_ARGS_RANGE,      0, 0,
@@ -334,6 +337,11 @@ sircc_cmdh_names(struct sircc_server *server, struct sircc_cmd *cmd) {
     } else {
         sircc_server_printf(server, "NAMES\r\n");
     }
+}
+
+static void
+sircc_cmdh_nick(struct sircc_server *server, struct sircc_cmd *cmd) {
+    sircc_server_printf(server, "NICK %s\r\n", cmd->args[0]);
 }
 
 static void
