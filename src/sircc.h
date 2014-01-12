@@ -131,7 +131,6 @@ void sircc_cfg_shutdown(void);
 void sircc_cfg_init(struct sircc_cfg *);
 void sircc_cfg_free(struct sircc_cfg *);
 
-int sircc_cfg_load_default(struct sircc_cfg *);
 int sircc_cfg_load_directory(struct sircc_cfg *, const char *);
 int sircc_cfg_load_file(struct sircc_cfg *, const char *);
 

@@ -58,6 +58,9 @@ struct sircc sircc;
 
 int
 main(int argc, char **argv) {
+    const char *home;
+    char cfgdir_default[PATH_MAX];
+
     const char *cfgdir;
     int opt;
 
@@ -69,7 +72,12 @@ main(int argc, char **argv) {
 
     ht_set_memory_allocator(&sircc_ht_allocator);
 
-    cfgdir = NULL;
+
+    home = getenv("HOME");
+    if (!home)
+        die("HOME environment variable not set");
+    snprintf(cfgdir_default, sizeof(cfgdir_default), "%s/.sircc", home);
+    cfgdir = cfgdir_default;
 
     opterr = 0;
     while ((opt = getopt(argc, argv, "c:h")) != -1) {

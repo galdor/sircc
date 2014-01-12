@@ -70,7 +70,6 @@ static struct ht_table *sircc_cfg_types;
 int
 sircc_cfg_initialize(const char *dirpath) {
     size_t nb_types;
-    int ret;
 
     sircc.cfgdir = dirpath;
 
@@ -84,13 +83,7 @@ sircc_cfg_initialize(const char *dirpath) {
 
     sircc_cfg_init(&sircc.cfg);
 
-    if (dirpath) {
-        ret = sircc_cfg_load_directory(&sircc.cfg, dirpath);
-    } else {
-        ret = sircc_cfg_load_default(&sircc.cfg);
-    }
-
-    if (ret == -1) {
+    if (sircc_cfg_load_directory(&sircc.cfg, dirpath) == -1) {
         sircc_cfg_free(&sircc.cfg);
         return -1;
     }
@@ -126,20 +119,6 @@ sircc_cfg_free(struct sircc_cfg *cfg) {
     for (size_t i = 0; i < cfg->nb_servers; i++)
         sircc_free(cfg->servers[i]);
     sircc_free(cfg->servers);
-}
-
-
-int
-sircc_cfg_load_default(struct sircc_cfg *cfg) {
-    const char *home;
-    char path[PATH_MAX];
-
-    home = getenv("HOME");
-    if (!home)
-        return 0;
-
-    snprintf(path, sizeof(path), "%s/.sircc", home);
-    return sircc_cfg_load_directory(cfg, path);
 }
 
 int
