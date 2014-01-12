@@ -217,7 +217,7 @@ sircc_ui_main_redraw(void) {
 
         if (row->is_entry_first_row) {
             wmove(win, y, 0);
-            waddstr(win, entry->margin_text);
+            sircc_ui_format(win, entry->margin_text);
 
             wattron(win, attrs);
             waddnstr(win, row->text, row->text_sz);
@@ -541,6 +541,126 @@ sircc_ui_prompt_execute(void) {
     }
 
     sircc_ui_prompt_clear();
+}
+
+int
+sircc_ui_vformat(WINDOW *win, const char *fmt, va_list ap) {
+    /*
+     * ^a0   reset attributes
+     * ^a1   bold
+     * ^a7   reverse
+     *
+     * ^c0  black foreground
+     * ^c1  red foreground
+     * ^c2  green foreground
+     * ^c3  yellow foreground
+     * ^c4  blue foreground
+     * ^c5  magenta foreground
+     * ^c6  cyan foreground
+     * ^c7  white foreground
+     * ^c9  default foreground
+     *
+     * ^^   '^' character
+     */
+
+    struct sircc_buf buf;
+    const char *ptr;
+    size_t len;
+
+    sircc_buf_init(&buf);
+    if (sircc_buf_add_vprintf(&buf, fmt, ap) == -1)
+        goto error;
+
+    ptr = sircc_buf_data(&buf);
+    len = sircc_buf_length(&buf);
+
+    while (len > 0) {
+        if (*ptr == '^') {
+            ptr++;
+            len--;
+            if (len == 0) {
+                sircc_set_error("truncated sequence");
+                goto error;
+            }
+
+            if (*ptr == '^') {
+                waddch(win, (chtype)*ptr);
+                ptr++;
+                len--;
+            } else if (*ptr == 'a') {
+                char digit;
+
+                ptr++;
+                len--;
+                if (len == 0) {
+                    sircc_set_error("truncated attribute sequence");
+                    goto error;
+                }
+
+                digit = *ptr - '0';
+
+                switch (digit) {
+                case 0:
+                    wattrset(win, A_NORMAL);
+                    break;
+
+                case 1:
+                    wattron(win, A_BOLD);
+                    break;
+
+                case 7:
+                    wattron(win, A_REVERSE);
+                    break;
+                }
+
+                ptr++;
+                len--;
+            } else if (*ptr == 'c') {
+                char digit;
+
+                ptr++;
+                len--;
+                if (len == 0) {
+                    sircc_set_error("truncated color sequence");
+                    goto error;
+                }
+
+                digit = *ptr - '0';
+
+                wattron(win, COLOR_PAIR(digit));
+
+                ptr++;
+                len--;
+            }
+        } else {
+            waddch(win, (chtype)*ptr);
+            ptr++;
+            len--;
+        }
+    }
+
+    wattrset(win, A_NORMAL);
+
+    sircc_buf_free(&buf);
+    return 0;
+
+error:
+    wattrset(win, A_NORMAL);
+
+    sircc_buf_free(&buf);
+    return -1;
+}
+
+int
+sircc_ui_format(WINDOW *win, const char *fmt, ...) {
+    va_list ap;
+    int ret;
+
+    va_start(ap, fmt);
+    ret = sircc_ui_vformat(win, fmt, ap);
+    va_end(ap);
+
+    return ret;
 }
 
 static void

@@ -213,13 +213,15 @@ sircc_history_entry_update_margin_text(struct sircc_history *history,
     switch (entry->type) {
     case SIRCC_HISTORY_CHAN_MSG:
     case SIRCC_HISTORY_SERVER_MSG:
-        sircc_asprintf(&str, "%s %-*s  ", date_str, src_field_sz, entry->src);
+        sircc_asprintf(&str, "^a1^c8%s^a0 ^c3%-*s^c0  ",
+                       date_str, src_field_sz, entry->src);
         break;
 
     case SIRCC_HISTORY_TRACE:
     case SIRCC_HISTORY_INFO:
     case SIRCC_HISTORY_ERROR:
-        sircc_asprintf(&str, "%s %-*s  ", date_str, src_field_sz, "");
+        sircc_asprintf(&str, "^a1^c8%s^a0 %-*s  ",
+                       date_str, src_field_sz, "");
         break;
 
     }

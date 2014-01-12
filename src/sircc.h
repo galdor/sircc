@@ -438,6 +438,9 @@ void sircc_ui_prompt_delete_previous_char(void);
 void sircc_ui_prompt_clear(void);
 void sircc_ui_prompt_execute(void);
 
+int sircc_ui_vformat(WINDOW *, const char *, va_list);
+int sircc_ui_format(WINDOW *, const char *, ...);
+
 /* Commands */
 enum sircc_cmd_id {
     SIRCC_CMD_HELP = 0,
