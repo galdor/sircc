@@ -1178,15 +1178,17 @@ sircc_load_servers(void) {
         server->port = sircc_cfg_server_string(server, "port", "6667");
 
         server->use_ssl = sircc_cfg_server_boolean(server, "ssl", false);
-        server->ssl_verify_certificate
-            = sircc_cfg_server_boolean(server, "ssl_verify_certificate", true);
-        server->ssl_ca_certificate
-            = sircc_cfg_server_string(server, "ssl_ca_certificate", NULL);
-        server->ssl_allow_self_signed_certificate
-            = sircc_cfg_server_boolean(server, "ssl_allow_self_signed_certificate",
-                                       false);
-        if (server->ssl_verify_certificate && !server->ssl_ca_certificate)
-            die("missing ssl_ca_certificate for server %s", server->name);
+        if (server->use_ssl) {
+            server->ssl_verify_certificate
+                = sircc_cfg_server_boolean(server, "ssl_verify_certificate", true);
+            server->ssl_ca_certificate
+                = sircc_cfg_server_string(server, "ssl_ca_certificate", NULL);
+            server->ssl_allow_self_signed_certificate
+                = sircc_cfg_server_boolean(server, "ssl_allow_self_signed_certificate",
+                                           false);
+            if (server->ssl_verify_certificate && !server->ssl_ca_certificate)
+                die("missing ssl_ca_certificate for server %s", server->name);
+        }
 
         server->nickname = sircc_cfg_server_string(server, "nickname", NULL);
         server->realname = sircc_cfg_server_string(server, "realname",
