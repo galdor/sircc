@@ -972,8 +972,9 @@ sircc_server_on_connection_established(struct sircc_server *server) {
 
     server->pollfd->events = POLLIN;
 
-    sircc_server_printf(server, "NICK %s\r\n",
-                        server->nickname);
+    if (server->password)
+        sircc_server_printf(server, "PASS %s\r\n", server->password);
+    sircc_server_printf(server, "NICK %s\r\n", server->nickname);
     sircc_server_printf(server, "USER %s 0 * :%s\r\n",
                         server->nickname, server->realname);
 }
@@ -1193,6 +1194,8 @@ sircc_load_servers(void) {
         server->nickname = sircc_cfg_server_string(server, "nickname", NULL);
         server->realname = sircc_cfg_server_string(server, "realname",
                                                    server->nickname);
+        server->password = sircc_cfg_server_string(server, "password",
+                                                   server->password);
 
         server->max_nickname_length =
             sircc_cfg_server_integer(server, "max_nickname_length", 9);

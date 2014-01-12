@@ -54,6 +54,8 @@ static struct {
     {"realname",                          SIRCC_CFG_STRING},
     {"max_nickname_length",               SIRCC_CFG_INTEGER},
 
+    {"password",                          SIRCC_CFG_STRING},
+
     {"autojoin",                          SIRCC_CFG_BOOLEAN},
 };
 

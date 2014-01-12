@@ -296,6 +296,7 @@ struct sircc_server {
 
     const char *nickname;
     const char *realname;
+    const char *password;
 
     struct addrinfo **addresses;
     size_t nb_addresses;
