@@ -21,6 +21,7 @@
 #include <string.h>
 #include <time.h>
 
+#include <dirent.h>
 #include <unistd.h>
 #include <sys/socket.h>
 #include <sys/types.h>
@@ -609,6 +610,7 @@ sircc_server_ssl_check_certificate(struct sircc_server *server) {
     X509_NAME *name;
     X509_STORE *store;
     X509_STORE_CTX *store_ctx;
+    char path[PATH_MAX];
     char buf[512];
 
     cert = SSL_get_peer_certificate(server->ssl);
@@ -635,14 +637,13 @@ sircc_server_ssl_check_certificate(struct sircc_server *server) {
         goto error;
     }
 
-    if (sircc_x509_store_add_certificate(store,
-                                         server->ssl_ca_certificate) == -1) {
+    sircc_cfg_ssl_file_path(path, server->ssl_ca_certificate, sizeof(path));
+    sircc_server_log_info(server, "loading ssl ca certificate from %s", path);
+
+    if (sircc_x509_store_add_certificate(store, path) == -1) {
         sircc_server_log_error(server, "%s", sircc_get_error());
         goto error;
     }
-
-    sircc_server_log_info(server, "ssl ca certificate loaded from %s",
-                          server->ssl_ca_certificate);
 
     store_ctx = X509_STORE_CTX_new();
     if (!store_ctx) {
@@ -1226,8 +1227,10 @@ sircc_load_servers(void) {
         if (server->use_ssl) {
             server->ssl_verify_certificate
                 = sircc_cfg_server_boolean(server, "ssl_verify_certificate", true);
+
             server->ssl_ca_certificate
                 = sircc_cfg_server_string(server, "ssl_ca_certificate", NULL);
+
             server->ssl_allow_self_signed_certificate
                 = sircc_cfg_server_boolean(server, "ssl_allow_self_signed_certificate",
                                            false);

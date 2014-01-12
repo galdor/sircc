@@ -135,6 +135,8 @@ int sircc_cfg_load_default(struct sircc_cfg *);
 int sircc_cfg_load_directory(struct sircc_cfg *, const char *);
 int sircc_cfg_load_file(struct sircc_cfg *, const char *);
 
+void sircc_cfg_ssl_file_path(char *, const char *, size_t);
+
 const char *sircc_cfg_string(struct sircc_cfg *, const char *,
                              const char *, ...)
     __attribute__((format(printf, 3, 4)));
@@ -394,6 +396,7 @@ struct sircc {
     struct sircc_buf input_buf;
     struct sircc_buf prompt_buf;
 
+    const char *cfgdir;
     struct sircc_cfg cfg;
 
     /* UI */

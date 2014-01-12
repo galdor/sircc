@@ -72,6 +72,8 @@ sircc_cfg_initialize(const char *dirpath) {
     size_t nb_types;
     int ret;
 
+    sircc.cfgdir = dirpath;
+
     sircc_cfg_types = ht_table_new(ht_hash_string, ht_equal_string);
 
     nb_types = sizeof(sircc_cfg_type_array) / sizeof(sircc_cfg_type_array[0]);
@@ -229,6 +231,17 @@ error:
     fclose(file);
 
     return -1;
+}
+
+void
+sircc_cfg_ssl_file_path(char *buf, const char *file, size_t sz) {
+    if (file[0] == '/') {
+        /* Absolute path */
+        strlcpy(buf, file, sz);
+    } else {
+        /* Relative path */
+        snprintf(buf, sz, "%s/ssl/%s", sircc.cfgdir, file);
+    }
 }
 
 const char *
