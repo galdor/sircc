@@ -1066,16 +1066,15 @@ sircc_load_servers(void) {
 
         server = sircc_server_new(sircc.cfg.servers[i]);
 
-        server->host = sircc_cfg_get_server_string(server, "host", NULL);
-        server->port = sircc_cfg_get_server_string(server, "port", "6667");
-        server->use_ssl = sircc_cfg_get_server_boolean(server, "host", false);
-        server->nickname = sircc_cfg_get_server_string(server, "nickname",
-                                                       NULL);
-        server->realname = sircc_cfg_get_server_string(server, "realname",
-                                                       server->nickname);
+        server->host = sircc_cfg_server_string(server, "host", NULL);
+        server->port = sircc_cfg_server_string(server, "port", "6667");
+        server->use_ssl = sircc_cfg_server_boolean(server, "use_ssl", false);
+        server->nickname = sircc_cfg_server_string(server, "nickname", NULL);
+        server->realname = sircc_cfg_server_string(server, "realname",
+                                                   server->nickname);
 
         server->max_nickname_length =
-            sircc_cfg_get_server_integer(server, "max_nickname_length", 9);
+            sircc_cfg_server_integer(server, "max_nickname_length", 9);
         if (server->max_nickname_length <= 0)
             die("invalid nickname length: %d", server->max_nickname_length);
         server->history.max_nickname_length = server->max_nickname_length;

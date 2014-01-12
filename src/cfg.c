@@ -212,8 +212,8 @@ error:
 }
 
 const char *
-sircc_cfg_get_string(struct sircc_cfg *cfg, const char *default_value,
-                     const char *fmt, ...) {
+sircc_cfg_string(struct sircc_cfg *cfg, const char *default_value,
+                 const char *fmt, ...) {
     char key[SIRCC_CFG_KEY_MAXSZ];
     struct sircc_cfg_entry *entry;
     va_list ap;
@@ -229,8 +229,8 @@ sircc_cfg_get_string(struct sircc_cfg *cfg, const char *default_value,
 }
 
 int
-sircc_cfg_get_integer(struct sircc_cfg *cfg, int default_value,
-                      const char *fmt, ...) {
+sircc_cfg_integer(struct sircc_cfg *cfg, int default_value,
+                  const char *fmt, ...) {
     char key[SIRCC_CFG_KEY_MAXSZ];
     struct sircc_cfg_entry *entry;
     va_list ap;
@@ -246,8 +246,8 @@ sircc_cfg_get_integer(struct sircc_cfg *cfg, int default_value,
 }
 
 bool
-sircc_cfg_get_boolean(struct sircc_cfg *cfg, bool default_value,
-                      const char *fmt, ...) {
+sircc_cfg_boolean(struct sircc_cfg *cfg, bool default_value,
+                  const char *fmt, ...) {
     char key[SIRCC_CFG_KEY_MAXSZ];
     struct sircc_cfg_entry *entry;
     va_list ap;
@@ -263,24 +263,24 @@ sircc_cfg_get_boolean(struct sircc_cfg *cfg, bool default_value,
 }
 
 const char *
-sircc_cfg_get_server_string(struct sircc_server *server, const char *key,
-                            const char *default_value) {
-    return sircc_cfg_get_string(&sircc.cfg, default_value, "server.%s.%s",
-                                server->name, key);
+sircc_cfg_server_string(struct sircc_server *server, const char *key,
+                        const char *default_value) {
+    return sircc_cfg_string(&sircc.cfg, default_value, "server.%s.%s",
+                            server->name, key);
 }
 
 int
-sircc_cfg_get_server_integer(struct sircc_server *server, const char *key,
-                             int default_value) {
-    return sircc_cfg_get_integer(&sircc.cfg, default_value, "server.%s.%s",
-                                 server->name, key);
+sircc_cfg_server_integer(struct sircc_server *server, const char *key,
+                         int default_value) {
+    return sircc_cfg_integer(&sircc.cfg, default_value, "server.%s.%s",
+                             server->name, key);
 }
 
 bool
-sircc_cfg_get_server_boolean(struct sircc_server *server, const char *key,
-                             bool default_value) {
-    return sircc_cfg_get_boolean(&sircc.cfg, default_value, "server.%s.%s",
-                                 server->name, key);
+sircc_cfg_server_boolean(struct sircc_server *server, const char *key,
+                         bool default_value) {
+    return sircc_cfg_boolean(&sircc.cfg, default_value, "server.%s.%s",
+                             server->name, key);
 }
 
 static void

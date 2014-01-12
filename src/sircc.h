@@ -130,20 +130,20 @@ int sircc_cfg_load_default(struct sircc_cfg *);
 int sircc_cfg_load_directory(struct sircc_cfg *, const char *);
 int sircc_cfg_load_file(struct sircc_cfg *, const char *);
 
-const char *sircc_cfg_get_string(struct sircc_cfg *, const char *,
-                                 const char *, ...)
+const char *sircc_get_string(struct sircc_cfg *, const char *,
+                             const char *, ...)
     __attribute__((format(printf, 3, 4)));
-int sircc_cfg_get_integer(struct sircc_cfg *, int, const char *, ...)
+int sircc_get_integer(struct sircc_cfg *, int, const char *, ...)
     __attribute__((format(printf, 3, 4)));
-bool sircc_cfg_get_boolean(struct sircc_cfg *, bool, const char *, ...)
+bool sircc_get_boolean(struct sircc_cfg *, bool, const char *, ...)
     __attribute__((format(printf, 3, 4)));
 
 struct sircc_server;
 
-const char *sircc_cfg_get_server_string(struct sircc_server *, const char *,
-                                        const char *);
-int sircc_cfg_get_server_integer(struct sircc_server *, const char *, int);
-bool sircc_cfg_get_server_boolean(struct sircc_server *, const char *, bool);
+const char *sircc_cfg_server_string(struct sircc_server *, const char *,
+                                    const char *);
+int sircc_cfg_server_integer(struct sircc_server *, const char *, int);
+bool sircc_cfg_server_boolean(struct sircc_server *, const char *, bool);
 
 /* Layout */
 struct sircc_history_entry;
