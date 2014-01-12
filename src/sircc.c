@@ -632,6 +632,12 @@ sircc_server_log_error(struct sircc_server *server, const char *fmt, ...) {
 
 void
 sircc_server_write(struct sircc_server *server, const char *buf, size_t sz) {
+    if (server->state == SIRCC_SERVER_DISCONNECTED
+     || server->state == SIRCC_SERVER_BROKEN) {
+        sircc_server_log_error(server, "disconnected from server");
+        return;
+    }
+
     sircc_buf_add(&server->wbuf, buf, sz);
 
     server->pollfd->events |= POLLOUT;
@@ -639,6 +645,12 @@ sircc_server_write(struct sircc_server *server, const char *buf, size_t sz) {
 
 int
 sircc_server_vprintf(struct sircc_server *server, const char *fmt, va_list ap) {
+    if (server->state == SIRCC_SERVER_DISCONNECTED
+     || server->state == SIRCC_SERVER_BROKEN) {
+        sircc_server_log_error(server, "disconnected from server");
+        return -1;
+    }
+
     if (sircc_buf_add_vprintf(&server->wbuf, fmt, ap) == -1)
         return -1;
 
@@ -650,6 +662,12 @@ int
 sircc_server_printf(struct sircc_server *server, const char *fmt, ...) {
     va_list ap;
     int ret;
+
+    if (server->state == SIRCC_SERVER_DISCONNECTED
+     || server->state == SIRCC_SERVER_BROKEN) {
+        sircc_server_log_error(server, "disconnected from server");
+        return -1;
+    }
 
     va_start(ap, fmt);
     ret = sircc_server_vprintf(server, fmt, ap);
