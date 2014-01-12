@@ -288,8 +288,10 @@ enum sircc_server_state {
 
 struct sircc_server {
     const char *name;
+
     const char *host;
     const char *port;
+    bool autoconnect;
     bool use_ssl;
 
     const char *nickname;

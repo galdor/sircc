@@ -1136,7 +1136,8 @@ sircc_initialize(void) {
         if (server->state == SIRCC_SERVER_BROKEN)
             continue;
 
-        sircc_server_connect(server);
+        if (server->autoconnect)
+            sircc_server_connect(server);
     }
 }
 
@@ -1169,6 +1170,9 @@ sircc_load_servers(void) {
         struct sircc_server *server;
 
         server = sircc_server_new(sircc.cfg.servers[i]);
+
+        server->autoconnect = sircc_cfg_server_boolean(server, "autoconnect",
+                                                       true);
 
         server->host = sircc_cfg_server_string(server, "host", NULL);
         server->port = sircc_cfg_server_string(server, "port", "6667");

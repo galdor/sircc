@@ -40,6 +40,8 @@ static struct {
     const char *key;
     enum sircc_cfg_entry_type type;
 } sircc_cfg_type_array[] = {
+    {"autoconnect",                       SIRCC_CFG_BOOLEAN},
+
     {"host",                              SIRCC_CFG_STRING},
     {"port",                              SIRCC_CFG_STRING},
 
