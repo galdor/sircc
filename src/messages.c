@@ -33,6 +33,7 @@ static void sircc_msgh_rpl_topicwhotime(struct sircc_server *, struct sircc_msg 
 static void sircc_msgh_rpl_namreply(struct sircc_server *, struct sircc_msg *);
 static void sircc_msgh_err_nosuchnick(struct sircc_server *, struct sircc_msg *);
 static void sircc_msgh_err_notregistered(struct sircc_server *, struct sircc_msg *);
+static void sircc_msgh_err_passwdmismatch(struct sircc_server *, struct sircc_msg *);
 static void sircc_msgh_err_unknownmode(struct sircc_server *, struct sircc_msg *);
 static void sircc_msgh_err_noprivileges(struct sircc_server *, struct sircc_msg *);
 static void sircc_msgh_err_chanoprivsneeded(struct sircc_server *, struct sircc_msg *);
@@ -53,6 +54,7 @@ sircc_init_msg_handlers(void) {
     sircc_set_msg_handler("353", sircc_msgh_rpl_namreply);
     sircc_set_msg_handler("401", sircc_msgh_err_nosuchnick);
     sircc_set_msg_handler("451", sircc_msgh_err_notregistered);
+    sircc_set_msg_handler("464", sircc_msgh_err_passwdmismatch);
     sircc_set_msg_handler("472", sircc_msgh_err_unknownmode);
     sircc_set_msg_handler("481", sircc_msgh_err_noprivileges);
     sircc_set_msg_handler("482", sircc_msgh_err_chanoprivsneeded);
@@ -267,7 +269,16 @@ sircc_msgh_topic(struct sircc_server *server, struct sircc_msg *msg) {
 
 static void
 sircc_msgh_rpl_welcome(struct sircc_server *server, struct sircc_msg *msg) {
+    const char **cmds;
+    size_t nb_cmds;
+
     sircc_server_log_info(server, "irc client registered");
+
+    cmds = sircc_cfg_server_strings(server, "auto_command", &nb_cmds);
+    for (size_t i = 0; i < nb_cmds; i++) {
+        sircc_server_trace(server, "auto command: %s", cmds[i]);
+        sircc_server_printf(server, "%s\r\n", cmds[i]);
+    }
 }
 
 static void
@@ -405,6 +416,12 @@ static void
 sircc_msgh_err_notregistered(struct sircc_server *server,
                              struct sircc_msg *msg) {
     sircc_chan_log_error(NULL, "you have not registered");
+}
+
+static void
+sircc_msgh_err_passwdmismatch(struct sircc_server *server,
+                             struct sircc_msg *msg) {
+    sircc_chan_log_error(NULL, "password incorrect");
 }
 
 static void

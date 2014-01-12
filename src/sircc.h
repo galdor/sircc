@@ -96,6 +96,7 @@ ssize_t sircc_buf_write(struct sircc_buf *, int);
 /* Configuration */
 enum sircc_cfg_entry_type {
     SIRCC_CFG_STRING,
+    SIRCC_CFG_STRING_LIST,
     SIRCC_CFG_INTEGER,
     SIRCC_CFG_BOOLEAN
 };
@@ -107,6 +108,10 @@ struct sircc_cfg_entry {
 
     union {
         char *s;
+        struct {
+            char **strs;
+            size_t nb;
+        } sl;
         int i;
         bool b;
     } u;
@@ -130,18 +135,23 @@ int sircc_cfg_load_default(struct sircc_cfg *);
 int sircc_cfg_load_directory(struct sircc_cfg *, const char *);
 int sircc_cfg_load_file(struct sircc_cfg *, const char *);
 
-const char *sircc_get_string(struct sircc_cfg *, const char *,
+const char *sircc_cfg_string(struct sircc_cfg *, const char *,
                              const char *, ...)
     __attribute__((format(printf, 3, 4)));
-int sircc_get_integer(struct sircc_cfg *, int, const char *, ...)
+const char **sircc_cfg_strings(struct sircc_cfg *, size_t *,
+                               const char *, ...)
     __attribute__((format(printf, 3, 4)));
-bool sircc_get_boolean(struct sircc_cfg *, bool, const char *, ...)
+int sircc_cfg_integer(struct sircc_cfg *, int, const char *, ...)
+    __attribute__((format(printf, 3, 4)));
+bool sircc_cfg_boolean(struct sircc_cfg *, bool, const char *, ...)
     __attribute__((format(printf, 3, 4)));
 
 struct sircc_server;
 
 const char *sircc_cfg_server_string(struct sircc_server *, const char *,
                                     const char *);
+const char **sircc_cfg_server_strings(struct sircc_server *, const char *,
+                                      size_t *);
 int sircc_cfg_server_integer(struct sircc_server *, const char *, int);
 bool sircc_cfg_server_boolean(struct sircc_server *, const char *, bool);
 

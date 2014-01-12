@@ -547,11 +547,6 @@ error:
 
 void
 sircc_server_disconnect(struct sircc_server *server) {
-    if (server->state == SIRCC_SERVER_CONNECTED
-     || server->state == SIRCC_SERVER_SSL_CONNECTED) {
-        sircc_server_log_info(server, "closing connection");
-    }
-
     if (server->sock > 0) {
         close(server->sock);
         server->sock = -1;

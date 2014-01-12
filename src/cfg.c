@@ -14,6 +14,7 @@
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
+#include <assert.h>
 #include <ctype.h>
 #include <errno.h>
 #include <limits.h>
@@ -31,6 +32,7 @@ static int sircc_cfg_get_key_type(const char *, enum sircc_cfg_entry_type *);
 static int sircc_cfg_entry_parse(struct sircc_cfg_entry **, const char *,
                                  char **);
 static int sircc_cfg_entry_parse_value(struct sircc_cfg_entry *, const char *);
+static void sircc_cfg_entry_add_string(struct sircc_cfg_entry *, const char *);
 static void sircc_cfg_entry_delete(struct sircc_cfg_entry *);
 
 static int sircc_cfg_parse_key_value(const char *, char **, char **);
@@ -56,6 +58,9 @@ static struct {
 
     {"password",                          SIRCC_CFG_STRING},
 
+    {"auto_command",                      SIRCC_CFG_STRING_LIST},
+
+    /* Channels */
     {"autojoin",                          SIRCC_CFG_BOOLEAN},
 };
 
@@ -202,10 +207,16 @@ sircc_cfg_load_file(struct sircc_cfg *cfg, const char *path) {
             goto error;
         }
 
-        ht_table_insert2(cfg->entries, entry->key, entry,
-                         NULL, (void **)&old_entry);
-        if (old_entry)
-            sircc_cfg_entry_delete(old_entry);
+        if (entry->type == SIRCC_CFG_STRING_LIST
+         && ht_table_get(cfg->entries, entry->key, (void **)&old_entry) == 1) {
+            sircc_cfg_entry_add_string(old_entry, entry->u.sl.strs[0]);
+            sircc_cfg_entry_delete(entry);
+        } else {
+            ht_table_insert2(cfg->entries, entry->key, entry,
+                             NULL, (void **)&old_entry);
+            if (old_entry)
+                sircc_cfg_entry_delete(old_entry);
+        }
     }
 
     sircc_free(current_server);
@@ -235,6 +246,26 @@ sircc_cfg_string(struct sircc_cfg *cfg, const char *default_value,
         return default_value;
 
     return entry->u.s;
+}
+
+const char **
+sircc_cfg_strings(struct sircc_cfg *cfg, size_t *pnb,
+                  const char *fmt, ...) {
+    char key[SIRCC_CFG_KEY_MAXSZ];
+    struct sircc_cfg_entry *entry;
+    va_list ap;
+
+    va_start(ap, fmt);
+    vsnprintf(key, sizeof(key), fmt, ap);
+    va_end(ap);
+
+    if (ht_table_get(cfg->entries, key, (void **)&entry) == 0) {
+        *pnb = 0;
+        return NULL;
+    }
+
+    *pnb = entry->u.sl.nb;
+    return (const char **)entry->u.sl.strs;
 }
 
 int
@@ -275,6 +306,13 @@ const char *
 sircc_cfg_server_string(struct sircc_server *server, const char *key,
                         const char *default_value) {
     return sircc_cfg_string(&sircc.cfg, default_value, "server.%s.%s",
+                            server->name, key);
+}
+
+const char **
+sircc_cfg_server_strings(struct sircc_server *server, const char *key,
+                         size_t *pnb) {
+    return sircc_cfg_strings(&sircc.cfg, pnb, "server.%s.%s",
                             server->name, key);
 }
 
@@ -425,6 +463,12 @@ sircc_cfg_entry_parse_value(struct sircc_cfg_entry *entry, const char *str) {
         entry->u.s = sircc_strdup(str);
         break;
 
+    case SIRCC_CFG_STRING_LIST:
+        entry->u.sl.nb = 1;
+        entry->u.sl.strs = sircc_malloc(sizeof(char *));
+        entry->u.sl.strs[0] = sircc_strdup(str);
+        break;
+
     case SIRCC_CFG_INTEGER:
         {
             long value;
@@ -467,14 +511,36 @@ sircc_cfg_entry_parse_value(struct sircc_cfg_entry *entry, const char *str) {
 }
 
 static void
+sircc_cfg_entry_add_string(struct sircc_cfg_entry *entry, const char *str) {
+    assert(entry->type == SIRCC_CFG_STRING_LIST);
+
+    entry->u.sl.nb++;
+    entry->u.sl.strs = sircc_realloc(entry->u.sl.strs,
+                                     entry->u.sl.nb * sizeof(char *));
+    entry->u.sl.strs[entry->u.sl.nb - 1] = sircc_strdup(str);
+}
+
+static void
 sircc_cfg_entry_delete(struct sircc_cfg_entry *entry) {
     if (!entry)
         return;
 
     sircc_free(entry->key);
 
-    if (entry->type == SIRCC_CFG_STRING)
+    switch (entry->type) {
+    case SIRCC_CFG_STRING:
         sircc_free(entry->u.s);
+        break;
+
+    case SIRCC_CFG_STRING_LIST:
+        for (size_t i = 0; i < entry->u.sl.nb; i++)
+            sircc_free(entry->u.sl.strs[i]);
+        sircc_free(entry->u.sl.strs);
+        break;
+
+    default:
+        break;
+    }
 
     sircc_free(entry);
 }
