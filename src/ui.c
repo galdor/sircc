@@ -120,6 +120,10 @@ sircc_ui_on_resize(void) {
 
 void
 sircc_ui_update(void) {
+    /* Ncurses moves the physical cursor when refreshing a window; we want to
+     * keep the cursor in the prompt window all the time. */
+    wnoutrefresh(sircc.win_prompt);
+
     doupdate();
 }
 
