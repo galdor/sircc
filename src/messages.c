@@ -23,6 +23,7 @@ static void sircc_set_msg_handler(const char *, sircc_msg_handler);
 static void sircc_msgh_join(struct sircc_server *, struct sircc_msg *);
 static void sircc_msgh_mode(struct sircc_server *, struct sircc_msg *);
 static void sircc_msgh_nick(struct sircc_server *, struct sircc_msg *);
+static void sircc_msgh_notice(struct sircc_server *, struct sircc_msg *);
 static void sircc_msgh_part(struct sircc_server *, struct sircc_msg *);
 static void sircc_msgh_ping(struct sircc_server *, struct sircc_msg *);
 static void sircc_msgh_privmsg(struct sircc_server *, struct sircc_msg *);
@@ -45,6 +46,7 @@ sircc_init_msg_handlers(void) {
     sircc_set_msg_handler("JOIN", sircc_msgh_join);
     sircc_set_msg_handler("MODE", sircc_msgh_mode);
     sircc_set_msg_handler("NICK", sircc_msgh_nick);
+    sircc_set_msg_handler("NOTICE", sircc_msgh_notice);
     sircc_set_msg_handler("PART", sircc_msgh_part);
     sircc_set_msg_handler("PING", sircc_msgh_ping);
     sircc_set_msg_handler("PRIVMSG", sircc_msgh_privmsg);
@@ -177,6 +179,54 @@ sircc_msgh_nick(struct sircc_server *server, struct sircc_msg *msg) {
         sircc_chan_log_info(server->current_chan,
                             "%s has changed is nickname to %s",
                             nickname, new_nickname);
+    }
+}
+
+static void
+sircc_msgh_notice(struct sircc_server *server, struct sircc_msg *msg) {
+    char nickname[SIRCC_NICKNAME_MAXSZ];
+    const char *target, *text;
+    struct sircc_chan *chan;
+    const char *chan_name;
+    bool log_to_chan;
+
+    if (msg->nb_params < 2) {
+        sircc_server_log_error(server, "missing arguments in NOTICE");
+        return;
+    }
+
+    if (sircc_msg_prefix_nickname(msg, nickname, sizeof(nickname)) == -1) {
+        sircc_server_log_error(server, "cannot get prefix nick: %s",
+                               sircc_get_error());
+        return;
+    }
+
+    target = msg->params[0];
+    text = msg->params[1];
+
+    if (sircc_irc_is_chan_prefix(target[0])) {
+        /* Public message */
+        log_to_chan = true;
+        chan_name = target;
+    } else if (strcmp(target, server->current_nickname) == 0) {
+        /* Private message */
+        log_to_chan = true;
+        chan_name = nickname;
+    } else {
+        /* Private message before registration */
+        log_to_chan = false;
+    }
+
+    if (log_to_chan) {
+        chan = sircc_server_get_chan(server, chan_name);
+        if (!chan) {
+            chan = sircc_chan_new(server, chan_name);
+            sircc_server_add_chan(server, chan);
+        }
+
+        sircc_chan_add_server_msg(chan, nickname, text);
+    } else {
+        sircc_server_add_server_msg(server, nickname, text);
     }
 }
 

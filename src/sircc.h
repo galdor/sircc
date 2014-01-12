@@ -222,7 +222,7 @@ void sircc_history_free(struct sircc_history *);
 void sircc_history_add_entry(struct sircc_history *,
                              const struct sircc_history_entry *);
 void sircc_history_add_chan_msg(struct sircc_history *, char *, char *);
-void sircc_history_add_server_msg(struct sircc_history *, char *);
+void sircc_history_add_server_msg(struct sircc_history *, char *, char *);
 void sircc_history_add_trace(struct sircc_history *, char *);
 void sircc_history_add_info(struct sircc_history *, char *);
 void sircc_history_add_error(struct sircc_history *, char *);
@@ -285,6 +285,7 @@ void sircc_chan_log_info(struct sircc_chan *, const char *, ...)
 void sircc_chan_log_error(struct sircc_chan *, const char *, ...)
     __attribute__((format(printf, 2, 3)));
 void sircc_chan_add_msg(struct sircc_chan *, const char *, const char *);
+void sircc_chan_add_server_msg(struct sircc_chan *, const char *, const char *);
 
 enum sircc_server_state {
     SIRCC_SERVER_DISCONNECTED,
@@ -350,6 +351,8 @@ void sircc_server_log_info(struct sircc_server *, const char *, ...)
     __attribute__((format(printf, 2, 3)));
 void sircc_server_log_error(struct sircc_server *, const char *, ...)
     __attribute__((format(printf, 2, 3)));
+void sircc_server_add_server_msg(struct sircc_server *, const char *,
+                                 const char *);
 void sircc_server_write(struct sircc_server *, const char *, size_t);
 int sircc_server_vprintf(struct sircc_server *, const char *, va_list);
 int sircc_server_printf(struct sircc_server *, const char *, ...)

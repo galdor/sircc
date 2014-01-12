@@ -32,7 +32,7 @@ sircc_history_init(struct sircc_history *history, size_t sz) {
 
     sircc_layout_init(&history->layout);
 
-    history->max_nickname_length = 9;
+    history->max_nickname_length = 15;
 }
 
 void
@@ -86,13 +86,15 @@ sircc_history_add_chan_msg(struct sircc_history *history,
 }
 
 void
-sircc_history_add_server_msg(struct sircc_history *history, char *text) {
+sircc_history_add_server_msg(struct sircc_history *history, char *src,
+                             char *text) {
     struct sircc_history_entry entry;
 
     memset(&entry, 0, sizeof(struct sircc_history_entry));
 
     entry.type = SIRCC_HISTORY_SERVER_MSG;
     entry.date = time(NULL);
+    entry.src = src;
     entry.text = text;
 
     sircc_history_add_entry(history, &entry);
@@ -210,10 +212,10 @@ sircc_history_entry_update_margin_text(struct sircc_history *history,
 
     switch (entry->type) {
     case SIRCC_HISTORY_CHAN_MSG:
+    case SIRCC_HISTORY_SERVER_MSG:
         sircc_asprintf(&str, "%s %-*s  ", date_str, src_field_sz, entry->src);
         break;
 
-    case SIRCC_HISTORY_SERVER_MSG:
     case SIRCC_HISTORY_TRACE:
     case SIRCC_HISTORY_INFO:
     case SIRCC_HISTORY_ERROR:

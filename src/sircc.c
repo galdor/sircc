@@ -327,6 +327,38 @@ sircc_chan_add_msg(struct sircc_chan *chan, const char *src,
     }
 }
 
+void
+sircc_chan_add_server_msg(struct sircc_chan *chan, const char *src,
+                          const char *text) {
+    struct sircc_history *history;
+    bool redraw;
+
+    if (chan) {
+        history = &chan->history;
+        redraw = sircc_chan_is_current(chan);
+    } else {
+        struct sircc_server *server;
+
+        server = sircc_server_get_current();
+        chan = server->current_chan;
+        if (chan) {
+            history = &chan->history;
+            redraw = sircc_chan_is_current(chan);
+        } else {
+            history = &server->history;
+            redraw = sircc_server_is_current(server);
+        }
+    }
+
+    sircc_history_add_server_msg(history, sircc_strdup(src),
+                                 sircc_strdup(text));
+
+    if (redraw) {
+        sircc_ui_main_redraw();
+        sircc_ui_update();
+    }
+}
+
 struct sircc_server *
 sircc_server_new(const char *name) {
     struct sircc_server *server;
@@ -341,7 +373,7 @@ sircc_server_new(const char *name) {
     sircc_buf_init(&server->rbuf);
     sircc_buf_init(&server->wbuf);
 
-    server->max_nickname_length = 9;
+    server->max_nickname_length = 15;
 
     sircc_history_init(&server->history, 1024);
     server->history.max_nickname_length = server->max_nickname_length;
@@ -724,6 +756,21 @@ sircc_server_log_error(struct sircc_server *server, const char *fmt, ...) {
 
     sircc_history_add_error(&server->history, sircc_buf_dup_str(&buf));
     sircc_buf_free(&buf);
+
+    if (server == sircc_server_get_current()) {
+        sircc_ui_main_redraw();
+        sircc_ui_update();
+    }
+}
+
+void
+sircc_server_add_server_msg(struct sircc_server *server, const char *src,
+                            const char *msg) {
+    if (!server)
+        server = sircc_server_get_current();
+
+    sircc_history_add_server_msg(&server->history, sircc_strdup(src),
+                                 sircc_strdup(msg));
 
     if (server == sircc_server_get_current()) {
         sircc_ui_main_redraw();
@@ -1195,7 +1242,7 @@ sircc_load_servers(void) {
                                                    server->password);
 
         server->max_nickname_length =
-            sircc_cfg_server_integer(server, "max_nickname_length", 9);
+            sircc_cfg_server_integer(server, "max_nickname_length", 15);
         if (server->max_nickname_length <= 0)
             die("invalid nickname length: %d", server->max_nickname_length);
         server->history.max_nickname_length = server->max_nickname_length;
