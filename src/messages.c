@@ -527,7 +527,13 @@ sircc_msgh_err_notregistered(struct sircc_server *server,
 static void
 sircc_msgh_err_passwdmismatch(struct sircc_server *server,
                              struct sircc_msg *msg) {
-    sircc_chan_log_error(NULL, "password incorrect");
+    const char *text;
+
+    /* This can either mean that a password was required and not provided, or
+     * that the provided password is incorrect. */
+
+    text = msg->params[1];
+    sircc_chan_log_error(NULL, "cannot register: %s", text);
 }
 
 static void
