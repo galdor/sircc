@@ -87,8 +87,8 @@ sircc_cmd_parse(struct sircc_cmd *cmd, struct sircc_buf *buf) {
     size_t len, toklen;
     char *name;
 
-    ptr = sircc_buf_data(&sircc.prompt_buf);
-    len = sircc_buf_length(&sircc.prompt_buf);
+    ptr = sircc_buf_data(buf);
+    len = sircc_buf_length(buf);
 
     memset(cmd, 0, sizeof(struct sircc_cmd));
 
