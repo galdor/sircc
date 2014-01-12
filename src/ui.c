@@ -207,7 +207,7 @@ sircc_ui_main_redraw(void) {
             break;
 
         case SIRCC_HISTORY_INFO:
-            attrs = COLOR_PAIR(3);
+            attrs = COLOR_PAIR(2);
             break;
 
         case SIRCC_HISTORY_ERROR:

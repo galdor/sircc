@@ -24,18 +24,29 @@ const char *
 sircc_ssl_get_error(void) {
     char *ptr;
     size_t len;
+    bool empty_queue;
 
     ptr = sircc_ssl_error_buf;
     len = SIRCC_ERROR_BUFSZ;
+
+    empty_queue = true;
 
     for (;;) {
         unsigned long errcode;
         const char *errstr;
         size_t errlen;
 
+        if (ptr > sircc_ssl_error_buf) {
+            *ptr = ' ';
+            ptr++;
+            len--;
+        }
+
         errcode = ERR_get_error();
         if (errcode == 0)
             break;
+
+        empty_queue = false;
 
         errstr = ERR_error_string(errcode, NULL);
         strlcpy(ptr, errstr, len);
@@ -48,8 +59,28 @@ sircc_ssl_get_error(void) {
         len -= errlen;
     }
 
-    if (ptr == sircc_ssl_error_buf)
+    if (empty_queue)
         strlcpy(ptr, "empty ssl error queue", len);
 
     return sircc_ssl_error_buf;
+}
+
+int
+sircc_x509_store_add_certificate(X509_STORE *store, const char *path) {
+    X509_LOOKUP *lookup;
+
+    lookup = X509_STORE_add_lookup(store, X509_LOOKUP_file());
+    if (!lookup) {
+        sircc_set_error("cannot create ssl store lookup: %s",
+                        sircc_ssl_get_error());
+        return -1;
+    }
+
+    if (X509_LOOKUP_load_file(lookup, path, X509_FILETYPE_PEM) == 0) {
+        sircc_set_error("cannot load ssl certificate from %s: %s",
+                        path, sircc_ssl_get_error());
+        return -1;
+    }
+
+    return 0;
 }

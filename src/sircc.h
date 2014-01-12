@@ -228,6 +228,7 @@ int sircc_socket_get_so_error(int, int *);
 
 /* SSL */
 const char *sircc_ssl_get_error(void);
+int sircc_x509_store_add_certificate(X509_STORE *, const char *);
 
 /* IRC */
 struct sircc_msg {
@@ -316,6 +317,9 @@ struct sircc_server {
     SSL_CTX *ssl_ctx;
     SSL *ssl;
     int ssl_last_write_length;
+    bool ssl_verify_certificate;
+    const char *ssl_ca_certificate;
+    bool ssl_allow_self_signed_certificate;
 
     int max_nickname_length;
 };
@@ -326,6 +330,7 @@ int sircc_server_prepare_connection(struct sircc_server *);
 int sircc_server_connect(struct sircc_server *);
 int sircc_server_ssl_connect(struct sircc_server *);
 void sircc_server_disconnect(struct sircc_server *);
+int sircc_server_ssl_check_certificate(struct sircc_server *);
 void sircc_server_trace(struct sircc_server *, const char *, ...)
     __attribute__((format(printf, 2, 3)));
 void sircc_server_log_info(struct sircc_server *, const char *, ...)

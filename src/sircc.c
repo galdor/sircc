@@ -525,11 +525,19 @@ sircc_server_ssl_connect(struct sircc_server *server) {
         return -1;
     }
 
+    if (server->ssl_verify_certificate) {
+        ret = sircc_server_ssl_check_certificate(server);
+        if (ret <= 0)
+            goto error;
+    }
+
     server->state = SIRCC_SERVER_SSL_CONNECTED;
     sircc_server_on_connection_established(server);
     return 0;
 
 error:
+    sircc_server_log_info(server, "closing connection");
+
     close(server->sock);
     server->sock = -1;
 
@@ -539,6 +547,11 @@ error:
 
 void
 sircc_server_disconnect(struct sircc_server *server) {
+    if (server->state == SIRCC_SERVER_CONNECTED
+     || server->state == SIRCC_SERVER_SSL_CONNECTED) {
+        sircc_server_log_info(server, "closing connection");
+    }
+
     if (server->sock > 0) {
         close(server->sock);
         server->sock = -1;
@@ -559,6 +572,97 @@ sircc_server_disconnect(struct sircc_server *server) {
     }
 
     server->state = SIRCC_SERVER_DISCONNECTED;
+}
+
+int
+sircc_server_ssl_check_certificate(struct sircc_server *server) {
+    X509 *cert;
+    X509_NAME *name;
+    X509_STORE *store;
+    X509_STORE_CTX *store_ctx;
+    char buf[512];
+
+    cert = SSL_get_peer_certificate(server->ssl);
+    if (!cert) {
+        sircc_server_log_error(server, "cannot get peer ssl certificate");
+        return -1;
+    }
+
+    name = X509_get_issuer_name(cert);
+    X509_NAME_oneline(name, buf, sizeof(buf));
+    sircc_server_log_info(server, "ssl certificate issuer: %s", buf);
+
+    name = X509_get_subject_name(cert);
+    X509_NAME_oneline(name, buf, sizeof(buf));
+    sircc_server_log_info(server, "ssl certificate subject: %s", buf);
+
+    store = NULL;
+    store_ctx = NULL;
+
+    store = X509_STORE_new();
+    if (!store) {
+        sircc_server_log_error(server, "cannot create x509 store: %s",
+                               sircc_ssl_get_error());
+        goto error;
+    }
+
+    if (sircc_x509_store_add_certificate(store,
+                                         server->ssl_ca_certificate) == -1) {
+        sircc_server_log_error(server, "%s", sircc_get_error());
+        goto error;
+    }
+
+    sircc_server_log_info(server, "ssl ca certificate loaded from %s",
+                          server->ssl_ca_certificate);
+
+    store_ctx = X509_STORE_CTX_new();
+    if (!store_ctx) {
+        sircc_server_log_error(server, "cannot create x509 store context: %s",
+                               sircc_ssl_get_error());
+        goto error;
+    }
+
+    if (X509_STORE_CTX_init(store_ctx, store, cert, NULL) == 0) {
+        sircc_server_log_error(server,
+                               "cannot initialize x509 store context: %s",
+                               sircc_ssl_get_error());
+        goto error;
+    }
+
+    if (X509_verify_cert(store_ctx) <= 0) {
+        int cert_err;
+
+        cert_err = X509_STORE_CTX_get_error(store_ctx);
+        if (cert_err == X509_V_ERR_DEPTH_ZERO_SELF_SIGNED_CERT
+            && server->ssl_allow_self_signed_certificate) {
+            sircc_server_log_info(server,
+                                  "accepting self signed ssl certificate");
+        } else {
+            const char *cert_errstr;
+
+            cert_errstr = X509_verify_cert_error_string(cert_err);
+            sircc_server_log_error(server,
+                                   "ssl certificate verification failed: %s"
+                                   " (error %d)", cert_errstr, cert_err);
+
+            X509_STORE_CTX_free(store_ctx);
+            X509_STORE_free(store);
+            return 0;
+        }
+    }
+
+    sircc_server_log_info(server, "ssl certificate verified");
+
+    X509_STORE_CTX_free(store_ctx);
+    X509_STORE_free(store);
+    return 1;
+
+error:
+    if (store_ctx)
+        X509_STORE_CTX_free(store_ctx);
+    if (store)
+        X509_STORE_free(store);
+    return -1;
 }
 
 void
@@ -1068,7 +1172,18 @@ sircc_load_servers(void) {
 
         server->host = sircc_cfg_server_string(server, "host", NULL);
         server->port = sircc_cfg_server_string(server, "port", "6667");
-        server->use_ssl = sircc_cfg_server_boolean(server, "use_ssl", false);
+
+        server->use_ssl = sircc_cfg_server_boolean(server, "ssl", false);
+        server->ssl_verify_certificate
+            = sircc_cfg_server_boolean(server, "ssl_verify_certificate", true);
+        server->ssl_ca_certificate
+            = sircc_cfg_server_string(server, "ssl_ca_certificate", NULL);
+        server->ssl_allow_self_signed_certificate
+            = sircc_cfg_server_boolean(server, "ssl_allow_self_signed_certificate",
+                                       false);
+        if (server->ssl_verify_certificate && !server->ssl_ca_certificate)
+            die("missing ssl_ca_certificate for server %s", server->name);
+
         server->nickname = sircc_cfg_server_string(server, "nickname", NULL);
         server->realname = sircc_cfg_server_string(server, "realname",
                                                    server->nickname);
