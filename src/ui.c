@@ -303,7 +303,7 @@ sircc_ui_servers_redraw(void) {
         if (is_current)
             wattron(win, A_BOLD);
 
-        waddstr(win, server->host);
+        waddstr(win, server->name);
 
         if (is_current)
             wattroff(win, A_BOLD);
