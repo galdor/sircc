@@ -44,6 +44,8 @@ static void sircc_poll(void);
 static void sircc_read_signal(void);
 static void sircc_read_input(void);
 
+static int sircc_cmp_users(const void *, const void *);
+
 
 static struct ht_memory_allocator sircc_ht_allocator = {
     .malloc = sircc_malloc,
@@ -207,6 +209,11 @@ sircc_chan_delete(struct sircc_chan *chan) {
     sircc_history_free(&chan->history);
     sircc_free(chan->name);
     sircc_free(chan->topic);
+
+    for (size_t i = 0; i < chan->nb_users; i++)
+        sircc_free(chan->users[i]);
+    sircc_free(chan->users);
+
     sircc_free(chan);
 }
 
@@ -366,6 +373,58 @@ sircc_chan_add_server_msg(struct sircc_chan *chan, const char *src,
         sircc_ui_main_redraw();
         sircc_ui_update();
     }
+}
+
+void
+sircc_chan_add_user(struct sircc_chan *chan, const char *user, size_t sz) {
+    if (sz == (size_t)-1)
+        sz = strlen(user);
+
+    for (size_t i = 0; i < chan->nb_users; i++) {
+        if (memcmp(chan->users[i], user, sz) == 0)
+            return;
+    }
+
+    if (!chan->users) {
+        chan->nb_users = 0;
+        chan->users = sircc_malloc(sizeof(char *));
+    } else {
+        chan->users = sircc_realloc(chan->users,
+                                    (chan->nb_users + 1) * sizeof(char *));
+    }
+
+    chan->users[chan->nb_users] = sircc_strndup(user, sz);
+    chan->nb_users++;
+
+    chan->users_sorted = false;
+}
+
+void
+sircc_chan_remove_user(struct sircc_chan *chan, const char *user) {
+    for (size_t i = 0; i < chan->nb_users; i++) {
+        if (strcmp(chan->users[i], user) == 0) {
+            sircc_free(chan->users[i]);
+
+            if (i < chan->nb_users - 1) {
+                memmove(chan->users + i, chan->users + i + 1,
+                        (chan->nb_users - i - 1) * sizeof(char *));
+            }
+
+            chan->nb_users--;
+            chan->users = sircc_realloc(chan->users,
+                                        chan->nb_users * sizeof(char *));
+            break;
+        }
+    }
+
+    chan->users_sorted = false;
+}
+
+void
+sircc_chan_sort_users(struct sircc_chan *chan) {
+    qsort(chan->users, chan->nb_users, sizeof(char *), sircc_cmp_users);
+
+    chan->users_sorted = true;
 }
 
 struct sircc_server *
@@ -1434,4 +1493,14 @@ sircc_read_input(void) {
 
     sircc_ui_prompt_redraw();
     sircc_ui_update();
+}
+
+static int
+sircc_cmp_users(const void *p1, const void *p2) {
+    const char **u1, **u2;
+
+    u1 = (const char **)p1;
+    u2 = (const char **)p2;
+
+    return strcmp(*u1, *u2);
 }

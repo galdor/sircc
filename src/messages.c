@@ -108,6 +108,8 @@ sircc_msgh_join(struct sircc_server *server, struct sircc_msg *msg) {
         sircc_server_add_chan(server, chan);
     }
 
+    sircc_chan_add_user(chan, nickname, (size_t)-1);
+
     if (strcmp(nickname, server->current_nickname) == 0) {
         /* We just joined the chan */
         sircc_chan_log_info(chan, "you have joined %s", chan_name);
@@ -256,6 +258,8 @@ sircc_msgh_part(struct sircc_server *server, struct sircc_msg *msg) {
         sircc_server_add_chan(server, chan);
     }
 
+    sircc_chan_remove_user(chan, nickname);
+
     if (strcmp(nickname, server->current_nickname) == 0) {
         /* We just left the chan */
         sircc_server_remove_chan(server, chan);
@@ -345,6 +349,8 @@ sircc_msgh_quit(struct sircc_server *server, struct sircc_msg *msg) {
         } else {
             sircc_chan_log_info(chan, "%s has quit: %s", nickname, text);
         }
+
+        sircc_chan_remove_user(chan, nickname);
 
         chan = chan->next;
     }
@@ -507,6 +513,7 @@ static void
 sircc_msgh_rpl_namreply(struct sircc_server *server, struct sircc_msg *msg) {
     const char *chan_name, *users_str;
     struct sircc_chan *chan;
+    const char *ptr;
 
     if (msg->nb_params < 4) {
         sircc_server_log_error(server, "missing arguments in RPL_NAMREPLY");
@@ -525,6 +532,31 @@ sircc_msgh_rpl_namreply(struct sircc_server *server, struct sircc_msg *msg) {
 
     sircc_chan_log_info(chan, "users on %s: %s",
                         chan_name, users_str);
+
+    ptr = users_str;
+    while (*ptr) {
+        const char *space;
+        size_t toklen;
+
+        if (*ptr == '@' || *ptr == '+')
+            ptr++;
+
+        space = strchr(ptr, ' ');
+        if (space) {
+            toklen = (size_t)(space - ptr);
+        } else {
+            toklen = strlen(ptr);
+        }
+
+        if (toklen == 0)
+            break;
+
+        sircc_chan_add_user(chan, ptr, toklen);
+
+        if (!space)
+            break;
+        ptr = space + 1;
+    }
 }
 
 static void

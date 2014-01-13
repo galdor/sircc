@@ -275,6 +275,10 @@ struct sircc_chan {
     char *topic;
 
     bool is_user;
+
+    char **users;
+    size_t nb_users;
+    bool users_sorted;
 };
 
 struct sircc_chan *sircc_chan_new(struct sircc_server *, const char *);
@@ -287,6 +291,10 @@ void sircc_chan_log_error(struct sircc_chan *, const char *, ...)
     __attribute__((format(printf, 2, 3)));
 void sircc_chan_add_msg(struct sircc_chan *, const char *, const char *);
 void sircc_chan_add_server_msg(struct sircc_chan *, const char *, const char *);
+
+void sircc_chan_add_user(struct sircc_chan *, const char *, size_t);
+void sircc_chan_remove_user(struct sircc_chan *, const char *);
+void sircc_chan_sort_users(struct sircc_chan *);
 
 enum sircc_server_state {
     SIRCC_SERVER_DISCONNECTED,
