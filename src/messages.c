@@ -27,6 +27,7 @@ static void sircc_msgh_notice(struct sircc_server *, struct sircc_msg *);
 static void sircc_msgh_part(struct sircc_server *, struct sircc_msg *);
 static void sircc_msgh_ping(struct sircc_server *, struct sircc_msg *);
 static void sircc_msgh_privmsg(struct sircc_server *, struct sircc_msg *);
+static void sircc_msgh_quit(struct sircc_server *, struct sircc_msg *);
 static void sircc_msgh_topic(struct sircc_server *, struct sircc_msg *);
 static void sircc_msgh_rpl_welcome(struct sircc_server *, struct sircc_msg *);
 static void sircc_msgh_rpl_notopic(struct sircc_server *, struct sircc_msg *);
@@ -50,6 +51,7 @@ sircc_init_msg_handlers(void) {
     sircc_set_msg_handler("PART", sircc_msgh_part);
     sircc_set_msg_handler("PING", sircc_msgh_ping);
     sircc_set_msg_handler("PRIVMSG", sircc_msgh_privmsg);
+    sircc_set_msg_handler("QUIT", sircc_msgh_quit);
     sircc_set_msg_handler("TOPIC", sircc_msgh_topic);
     sircc_set_msg_handler("001", sircc_msgh_rpl_welcome);
     sircc_set_msg_handler("331", sircc_msgh_rpl_notopic);
@@ -316,6 +318,36 @@ sircc_msgh_privmsg(struct sircc_server *server, struct sircc_msg *msg) {
     }
 
     sircc_chan_add_msg(chan, nickname, text);
+}
+
+static void
+sircc_msgh_quit(struct sircc_server *server, struct sircc_msg *msg) {
+    char nickname[SIRCC_NICKNAME_MAXSZ];
+    const char *text;
+    struct sircc_chan *chan;
+
+    if (sircc_msg_prefix_nickname(msg, nickname, sizeof(nickname)) == -1) {
+        sircc_server_log_error(server, "cannot get prefix nick: %s",
+                               sircc_get_error());
+        return;
+    }
+
+    if (msg->nb_params > 0 && msg->params[0] != '\0') {
+        text = msg->params[0];
+    } else {
+        text = NULL;
+    }
+
+    chan = server->chans;
+    while (chan) {
+        if (text) {
+            sircc_chan_log_info(chan, "%s has quit", nickname);
+        } else {
+            sircc_chan_log_info(chan, "%s has quit: %s", nickname, text);
+        }
+
+        chan = chan->next;
+    }
 }
 
 static void
