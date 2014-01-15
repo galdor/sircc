@@ -351,7 +351,7 @@ sircc_cmdh_msg(struct sircc_server *server, struct sircc_cmd *cmd) {
 
     sircc_server_printf(server, "PRIVMSG %s :%s\r\n", target, text);
 
-    sircc_chan_add_msg(chan, target, text);
+    sircc_chan_add_msg(chan, server->current_nickname, text);
 }
 
 static void
