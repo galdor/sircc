@@ -25,12 +25,12 @@ sircc_msg_free(struct sircc_msg *msg) {
     if (!msg)
         return;
 
-    free(msg->prefix);
-    free(msg->command);
+    sircc_free(msg->prefix);
+    sircc_free(msg->command);
 
     for (size_t i = 0; i < msg->nb_params; i++)
-        free(msg->params[i]);
-    free(msg->params);
+        sircc_free(msg->params[i]);
+    sircc_free(msg->params);
 }
 
 int
