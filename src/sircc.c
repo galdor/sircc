@@ -31,7 +31,8 @@
 
 #include "sircc.h"
 
-static void usage(const char *, int);
+static void sircc_usage(const char *, int);
+static void sircc_version(void);
 
 static void sircc_signal_handler(int);
 
@@ -74,7 +75,6 @@ main(int argc, char **argv) {
 
     ht_set_memory_allocator(&sircc_ht_allocator);
 
-
     home = getenv("HOME");
     if (!home)
         die("HOME environment variable not set");
@@ -82,18 +82,22 @@ main(int argc, char **argv) {
     cfgdir = cfgdir_default;
 
     opterr = 0;
-    while ((opt = getopt(argc, argv, "c:h")) != -1) {
+    while ((opt = getopt(argc, argv, "c:hv")) != -1) {
         switch (opt) {
         case 'c':
             cfgdir = optarg;
             break;
 
         case 'h':
-            usage(argv[0], 0);
+            sircc_usage(argv[0], 0);
+            break;
+
+        case 'v':
+            sircc_version();
             break;
 
         case '?':
-            usage(argv[0], 1);
+            sircc_usage(argv[0], 1);
         }
     }
 
@@ -119,14 +123,21 @@ main(int argc, char **argv) {
 }
 
 static void
-usage(const char *argv0, int exit_code) {
-    printf("Usage: %s [-ch]\n"
+sircc_usage(const char *argv0, int exit_code) {
+    printf("Usage: %s [-chv]\n"
             "\n"
             "Options:\n"
             "  -c <dir>  load the configuration from <dir> instead of ~/.sircc\n"
-            "  -h        display help\n",
+            "  -h        display help\n"
+            "  -v        display version information\n",
             argv0);
     exit(exit_code);
+}
+
+static void
+sircc_version() {
+    printf("sircc-" SIRCC_VERSION " " SIRCC_BUILD_ID "\n");
+    exit(0);
 }
 
 static void

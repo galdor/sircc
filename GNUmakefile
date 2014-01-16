@@ -1,4 +1,8 @@
 # Common
+version= $(shell cat version)
+#build_id= $(shell [ -d .git ] && git describe --tags --dirty)
+build_id =
+
 prefix= /usr/local
 bindir= $(prefix)/bin
 
@@ -7,6 +11,9 @@ CC= clang
 CFLAGS+= -std=c99
 CFLAGS+= -Wall -Wextra -Werror -Wsign-conversion
 CFLAGS+= -Wno-unused-parameter -Wno-unused-function
+
+CFLAGS+= -DSIRCC_VERSION=\"$(version)\"
+CFLAGS+= -DSIRCC_BUILD_ID=\"$(build_id)\"
 
 LDFLAGS=
 
