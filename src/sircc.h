@@ -295,6 +295,8 @@ void sircc_chan_add_server_msg(struct sircc_chan *, const char *, const char *);
 void sircc_chan_add_user(struct sircc_chan *, const char *, size_t);
 void sircc_chan_remove_user(struct sircc_chan *, const char *);
 void sircc_chan_sort_users(struct sircc_chan *);
+const char *sircc_chan_next_user_completion(struct sircc_chan *,
+                                            const char *, const char *);
 
 enum sircc_server_state {
     SIRCC_SERVER_DISCONNECTED,
@@ -414,6 +416,11 @@ struct sircc {
     WINDOW *win_chans;
     WINDOW *win_servers;
     WINDOW *win_prompt;
+
+    bool completion;              /* is completion in progress */
+    size_t completion_offset;
+    char *completion_prefix;
+    char *last_completion;
 };
 
 extern struct sircc sircc;
@@ -444,12 +451,17 @@ void sircc_ui_server_select_chan(struct sircc_server *, struct sircc_chan *);
 void sircc_ui_server_select_previous_chan(struct sircc_server *);
 void sircc_ui_server_select_next_chan(struct sircc_server *);
 
+void sircc_ui_prompt_add(const char *, size_t);
 void sircc_ui_prompt_delete_previous_char(void);
 void sircc_ui_prompt_clear(void);
 void sircc_ui_prompt_execute(void);
 
 int sircc_ui_vformat(WINDOW *, const char *, va_list);
 int sircc_ui_format(WINDOW *, const char *, ...);
+
+void sircc_ui_completion_reset(void);
+void sircc_ui_completion_next(void);
+void sircc_ui_completion_update_prompt(const char *);
 
 /* Commands */
 enum sircc_cmd_id {

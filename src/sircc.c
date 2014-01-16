@@ -427,6 +427,50 @@ sircc_chan_sort_users(struct sircc_chan *chan) {
     chan->users_sorted = true;
 }
 
+const char *
+sircc_chan_next_user_completion(struct sircc_chan *chan,
+                                const char *prefix,
+                                const char *last_completion) {
+    const char *first_match;
+    size_t prefix_len;
+
+    prefix_len = strlen(prefix);
+
+    first_match = NULL;
+
+    for (size_t i = 0; i < chan->nb_users; i++) {
+        const char *user;
+
+        user = chan->users[i];
+
+        if (strlen(user) >= prefix_len
+            && memcmp(user, prefix, prefix_len) == 0) {
+            if (!first_match)
+                first_match = user;
+
+            if (!last_completion || strcmp(user, last_completion) == 0) {
+                const char *next_completion;
+                const char *next_user;
+
+                if (i < chan->nb_users - 1)
+                    next_user = chan->users[i + 1];
+
+                if (i < chan->nb_users - 1
+                    && strlen(next_user) >= prefix_len
+                    && memcmp(next_user, prefix, prefix_len) == 0) {
+                    next_completion = next_user;
+                } else {
+                    next_completion = first_match;
+                }
+
+                return next_completion;
+            }
+        }
+    }
+
+    return NULL;
+}
+
 struct sircc_server *
 sircc_server_new(const char *name) {
     struct sircc_server *server;
@@ -1460,6 +1504,9 @@ sircc_read_input(void) {
         if (c == 8) {
             /* Backspace */
             sircc_ui_prompt_delete_previous_char();
+        } else if (c == 9) {
+            /* Tabulation */
+            sircc_ui_completion_next();
         } else if (c == 12) {
             /* ^L */
             sircc_ui_on_resize();
@@ -1485,14 +1532,14 @@ sircc_read_input(void) {
 
             escape = false;
         } else {
-            sircc_buf_add_printf(&sircc.prompt_buf, "%c", (char)c);
+            char tmp[1];
+
+            tmp[0] = (char)c;
+            sircc_ui_prompt_add(tmp, 1);
         }
     }
 
     sircc_buf_skip(&sircc.input_buf, len);
-
-    sircc_ui_prompt_redraw();
-    sircc_ui_update();
 }
 
 static int

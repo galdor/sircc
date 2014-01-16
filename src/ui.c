@@ -15,6 +15,7 @@
  */
 
 #include <assert.h>
+#include <ctype.h>
 #include <stdio.h>
 #include <string.h>
 #include <time.h>
@@ -24,6 +25,8 @@
 #include <unistd.h>
 
 #include "sircc.h"
+
+static char *sircc_ui_completion_prefix(size_t *);
 
 static void sircc_ui_setup_windows(void);
 
@@ -435,6 +438,16 @@ sircc_ui_server_select_next_chan(struct sircc_server *server) {
 }
 
 void
+sircc_ui_prompt_add(const char *buf, size_t sz) {
+    sircc_buf_add(&sircc.prompt_buf, buf, sz);
+
+    sircc_ui_completion_reset();
+
+    sircc_ui_prompt_redraw();
+    sircc_ui_update();
+}
+
+void
 sircc_ui_prompt_delete_previous_char(void) {
     char *prompt, *utf8_prompt = NULL;
     const char *ptr;
@@ -450,7 +463,7 @@ sircc_ui_prompt_delete_previous_char(void) {
 
     utf8_prompt = sircc_str_to_utf8(prompt, len, NULL);
     if (!utf8_prompt) {
-        sircc_server_log_error(NULL, "%s", sircc_get_error());
+        sircc_chan_log_error(NULL, "%s", sircc_get_error());
         goto error;
     }
 
@@ -464,8 +477,8 @@ sircc_ui_prompt_delete_previous_char(void) {
             /* UTF-8 continuation byte */
             if (ptr == utf8_prompt) {
                 /* The first byte cannot be a continuation */
-                sircc_server_log_error(NULL,
-                                       "invalid first byte in UTF-8 string");
+                sircc_chan_log_error(NULL,
+                                     "invalid first byte in UTF-8 string");
                 goto error;
             }
 
@@ -480,6 +493,7 @@ sircc_ui_prompt_delete_previous_char(void) {
     sircc_free(utf8_prompt);
 
     sircc_buf_remove(&sircc.prompt_buf, sz);
+    sircc_ui_completion_reset();
 
     sircc_ui_prompt_redraw();
     sircc_ui_update();
@@ -493,6 +507,7 @@ error:
 void
 sircc_ui_prompt_clear(void) {
     sircc_buf_clear(&sircc.prompt_buf);
+    sircc_ui_completion_reset();
 
     sircc_ui_prompt_redraw();
     sircc_ui_update();
@@ -665,6 +680,117 @@ sircc_ui_format(WINDOW *win, const char *fmt, ...) {
     va_end(ap);
 
     return ret;
+}
+
+void
+sircc_ui_completion_reset(void) {
+    sircc_free(sircc.completion_prefix);
+    sircc.completion_prefix = NULL;
+
+    sircc_free(sircc.last_completion);
+    sircc.last_completion = NULL;
+
+    sircc.completion_offset = 0;
+
+    sircc.completion = false;
+}
+
+void
+sircc_ui_completion_next(void) {
+    struct sircc_server *server;
+    struct sircc_chan *chan;
+    size_t offset;
+
+    const char *ptr;
+    size_t len;
+
+    bool is_command;
+
+    server = sircc_server_get_current();
+    chan = server->current_chan;
+
+    if (!sircc.completion) {
+        sircc.completion_prefix = sircc_ui_completion_prefix(&offset);
+        if (!sircc.completion_prefix) {
+            sircc_ui_completion_reset();
+            return;
+        }
+
+        sircc.completion_offset = offset;
+    }
+
+    ptr = sircc_buf_data(&sircc.prompt_buf);
+    len = sircc_buf_length(&sircc.prompt_buf);
+
+    /* Search for a matching user/command */
+    is_command = (sircc.completion_prefix[0] == '/');
+
+    if (is_command) {
+        /* TODO */
+    } else if (chan) {
+        const char *completion;
+
+        completion = sircc_chan_next_user_completion(chan,
+                                                     sircc.completion_prefix,
+                                                     sircc.last_completion);
+        if (!completion) {
+            sircc_ui_completion_reset();
+            return;
+        }
+
+        sircc_ui_completion_update_prompt(completion);
+
+        sircc_free(sircc.last_completion);
+        sircc.last_completion = sircc_strdup(completion);
+
+        sircc.completion = true;
+    } else {
+        sircc.completion = false;
+    }
+}
+
+void
+sircc_ui_completion_update_prompt(const char *completion) {
+    size_t len;
+
+    len = sircc_buf_length(&sircc.prompt_buf) -  sircc.completion_offset;
+
+    sircc_buf_remove(&sircc.prompt_buf, len);
+    sircc_buf_add(&sircc.prompt_buf, completion, strlen(completion));
+    sircc_buf_add(&sircc.prompt_buf, " ", 1);
+
+    sircc_ui_prompt_redraw();
+    sircc_ui_update();
+}
+
+static char *
+sircc_ui_completion_prefix(size_t *poffset) {
+    const char *ptr;
+    size_t len, offset;
+
+    ptr = sircc_buf_data(&sircc.prompt_buf);
+    len = sircc_buf_length(&sircc.prompt_buf);
+    if (len == 0)
+        return NULL;
+
+    offset = len - 1;
+    if (isspace(ptr[offset]))
+        return NULL;
+
+    /* Find the last beginning of a word */
+    while (offset > 0) {
+        if (isspace(ptr[offset])) {
+            offset++;
+            *poffset = offset;
+            return sircc_strndup(ptr + offset, len - offset);
+        }
+
+        offset--;
+    }
+
+    /* The prefix is the whole prompt */
+    *poffset = 0;
+    return sircc_strndup(ptr, len);
 }
 
 static void

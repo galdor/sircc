@@ -51,6 +51,7 @@ sircc_str_to_utf8(char *buf, size_t len, size_t *nb_bytes) {
 
     outlen = inlen + 1;
     tmp = sircc_malloc(outlen);
+    memset(tmp, 0, outlen);
     out = tmp;
 
     if (nb_bytes)
