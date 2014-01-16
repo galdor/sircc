@@ -53,6 +53,19 @@ int sircc_asprintf(char **, const char *, ...)
 
 char *sircc_str_to_utf8(char *, size_t, size_t *);
 
+static inline bool
+sircc_utf8_is_leading_byte(char c) {
+    return ((c & 0x80) == 0x00) /* one byte character */
+        || ((c & 0xc0) == 0xc0);
+}
+
+static inline bool
+sircc_utf8_is_continuation_byte(char c) {
+    return (c & 0xc0) == 0x80;
+}
+
+const char *sircc_utf8_last_n_chars(const char *, size_t);
+
 size_t strlcpy(char *, const char *, size_t);
 
 /* Memory buffers */

@@ -324,27 +324,38 @@ sircc_ui_prompt_redraw(void) {
     WINDOW *win;
     char *str, *utf8_str;
     size_t len, nb_bytes;
+    int width;
 
     win = sircc.win_prompt;
+    width = getmaxx(win) - 1; /* space for the cursor */
 
     wmove(win, 0, 0);
     wclrtoeol(win);
 
     wattron(win, A_BOLD);
     waddstr(win, "> ");
+    width -= 2;
     wattroff(win, A_BOLD);
+
+    sircc_buf_add(&sircc.prompt_buf, "\0", 1);
 
     len = sircc_buf_length(&sircc.prompt_buf);
     str = sircc_buf_data(&sircc.prompt_buf);
     if (str) {
         utf8_str = sircc_str_to_utf8(str, len, &nb_bytes);
         if (utf8_str) {
-            waddnstr(win, str, nb_bytes);
+            const char *printed_str;
+
+            printed_str = sircc_utf8_last_n_chars(utf8_str, (size_t)width);
+            waddstr(win, printed_str);
+
             sircc_free(utf8_str);
         } else {
             sircc_server_log_error(NULL, "%s", sircc_get_error());
         }
     }
+
+    sircc_buf_remove(&sircc.prompt_buf, 1);
 
     wnoutrefresh(win);
 }
@@ -451,7 +462,7 @@ void
 sircc_ui_prompt_delete_previous_char(void) {
     char *prompt, *utf8_prompt = NULL;
     const char *ptr;
-    size_t len, sz = 0;
+    size_t len, nb_bytes = 0;
 
     /* XXX overkill */
 
@@ -471,32 +482,16 @@ sircc_ui_prompt_delete_previous_char(void) {
     if (len == 0)
         return;
 
-    ptr = utf8_prompt + len - 1;
-    for (;;) {
-        if ((*ptr & 0xc0) == 0x80) {
-            /* UTF-8 continuation byte */
-            if (ptr == utf8_prompt) {
-                /* The first byte cannot be a continuation */
-                sircc_chan_log_error(NULL,
-                                     "invalid first byte in UTF-8 string");
-                goto error;
-            }
+    ptr = sircc_utf8_last_n_chars(utf8_prompt, 1);
+    nb_bytes = (size_t)(utf8_prompt + len - ptr);
+    sircc_buf_remove(&sircc.prompt_buf, nb_bytes);
 
-            ptr--;
-            sz++;
-        } else {
-            sz++;
-            break;
-        }
-    }
-
-    sircc_free(utf8_prompt);
-
-    sircc_buf_remove(&sircc.prompt_buf, sz);
     sircc_ui_completion_reset();
 
     sircc_ui_prompt_redraw();
     sircc_ui_update();
+
+    sircc_free(utf8_prompt);
     return;
 
 error:

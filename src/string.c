@@ -118,6 +118,29 @@ sircc_asprintf(char **pstr, const char *fmt, ...) {
     return ret;
 }
 
+const char *
+sircc_utf8_last_n_chars(const char *str, size_t n) {
+    const char *ptr;
+    size_t len;
+    size_t nb_chars;
+
+    len = strlen(str);
+    if (n >= len)
+        return str;
+
+    nb_chars = 0;
+
+    ptr = str + len;
+    do {
+        ptr--;
+
+        if (sircc_utf8_is_leading_byte(*ptr))
+            nb_chars++;
+    } while (nb_chars < n);
+
+    return ptr;
+}
+
 #ifndef strlcpy
 /*
  * Copyright (c) 1998 Todd C. Miller <Todd.Miller@courtesan.com>
