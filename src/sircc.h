@@ -461,7 +461,7 @@ int sircc_ui_format(WINDOW *, const char *, ...);
 
 void sircc_ui_completion_reset(void);
 void sircc_ui_completion_next(void);
-void sircc_ui_completion_update_prompt(const char *);
+void sircc_ui_completion_update_prompt(const char *, const char *);
 
 /* Commands */
 enum sircc_cmd_id {

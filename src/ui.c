@@ -702,6 +702,7 @@ sircc_ui_completion_next(void) {
     size_t offset;
 
     char *completion;
+    const char *suffix;
     const char *ptr;
     size_t len;
 
@@ -729,10 +730,16 @@ sircc_ui_completion_next(void) {
     if (is_command) {
         completion = sircc_cmd_next_completion(sircc.completion_prefix,
                                                sircc.last_completion);
+        suffix = " ";
     } else if (chan) {
         completion = sircc_chan_next_user_completion(chan,
                                                      sircc.completion_prefix,
                                                      sircc.last_completion);
+        if (sircc.completion_offset == 0) {
+            suffix = ": ";
+        } else {
+            suffix = " ";
+        }
     } else {
         sircc.completion = false;
         return;
@@ -744,7 +751,7 @@ sircc_ui_completion_next(void) {
         return;
     }
 
-    sircc_ui_completion_update_prompt(completion);
+    sircc_ui_completion_update_prompt(completion, suffix);
 
     sircc_free(sircc.last_completion);
     sircc.last_completion = completion;
@@ -753,14 +760,14 @@ sircc_ui_completion_next(void) {
 }
 
 void
-sircc_ui_completion_update_prompt(const char *completion) {
+sircc_ui_completion_update_prompt(const char *completion, const char *suffix) {
     size_t len;
 
     len = sircc_buf_length(&sircc.prompt_buf) -  sircc.completion_offset;
 
     sircc_buf_remove(&sircc.prompt_buf, len);
     sircc_buf_add(&sircc.prompt_buf, completion, strlen(completion));
-    sircc_buf_add(&sircc.prompt_buf, " ", 1);
+    sircc_buf_add(&sircc.prompt_buf, suffix, strlen(suffix));
 
     sircc_ui_prompt_redraw();
     sircc_ui_update();
