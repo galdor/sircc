@@ -701,6 +701,7 @@ sircc_ui_completion_next(void) {
     struct sircc_chan *chan;
     size_t offset;
 
+    char *completion;
     const char *ptr;
     size_t len;
 
@@ -726,27 +727,29 @@ sircc_ui_completion_next(void) {
     is_command = (sircc.completion_prefix[0] == '/');
 
     if (is_command) {
-        /* TODO */
+        completion = sircc_cmd_next_completion(sircc.completion_prefix,
+                                               sircc.last_completion);
     } else if (chan) {
-        const char *completion;
-
         completion = sircc_chan_next_user_completion(chan,
                                                      sircc.completion_prefix,
                                                      sircc.last_completion);
-        if (!completion) {
-            sircc_ui_completion_reset();
-            return;
-        }
-
-        sircc_ui_completion_update_prompt(completion);
-
-        sircc_free(sircc.last_completion);
-        sircc.last_completion = sircc_strdup(completion);
-
-        sircc.completion = true;
     } else {
         sircc.completion = false;
+        return;
     }
+
+    if (!completion) {
+        sircc_free(completion);
+        sircc_ui_completion_reset();
+        return;
+    }
+
+    sircc_ui_completion_update_prompt(completion);
+
+    sircc_free(sircc.last_completion);
+    sircc.last_completion = completion;
+
+    sircc.completion = true;
 }
 
 void

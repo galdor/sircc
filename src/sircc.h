@@ -295,8 +295,8 @@ void sircc_chan_add_server_msg(struct sircc_chan *, const char *, const char *);
 void sircc_chan_add_user(struct sircc_chan *, const char *, size_t);
 void sircc_chan_remove_user(struct sircc_chan *, const char *);
 void sircc_chan_sort_users(struct sircc_chan *);
-const char *sircc_chan_next_user_completion(struct sircc_chan *,
-                                            const char *, const char *);
+char *sircc_chan_next_user_completion(struct sircc_chan *,
+                                      const char *, const char *);
 
 enum sircc_server_state {
     SIRCC_SERVER_DISCONNECTED,
@@ -488,5 +488,7 @@ struct sircc_cmd {
 void sircc_cmd_free(struct sircc_cmd *);
 int sircc_cmd_parse(struct sircc_cmd *, struct sircc_buf *);
 void sircc_cmd_run(struct sircc_cmd *cmd);
+
+char *sircc_cmd_next_completion(const char *, const char *);
 
 #endif

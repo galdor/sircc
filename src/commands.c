@@ -222,6 +222,50 @@ sircc_cmd_run(struct sircc_cmd *cmd) {
     desc->handler(server, cmd);
 }
 
+char *
+sircc_cmd_next_completion(const char *prefix, const char *last_completion) {
+    const char *first_match;
+    size_t prefix_len;
+
+    prefix_len = strlen(prefix);
+
+    first_match = NULL;
+
+    for (size_t i = 0; i < SIRCC_CMD_COUNT; i++) {
+        const char *cmd;
+
+        cmd = sircc_cmd_descs[i].name;
+
+        if (strlen(cmd) + 1 >= prefix_len
+            && memcmp(cmd, prefix + 1, prefix_len - 1) == 0) {
+            if (!first_match)
+                first_match = cmd;
+
+            if (!last_completion || strcmp(cmd, last_completion + 1) == 0) {
+                const char *next_completion;
+                const char *next_cmd;
+                char *completion;
+
+                if (i < SIRCC_CMD_COUNT - 1)
+                    next_cmd = sircc_cmd_descs[i + 1].name;
+
+                if (i < SIRCC_CMD_COUNT - 1
+                    && strlen(next_cmd) + 1 >= prefix_len
+                    && memcmp(next_cmd, prefix + 1, prefix_len - 1) == 0) {
+                    next_completion = next_cmd;
+                } else {
+                    next_completion = first_match;
+                }
+
+                sircc_asprintf(&completion, "/%s", next_completion);
+                return completion;
+            }
+        }
+    }
+
+    return NULL;
+}
+
 static void
 sircc_cmd_add_arg(struct sircc_cmd *cmd, char *arg) {
     if (cmd->nb_args == 0) {

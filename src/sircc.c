@@ -427,7 +427,7 @@ sircc_chan_sort_users(struct sircc_chan *chan) {
     chan->users_sorted = true;
 }
 
-const char *
+char *
 sircc_chan_next_user_completion(struct sircc_chan *chan,
                                 const char *prefix,
                                 const char *last_completion) {
@@ -463,7 +463,7 @@ sircc_chan_next_user_completion(struct sircc_chan *chan,
                     next_completion = first_match;
                 }
 
-                return next_completion;
+                return sircc_strdup(next_completion);
             }
         }
     }
