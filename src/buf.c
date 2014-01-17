@@ -14,6 +14,8 @@
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
+#include <assert.h>
+
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
@@ -123,7 +125,12 @@ sircc_buf_clear(struct sircc_buf *buf) {
 }
 
 void
-sircc_buf_add(struct sircc_buf *buf, const char *data, size_t sz) {
+sircc_buf_insert(struct sircc_buf *buf, size_t offset,
+                 const char *data, size_t sz) {
+    char *ptr;
+
+    assert(offset <= buf->len);
+
     if (!buf->data) {
         buf->data = sircc_malloc(sz);
         buf->sz = sz;
@@ -143,8 +150,18 @@ sircc_buf_add(struct sircc_buf *buf, const char *data, size_t sz) {
         }
     }
 
-    memcpy(buf->data + buf->skip + buf->len, data, sz);
+    ptr = buf->data + buf->skip + offset;
+
+    if (offset < buf->len)
+        memmove(ptr + sz, ptr, buf->len - offset);
+    memcpy(ptr, data, sz);
+
     buf->len += sz;
+}
+
+void
+sircc_buf_add(struct sircc_buf *buf, const char *data, size_t sz) {
+    sircc_buf_insert(buf, buf->len, data, sz);
 }
 
 void

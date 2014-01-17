@@ -118,6 +118,21 @@ sircc_asprintf(char **pstr, const char *fmt, ...) {
     return ret;
 }
 
+size_t
+sircc_utf8_nb_chars(const char *str) {
+    size_t nb_chars;
+
+    nb_chars = 0;
+    while (*str != '\0') {
+        if (sircc_utf8_is_leading_byte(*str))
+            nb_chars++;
+
+        str++;
+    }
+
+    return nb_chars;
+}
+
 const char *
 sircc_utf8_last_n_chars(const char *str, size_t n) {
     const char *ptr;

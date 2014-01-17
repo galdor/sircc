@@ -64,6 +64,7 @@ sircc_utf8_is_continuation_byte(char c) {
     return (c & 0xc0) == 0x80;
 }
 
+size_t sircc_utf8_nb_chars(const char *);
 const char *sircc_utf8_last_n_chars(const char *, size_t);
 
 size_t strlcpy(char *, const char *, size_t);
@@ -91,6 +92,7 @@ void sircc_buf_grow(struct sircc_buf *, size_t);
 void sircc_buf_ensure_free_space(struct sircc_buf *, size_t);
 void sircc_buf_clear(struct sircc_buf *);
 
+void sircc_buf_insert(struct sircc_buf *, size_t, const char *, size_t);
 void sircc_buf_add(struct sircc_buf *, const char *, size_t);
 void sircc_buf_add_buf(struct sircc_buf *, const struct sircc_buf *);
 int sircc_buf_add_vprintf(struct sircc_buf *, const char *, va_list);
@@ -415,9 +417,6 @@ struct sircc {
 
     struct ht_table *msg_handlers;
 
-    struct sircc_buf input_buf;
-    struct sircc_buf prompt_buf;
-
     const char *cfgdir;
     struct sircc_cfg cfg;
 
@@ -430,10 +429,15 @@ struct sircc {
     WINDOW *win_servers;
     WINDOW *win_prompt;
 
-    bool completion;              /* is completion in progress */
+    struct sircc_buf input_buf;
+
+    bool completion; /* is completion in progress */
     size_t completion_offset;
     char *completion_prefix;
     char *last_completion;
+
+    struct sircc_buf prompt_buf;
+    size_t prompt_cursor; /* offset in prompt_buf */
 };
 
 extern struct sircc sircc;
@@ -466,6 +470,8 @@ void sircc_ui_server_select_next_chan(struct sircc_server *);
 
 void sircc_ui_prompt_add(const char *, size_t);
 void sircc_ui_prompt_delete_previous_char(void);
+void sircc_ui_prompt_move_cursor_backward(void);
+void sircc_ui_prompt_move_cursor_forward(void);
 void sircc_ui_prompt_clear(void);
 void sircc_ui_prompt_execute(void);
 
