@@ -86,11 +86,8 @@ char *sircc_buf_data(const struct sircc_buf *);
 size_t sircc_buf_length(const struct sircc_buf *);
 size_t sircc_buf_free_space(const struct sircc_buf *);
 
-void sircc_buf_repack(struct sircc_buf *);
-void sircc_buf_resize(struct sircc_buf *, size_t);
-void sircc_buf_grow(struct sircc_buf *, size_t);
-void sircc_buf_ensure_free_space(struct sircc_buf *, size_t);
 void sircc_buf_clear(struct sircc_buf *);
+void sircc_buf_truncate(struct sircc_buf *, size_t);
 
 void sircc_buf_insert(struct sircc_buf *, size_t, const char *, size_t);
 void sircc_buf_add(struct sircc_buf *, const char *, size_t);
@@ -471,6 +468,7 @@ void sircc_ui_server_select_next_chan(struct sircc_server *);
 
 void sircc_ui_prompt_add(const char *, size_t);
 void sircc_ui_prompt_delete_previous_char(void);
+void sircc_ui_prompt_delete_from_cursor(void);
 void sircc_ui_prompt_move_cursor_backward(void);
 void sircc_ui_prompt_move_cursor_forward(void);
 void sircc_ui_prompt_move_cursor_beginning(void);

@@ -1530,6 +1530,9 @@ sircc_read_input(void) {
         } else if (c == 9) {
             /* Tabulation */
             sircc_ui_completion_next();
+        } else if (c == 11) {
+            /* ^K */
+            sircc_ui_prompt_delete_from_cursor();
         } else if (c == 12) {
             /* ^L */
             sircc_ui_on_resize();

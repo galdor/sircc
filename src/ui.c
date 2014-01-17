@@ -466,48 +466,6 @@ sircc_ui_prompt_add(const char *buf, size_t sz) {
 }
 
 void
-sircc_ui_prompt_move_cursor_backward(void) {
-    size_t len;
-
-    len = sircc_buf_length(&sircc.prompt_buf);
-
-    if (sircc.prompt_cursor > 0)
-        sircc.prompt_cursor--;
-
-    sircc_ui_prompt_redraw();
-    sircc_ui_update();
-}
-
-void
-sircc_ui_prompt_move_cursor_forward(void) {
-    size_t len;
-
-    len = sircc_buf_length(&sircc.prompt_buf);
-
-    if (sircc.prompt_cursor < len)
-        sircc.prompt_cursor++;
-
-    sircc_ui_prompt_redraw();
-    sircc_ui_update();
-}
-
-void
-sircc_ui_prompt_move_cursor_beginning(void) {
-    sircc.prompt_cursor = 0;
-
-    sircc_ui_prompt_redraw();
-    sircc_ui_update();
-}
-
-void
-sircc_ui_prompt_move_cursor_end(void) {
-    sircc.prompt_cursor = sircc_buf_length(&sircc.prompt_buf);
-
-    sircc_ui_prompt_redraw();
-    sircc_ui_update();
-}
-
-void
 sircc_ui_prompt_delete_previous_char(void) {
     char *prompt, *utf8_prompt = NULL;
     const char *ptr;
@@ -547,6 +505,56 @@ sircc_ui_prompt_delete_previous_char(void) {
 error:
     sircc_free(utf8_prompt);
     sircc_ui_prompt_clear();
+}
+
+void
+sircc_ui_prompt_delete_from_cursor(void) {
+    sircc_buf_truncate(&sircc.prompt_buf, sircc.prompt_cursor);
+
+    sircc_ui_prompt_redraw();
+    sircc_ui_update();
+}
+
+void
+sircc_ui_prompt_move_cursor_backward(void) {
+    size_t len;
+
+    len = sircc_buf_length(&sircc.prompt_buf);
+
+    if (sircc.prompt_cursor > 0)
+        sircc.prompt_cursor--;
+
+    sircc_ui_prompt_redraw();
+    sircc_ui_update();
+}
+
+void
+sircc_ui_prompt_move_cursor_forward(void) {
+    size_t len;
+
+    len = sircc_buf_length(&sircc.prompt_buf);
+
+    if (sircc.prompt_cursor < len)
+        sircc.prompt_cursor++;
+
+    sircc_ui_prompt_redraw();
+    sircc_ui_update();
+}
+
+void
+sircc_ui_prompt_move_cursor_beginning(void) {
+    sircc.prompt_cursor = 0;
+
+    sircc_ui_prompt_redraw();
+    sircc_ui_update();
+}
+
+void
+sircc_ui_prompt_move_cursor_end(void) {
+    sircc.prompt_cursor = sircc_buf_length(&sircc.prompt_buf);
+
+    sircc_ui_prompt_redraw();
+    sircc_ui_update();
 }
 
 void

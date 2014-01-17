@@ -36,6 +36,11 @@
  *  +------------------------------------------+
  */
 
+static void sircc_buf_repack(struct sircc_buf *);
+static void sircc_buf_resize(struct sircc_buf *, size_t);
+static void sircc_buf_grow(struct sircc_buf *, size_t);
+static void sircc_buf_ensure_free_space(struct sircc_buf *, size_t);
+
 void
 sircc_buf_init(struct sircc_buf *buf) {
     memset(buf, 0, sizeof(struct sircc_buf));
@@ -85,43 +90,15 @@ sircc_buf_free_space(const struct sircc_buf *buf) {
 }
 
 void
-sircc_buf_repack(struct sircc_buf *buf) {
-    if (buf->skip == 0)
-        return;
-
-    memmove(buf->data, buf->data + buf->skip, buf->len);
-    buf->skip = 0;
-}
-
-void
-sircc_buf_resize(struct sircc_buf *buf, size_t sz) {
-    if (buf->data) {
-        buf->data = sircc_realloc(buf->data, sz);
-    } else {
-        buf->data = sircc_malloc(sz);
-    }
-
-    buf->sz = sz;
-}
-
-void
-sircc_buf_grow(struct sircc_buf *buf, size_t n) {
-    sircc_buf_resize(buf, buf->sz + n);
-}
-
-void
-sircc_buf_ensure_free_space(struct sircc_buf *buf, size_t n) {
-    size_t free_space;
-
-    free_space = sircc_buf_free_space(buf);
-    if (free_space < n)
-        sircc_buf_grow(buf, n - free_space);
-}
-
-void
 sircc_buf_clear(struct sircc_buf *buf) {
     buf->skip = 0;
     buf->len = 0;
+}
+
+void
+sircc_buf_truncate(struct sircc_buf *buf, size_t offset) {
+    assert(offset <= buf->len);
+    buf->len = offset;
 }
 
 void
@@ -319,4 +296,38 @@ sircc_buf_write(struct sircc_buf *buf, int fd) {
         buf->len -= (size_t)ret;
 
     return ret;
+}
+
+static void
+sircc_buf_repack(struct sircc_buf *buf) {
+    if (buf->skip == 0)
+        return;
+
+    memmove(buf->data, buf->data + buf->skip, buf->len);
+    buf->skip = 0;
+}
+
+static void
+sircc_buf_resize(struct sircc_buf *buf, size_t sz) {
+    if (buf->data) {
+        buf->data = sircc_realloc(buf->data, sz);
+    } else {
+        buf->data = sircc_malloc(sz);
+    }
+
+    buf->sz = sz;
+}
+
+static void
+sircc_buf_grow(struct sircc_buf *buf, size_t n) {
+    sircc_buf_resize(buf, buf->sz + n);
+}
+
+static void
+sircc_buf_ensure_free_space(struct sircc_buf *buf, size_t n) {
+    size_t free_space;
+
+    free_space = sircc_buf_free_space(buf);
+    if (free_space < n)
+        sircc_buf_grow(buf, n - free_space);
 }
