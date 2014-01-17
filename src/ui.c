@@ -260,7 +260,7 @@ sircc_ui_chans_redraw(void) {
     if (!server->current_chan)
         wattron(win, A_BOLD);
 
-    waddstr(win, server->host);
+    waddstr(win, server->name);
 
     if (!server->current_chan)
         wattroff(win, A_BOLD);
