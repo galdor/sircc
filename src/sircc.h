@@ -473,6 +473,8 @@ void sircc_ui_prompt_add(const char *, size_t);
 void sircc_ui_prompt_delete_previous_char(void);
 void sircc_ui_prompt_move_cursor_backward(void);
 void sircc_ui_prompt_move_cursor_forward(void);
+void sircc_ui_prompt_move_cursor_beginning(void);
+void sircc_ui_prompt_move_cursor_end(void);
 void sircc_ui_prompt_clear(void);
 void sircc_ui_prompt_execute(void);
 

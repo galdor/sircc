@@ -492,6 +492,22 @@ sircc_ui_prompt_move_cursor_forward(void) {
 }
 
 void
+sircc_ui_prompt_move_cursor_beginning(void) {
+    sircc.prompt_cursor = 0;
+
+    sircc_ui_prompt_redraw();
+    sircc_ui_update();
+}
+
+void
+sircc_ui_prompt_move_cursor_end(void) {
+    sircc.prompt_cursor = sircc_buf_length(&sircc.prompt_buf);
+
+    sircc_ui_prompt_redraw();
+    sircc_ui_update();
+}
+
+void
 sircc_ui_prompt_delete_previous_char(void) {
     char *prompt, *utf8_prompt = NULL;
     const char *ptr;

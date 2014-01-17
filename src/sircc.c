@@ -1512,9 +1512,15 @@ sircc_read_input(void) {
 
         c = ptr[i];
 
-        if (c == 2) {
+        if (c == 1) {
+            /* ^A */
+            sircc_ui_prompt_move_cursor_beginning();
+        } else if (c == 2) {
             /* ^B */
             sircc_ui_prompt_move_cursor_backward();
+        } else if (c == 5) {
+            /* ^E */
+            sircc_ui_prompt_move_cursor_end();
         } else if (c == 6) {
             /* ^F */
             sircc_ui_prompt_move_cursor_forward();
