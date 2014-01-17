@@ -1291,6 +1291,7 @@ sircc_initialize(void) {
     sircc_init_msg_handlers();
 
     sircc_buf_init(&sircc.input_buf);
+    sircc_buf_init(&sircc.input_read_buf);
     sircc_buf_init(&sircc.prompt_buf);
 
     sircc_setup_poll_array();
@@ -1324,6 +1325,7 @@ sircc_shutdown(void) {
 
     ht_table_delete(sircc.msg_handlers);
 
+    sircc_buf_free(&sircc.input_read_buf);
     sircc_buf_free(&sircc.input_buf);
     sircc_buf_free(&sircc.prompt_buf);
 
@@ -1498,14 +1500,14 @@ sircc_read_input(void) {
 
     server = sircc_server_get_current();
 
-    ret = sircc_buf_read(&sircc.input_buf, STDIN_FILENO, 64);
+    ret = sircc_buf_read(&sircc.input_read_buf, STDIN_FILENO, 64);
     if (ret < 0)
         die("cannot read terminal device: %m");
     if (ret == 0)
         die("eof on terminal device");
 
-    len = sircc_buf_length(&sircc.input_buf);
-    ptr = (unsigned char *)sircc_buf_data(&sircc.input_buf);
+    len = sircc_buf_length(&sircc.input_read_buf);
+    ptr = (unsigned char *)sircc_buf_data(&sircc.input_read_buf);
 
     for (size_t i = 0; i < len; i++) {
         unsigned char c;
@@ -1558,14 +1560,35 @@ sircc_read_input(void) {
 
             escape = false;
         } else {
-            char tmp[1];
-
-            tmp[0] = (char)c;
-            sircc_ui_prompt_add(tmp, 1);
+            sircc_buf_add(&sircc.input_buf, (char *)&c, 1);
         }
     }
 
-    sircc_buf_skip(&sircc.input_buf, len);
+    {
+        char *utf8_str;
+        size_t nb_bytes;
+
+        utf8_str = sircc_str_to_utf8(sircc_buf_data(&sircc.input_buf),
+                                     sircc_buf_length(&sircc.input_buf),
+                                     &nb_bytes);
+        if (!utf8_str) {
+            sircc_chan_log_error(NULL, "cannot convert input to UTF-8: %s",
+                                 sircc_get_error());
+
+            sircc_buf_clear(&sircc.input_read_buf);
+            sircc_buf_clear(&sircc.input_buf);
+        }
+
+        sircc_ui_prompt_add(utf8_str);
+        sircc_free(utf8_str);
+
+        /* If there is a truncated multibyte character at the end of
+         * input_buf, it will stay in it to be completed the next time there
+         * is something to read on stdin. */
+        sircc_buf_skip(&sircc.input_buf, nb_bytes);
+    }
+
+    sircc_buf_clear(&sircc.input_read_buf);
 }
 
 static int

@@ -53,19 +53,9 @@ int sircc_asprintf(char **, const char *, ...)
 
 char *sircc_str_to_utf8(char *, size_t, size_t *);
 
-static inline bool
-sircc_utf8_is_leading_byte(char c) {
-    return ((c & 0x80) == 0x00) /* one byte character */
-        || ((c & 0xc0) == 0xc0);
-}
-
-static inline bool
-sircc_utf8_is_continuation_byte(char c) {
-    return (c & 0xc0) == 0x80;
-}
-
+bool sircc_utf8_is_leading_byte(char);
+bool sircc_utf8_is_continuation_byte(char);
 size_t sircc_utf8_nb_chars(const char *);
-const char *sircc_utf8_last_n_chars(const char *, size_t);
 
 size_t strlcpy(char *, const char *, size_t);
 
@@ -102,6 +92,9 @@ size_t sircc_buf_remove(struct sircc_buf *, size_t);
 
 char *sircc_buf_dup(const struct sircc_buf *);
 char *sircc_buf_dup_str(const struct sircc_buf *);
+
+size_t sircc_buf_utf8_nb_chars(const struct sircc_buf *);
+char *sircc_buf_utf8_last_n_chars(const struct sircc_buf *, size_t, size_t *);
 
 ssize_t sircc_buf_read(struct sircc_buf *, int, size_t);
 ssize_t sircc_buf_write(struct sircc_buf *, int);
@@ -427,6 +420,7 @@ struct sircc {
     WINDOW *win_servers;
     WINDOW *win_prompt;
 
+    struct sircc_buf input_read_buf;
     struct sircc_buf input_buf;
 
     bool completion; /* is completion in progress */
@@ -435,7 +429,8 @@ struct sircc {
     char *last_completion;
 
     struct sircc_buf prompt_buf;
-    size_t prompt_cursor; /* offset in prompt_buf */
+    size_t prompt_cursor;  /* offset in prompt_buf */
+    size_t prompt_vcursor; /* position in the window */
 };
 
 extern struct sircc sircc;
@@ -466,7 +461,7 @@ void sircc_ui_server_select_chan(struct sircc_server *, struct sircc_chan *);
 void sircc_ui_server_select_previous_chan(struct sircc_server *);
 void sircc_ui_server_select_next_chan(struct sircc_server *);
 
-void sircc_ui_prompt_add(const char *, size_t);
+void sircc_ui_prompt_add(const char *);
 void sircc_ui_prompt_delete_previous_char(void);
 void sircc_ui_prompt_delete_from_cursor(void);
 void sircc_ui_prompt_move_cursor_backward(void);

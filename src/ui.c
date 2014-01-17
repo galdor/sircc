@@ -325,12 +325,11 @@ sircc_ui_prompt_redraw(void) {
     static size_t prefix_len = sizeof(prefix) - 1;
 
     WINDOW *win;
-    char *str, *utf8_str;
-    size_t len, nb_bytes;
-    int width;
+    const char *prompt, *str;
+    size_t prompt_len, nb_bytes, offset, width;
 
     win = sircc.win_prompt;
-    width = getmaxx(win) - 1; /* space for the cursor */
+    width = (size_t)(getmaxx(win) - 1); /* space for the cursor */
 
     wmove(win, 0, 0);
     wclrtoeol(win);
@@ -340,25 +339,23 @@ sircc_ui_prompt_redraw(void) {
     width -= prefix_len;
     wattroff(win, A_BOLD);
 
-    len = sircc_buf_length(&sircc.prompt_buf);
-    str = sircc_buf_data(&sircc.prompt_buf);
+    prompt = sircc_buf_data(&sircc.prompt_buf);
+    prompt_len = sircc_buf_length(&sircc.prompt_buf);
+    if (prompt_len == 0)
+        goto end;
 
-    if (str) {
-        const char *printed_str;
+    str = prompt;
+    nb_bytes = prompt_len;
 
-        utf8_str = sircc_str_to_utf8(str, len, &nb_bytes);
-        if (!utf8_str) {
-            sircc_chan_log_error(NULL, "%s", sircc_get_error());
-            goto end;
-        }
-
-        printed_str = sircc_utf8_last_n_chars(utf8_str, (size_t)width);
-        waddstr(win, printed_str);
-
-        wmove(win, 0, (int)(prefix_len + sircc.prompt_cursor));
-
-        sircc_free(utf8_str);
+    if (sircc.prompt_cursor >= width) {
+        str += sircc.prompt_cursor - width;
+        nb_bytes = prompt_len - (size_t)(str - prompt);
     }
+
+    waddnstr(win, str, nb_bytes);
+
+    offset = (size_t)(str - prompt);
+    wmove(win, 0, (int)(prefix_len + sircc.prompt_vcursor - offset));
 
 end:
     wnoutrefresh(win);
@@ -454,10 +451,14 @@ sircc_ui_server_select_next_chan(struct sircc_server *server) {
 }
 
 void
-sircc_ui_prompt_add(const char *buf, size_t sz) {
-    sircc_buf_insert(&sircc.prompt_buf, sircc.prompt_cursor, buf, sz);
+sircc_ui_prompt_add(const char *str) {
+    size_t len;
 
-    sircc.prompt_cursor += sz;
+    len = strlen(str);
+    sircc_buf_insert(&sircc.prompt_buf, sircc.prompt_cursor, str, len);
+
+    sircc.prompt_cursor += len;
+    sircc.prompt_vcursor += sircc_utf8_nb_chars(str);
 
     sircc_ui_completion_reset();
 
@@ -467,44 +468,35 @@ sircc_ui_prompt_add(const char *buf, size_t sz) {
 
 void
 sircc_ui_prompt_delete_previous_char(void) {
-    char *prompt, *utf8_prompt = NULL;
-    const char *ptr;
+    char *ptr, *prompt;
     size_t len, nb_bytes = 0, nb_deleted;
 
-    if (sircc_buf_length(&sircc.prompt_buf) == 0)
+    if (sircc.prompt_cursor == 0)
         return;
 
     prompt = sircc_buf_data(&sircc.prompt_buf);
     len = sircc_buf_length(&sircc.prompt_buf);
-
-    utf8_prompt = sircc_str_to_utf8(prompt, len, NULL);
-    if (!utf8_prompt) {
-        sircc_chan_log_error(NULL, "%s", sircc_get_error());
-        goto error;
-    }
-
-    len = strlen(utf8_prompt);
     if (len == 0)
         return;
 
-    ptr = sircc_utf8_last_n_chars(utf8_prompt, 1);
-    nb_bytes = (size_t)(utf8_prompt + len - ptr);
+    ptr = prompt + sircc.prompt_cursor;
+    nb_bytes = 0;
+
+    do {
+        ptr--;
+        nb_bytes++;
+    } while (ptr > prompt && sircc_utf8_is_continuation_byte(*ptr));
+
     nb_deleted = sircc_buf_remove_at(&sircc.prompt_buf, sircc.prompt_cursor,
                                      nb_bytes);
 
     sircc.prompt_cursor -= nb_deleted;
+    sircc.prompt_vcursor--;
 
     sircc_ui_completion_reset();
 
     sircc_ui_prompt_redraw();
     sircc_ui_update();
-
-    sircc_free(utf8_prompt);
-    return;
-
-error:
-    sircc_free(utf8_prompt);
-    sircc_ui_prompt_clear();
 }
 
 void
@@ -517,12 +509,22 @@ sircc_ui_prompt_delete_from_cursor(void) {
 
 void
 sircc_ui_prompt_move_cursor_backward(void) {
+    char *ptr;
     size_t len;
 
+    ptr = sircc_buf_data(&sircc.prompt_buf);
     len = sircc_buf_length(&sircc.prompt_buf);
 
-    if (sircc.prompt_cursor > 0)
+    if (sircc.prompt_cursor == 0)
+        return;
+
+    do {
         sircc.prompt_cursor--;
+        if (sircc_utf8_is_leading_byte(ptr[sircc.prompt_cursor]))
+            break;
+    } while (sircc.prompt_cursor > 0);
+
+    sircc.prompt_vcursor--;
 
     sircc_ui_prompt_redraw();
     sircc_ui_update();
@@ -530,12 +532,22 @@ sircc_ui_prompt_move_cursor_backward(void) {
 
 void
 sircc_ui_prompt_move_cursor_forward(void) {
+    char *ptr;
     size_t len;
 
+    ptr = sircc_buf_data(&sircc.prompt_buf);
     len = sircc_buf_length(&sircc.prompt_buf);
 
-    if (sircc.prompt_cursor < len)
+    if (sircc.prompt_cursor >= len)
+        return;
+
+    do {
         sircc.prompt_cursor++;
+        if (sircc_utf8_is_leading_byte(ptr[sircc.prompt_cursor]))
+            break;
+    } while (sircc.prompt_cursor <= len);
+
+    sircc.prompt_vcursor++;
 
     sircc_ui_prompt_redraw();
     sircc_ui_update();
@@ -544,6 +556,7 @@ sircc_ui_prompt_move_cursor_forward(void) {
 void
 sircc_ui_prompt_move_cursor_beginning(void) {
     sircc.prompt_cursor = 0;
+    sircc.prompt_vcursor = 0;
 
     sircc_ui_prompt_redraw();
     sircc_ui_update();
@@ -551,7 +564,13 @@ sircc_ui_prompt_move_cursor_beginning(void) {
 
 void
 sircc_ui_prompt_move_cursor_end(void) {
-    sircc.prompt_cursor = sircc_buf_length(&sircc.prompt_buf);
+    size_t len, nb_chars;
+
+    len = sircc_buf_length(&sircc.prompt_buf);
+    nb_chars = sircc_buf_utf8_nb_chars(&sircc.prompt_buf);
+
+    sircc.prompt_cursor = len;
+    sircc.prompt_vcursor = nb_chars;
 
     sircc_ui_prompt_redraw();
     sircc_ui_update();
@@ -560,6 +579,10 @@ sircc_ui_prompt_move_cursor_end(void) {
 void
 sircc_ui_prompt_clear(void) {
     sircc_buf_clear(&sircc.prompt_buf);
+
+    sircc.prompt_cursor = 0;
+    sircc.prompt_vcursor = 0;
+
     sircc_ui_completion_reset();
 
     sircc_ui_prompt_redraw();
@@ -574,7 +597,6 @@ sircc_ui_prompt_execute(void) {
 
     if (sircc_buf_length(&sircc.prompt_buf) == 0)
         return;
-
 
     is_cmd = sircc_buf_data(&sircc.prompt_buf)[0] == '/';
 

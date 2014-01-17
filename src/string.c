@@ -118,6 +118,17 @@ sircc_asprintf(char **pstr, const char *fmt, ...) {
     return ret;
 }
 
+bool
+sircc_utf8_is_leading_byte(char c) {
+    return ((c & 0x80) == 0x00) /* one byte character */
+        || ((c & 0xc0) == 0xc0);
+}
+
+bool
+sircc_utf8_is_continuation_byte(char c) {
+    return (c & 0xc0) == 0x80;
+}
+
 size_t
 sircc_utf8_nb_chars(const char *str) {
     size_t nb_chars;
@@ -131,29 +142,6 @@ sircc_utf8_nb_chars(const char *str) {
     }
 
     return nb_chars;
-}
-
-const char *
-sircc_utf8_last_n_chars(const char *str, size_t n) {
-    const char *ptr;
-    size_t len;
-    size_t nb_chars;
-
-    len = strlen(str);
-    if (n >= len)
-        return str;
-
-    nb_chars = 0;
-
-    ptr = str + len;
-    do {
-        ptr--;
-
-        if (sircc_utf8_is_leading_byte(*ptr))
-            nb_chars++;
-    } while (nb_chars < n);
-
-    return ptr;
 }
 
 #ifndef strlcpy

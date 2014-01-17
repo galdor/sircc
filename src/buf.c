@@ -109,6 +109,12 @@ sircc_buf_insert(struct sircc_buf *buf, size_t offset,
     assert(offset <= buf->len);
 
     if (!buf->data) {
+        size_t newsz;
+
+        newsz = sz;
+        if (newsz < 8)
+            newsz = 8;
+
         buf->data = sircc_malloc(sz);
         buf->sz = sz;
     } else if (sircc_buf_free_space(buf) < sz) {
@@ -269,6 +275,55 @@ sircc_buf_dup_str(const struct sircc_buf *buf) {
     str[buf->len] = '\0';
 
     return str;
+}
+
+size_t
+sircc_buf_utf8_nb_chars(const struct sircc_buf *buf) {
+    size_t nb_chars;
+    char *ptr;
+
+    nb_chars = 0;
+
+    ptr = buf->data + buf->skip;
+    for (size_t i = 0; i < buf->len; i++) {
+        if (sircc_utf8_is_leading_byte(*ptr))
+            nb_chars++;
+
+        ptr++;
+    }
+
+    return nb_chars;
+}
+
+char *
+sircc_buf_utf8_last_n_chars(const struct sircc_buf *buf, size_t n,
+                            size_t *nb_bytes) {
+    char *data, *end, *ptr;
+    size_t nb_chars;
+
+    data = sircc_buf_data(buf);
+    if (!data)
+        return NULL;
+
+    if (n >= buf->len) {
+        *nb_bytes = buf->len;
+        return data;
+    }
+
+    nb_chars = 0;
+
+    end = data + buf->len;
+
+    ptr = end;
+    do {
+        ptr--;
+
+        if (sircc_utf8_is_leading_byte(*ptr))
+            nb_chars++;
+    } while (nb_chars < n);
+
+    *nb_bytes = (size_t)(end - ptr);
+    return ptr;
 }
 
 ssize_t
