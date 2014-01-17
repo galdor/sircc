@@ -224,15 +224,9 @@ sircc_cfg_ssl_file_path(char *buf, const char *file, size_t sz) {
 }
 
 const char *
-sircc_cfg_string(struct sircc_cfg *cfg, const char *default_value,
-                 const char *fmt, ...) {
-    char key[SIRCC_CFG_KEY_MAXSZ];
+sircc_cfg_string(struct sircc_cfg *cfg, const char *key,
+                 const char *default_value) {
     struct sircc_cfg_entry *entry;
-    va_list ap;
-
-    va_start(ap, fmt);
-    vsnprintf(key, sizeof(key), fmt, ap);
-    va_end(ap);
 
     if (ht_table_get(cfg->entries, key, (void **)&entry) == 0)
         return default_value;
@@ -241,15 +235,8 @@ sircc_cfg_string(struct sircc_cfg *cfg, const char *default_value,
 }
 
 const char **
-sircc_cfg_strings(struct sircc_cfg *cfg, size_t *pnb,
-                  const char *fmt, ...) {
-    char key[SIRCC_CFG_KEY_MAXSZ];
+sircc_cfg_strings(struct sircc_cfg *cfg, const char *key, size_t *pnb) {
     struct sircc_cfg_entry *entry;
-    va_list ap;
-
-    va_start(ap, fmt);
-    vsnprintf(key, sizeof(key), fmt, ap);
-    va_end(ap);
 
     if (ht_table_get(cfg->entries, key, (void **)&entry) == 0) {
         *pnb = 0;
@@ -261,15 +248,8 @@ sircc_cfg_strings(struct sircc_cfg *cfg, size_t *pnb,
 }
 
 int
-sircc_cfg_integer(struct sircc_cfg *cfg, int default_value,
-                  const char *fmt, ...) {
-    char key[SIRCC_CFG_KEY_MAXSZ];
+sircc_cfg_integer(struct sircc_cfg *cfg, const char *key, int default_value) {
     struct sircc_cfg_entry *entry;
-    va_list ap;
-
-    va_start(ap, fmt);
-    vsnprintf(key, sizeof(key), fmt, ap);
-    va_end(ap);
 
     if (ht_table_get(cfg->entries, key, (void **)&entry) == 0)
         return default_value;
@@ -278,15 +258,8 @@ sircc_cfg_integer(struct sircc_cfg *cfg, int default_value,
 }
 
 bool
-sircc_cfg_boolean(struct sircc_cfg *cfg, bool default_value,
-                  const char *fmt, ...) {
-    char key[SIRCC_CFG_KEY_MAXSZ];
+sircc_cfg_boolean(struct sircc_cfg *cfg, const char *key, bool default_value) {
     struct sircc_cfg_entry *entry;
-    va_list ap;
-
-    va_start(ap, fmt);
-    vsnprintf(key, sizeof(key), fmt, ap);
-    va_end(ap);
 
     if (ht_table_get(cfg->entries, key, (void **)&entry) == 0)
         return default_value;
@@ -295,31 +268,39 @@ sircc_cfg_boolean(struct sircc_cfg *cfg, bool default_value,
 }
 
 const char *
-sircc_cfg_server_string(struct sircc_server *server, const char *key,
+sircc_cfg_server_string(struct sircc_server *server, const char *subkey,
                         const char *default_value) {
-    return sircc_cfg_string(&sircc.cfg, default_value, "server.%s.%s",
-                            server->name, key);
+    char key[SIRCC_CFG_KEY_MAXSZ];
+
+    snprintf(key, sizeof(key), "server.%s.%s", server->name, subkey);
+    return sircc_cfg_string(&sircc.cfg, key, default_value);
 }
 
 const char **
-sircc_cfg_server_strings(struct sircc_server *server, const char *key,
+sircc_cfg_server_strings(struct sircc_server *server, const char *subkey,
                          size_t *pnb) {
-    return sircc_cfg_strings(&sircc.cfg, pnb, "server.%s.%s",
-                            server->name, key);
+    char key[SIRCC_CFG_KEY_MAXSZ];
+
+    snprintf(key, sizeof(key), "server.%s.%s", server->name, subkey);
+    return sircc_cfg_strings(&sircc.cfg, key, pnb);
 }
 
 int
-sircc_cfg_server_integer(struct sircc_server *server, const char *key,
+sircc_cfg_server_integer(struct sircc_server *server, const char *subkey,
                          int default_value) {
-    return sircc_cfg_integer(&sircc.cfg, default_value, "server.%s.%s",
-                             server->name, key);
+    char key[SIRCC_CFG_KEY_MAXSZ];
+
+    snprintf(key, sizeof(key), "server.%s.%s", server->name, subkey);
+    return sircc_cfg_integer(&sircc.cfg, key, default_value);
 }
 
 bool
-sircc_cfg_server_boolean(struct sircc_server *server, const char *key,
+sircc_cfg_server_boolean(struct sircc_server *server, const char *subkey,
                          bool default_value) {
-    return sircc_cfg_boolean(&sircc.cfg, default_value, "server.%s.%s",
-                             server->name, key);
+    char key[SIRCC_CFG_KEY_MAXSZ];
+
+    snprintf(key, sizeof(key), "server.%s.%s", server->name, subkey);
+    return sircc_cfg_boolean(&sircc.cfg, key, default_value);
 }
 
 static void

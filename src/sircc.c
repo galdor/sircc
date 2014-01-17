@@ -110,9 +110,8 @@ main(int argc, char **argv) {
     sircc_ui_initialize();
     sircc_initialize();
 
-    while (!sircc.do_exit) {
+    while (!sircc.do_exit)
         sircc_poll();
-    }
 
     sircc_shutdown();
     sircc_ui_shutdown();

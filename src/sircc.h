@@ -145,16 +145,10 @@ int sircc_cfg_load_file(struct sircc_cfg *, const char *);
 
 void sircc_cfg_ssl_file_path(char *, const char *, size_t);
 
-const char *sircc_cfg_string(struct sircc_cfg *, const char *,
-                             const char *, ...)
-    __attribute__((format(printf, 3, 4)));
-const char **sircc_cfg_strings(struct sircc_cfg *, size_t *,
-                               const char *, ...)
-    __attribute__((format(printf, 3, 4)));
-int sircc_cfg_integer(struct sircc_cfg *, int, const char *, ...)
-    __attribute__((format(printf, 3, 4)));
-bool sircc_cfg_boolean(struct sircc_cfg *, bool, const char *, ...)
-    __attribute__((format(printf, 3, 4)));
+const char *sircc_cfg_string(struct sircc_cfg *, const char *, const char *);
+const char **sircc_cfg_strings(struct sircc_cfg *, const char *, size_t *);
+int sircc_cfg_integer(struct sircc_cfg *, const char *, int);
+bool sircc_cfg_boolean(struct sircc_cfg *, const char *, bool);
 
 struct sircc_server;
 
