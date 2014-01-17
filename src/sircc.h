@@ -100,7 +100,8 @@ int sircc_buf_add_printf(struct sircc_buf *, const char *, ...)
     __attribute__((format(printf, 2, 3)));
 
 void sircc_buf_skip(struct sircc_buf *, size_t);
-void sircc_buf_remove(struct sircc_buf *, size_t);
+size_t sircc_buf_remove_at(struct sircc_buf *, size_t, size_t);
+size_t sircc_buf_remove(struct sircc_buf *, size_t);
 
 char *sircc_buf_dup(const struct sircc_buf *);
 char *sircc_buf_dup_str(const struct sircc_buf *);

@@ -495,7 +495,7 @@ void
 sircc_ui_prompt_delete_previous_char(void) {
     char *prompt, *utf8_prompt = NULL;
     const char *ptr;
-    size_t len, nb_bytes = 0;
+    size_t len, nb_bytes = 0, nb_deleted;
 
     if (sircc_buf_length(&sircc.prompt_buf) == 0)
         return;
@@ -515,9 +515,10 @@ sircc_ui_prompt_delete_previous_char(void) {
 
     ptr = sircc_utf8_last_n_chars(utf8_prompt, 1);
     nb_bytes = (size_t)(utf8_prompt + len - ptr);
-    sircc_buf_remove(&sircc.prompt_buf, nb_bytes);
+    nb_deleted = sircc_buf_remove_at(&sircc.prompt_buf, sircc.prompt_cursor,
+                                     nb_bytes);
 
-    sircc.prompt_cursor--;
+    sircc.prompt_cursor -= nb_deleted;
 
     sircc_ui_completion_reset();
 

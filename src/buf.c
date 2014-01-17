@@ -232,12 +232,30 @@ sircc_buf_skip(struct sircc_buf *buf, size_t n) {
     buf->len -= n;
 }
 
-void
-sircc_buf_remove(struct sircc_buf *buf, size_t n) {
-    if (n > buf->len)
-        n = buf->len;
+size_t
+sircc_buf_remove_at(struct sircc_buf *buf, size_t offset, size_t n) {
+    assert(offset <= buf->len);
+
+    if (n > offset)
+        n = offset;
+
+    if (n == 0)
+        return 0;
+
+    if (offset < buf->len) {
+        char *ptr;
+
+        ptr = buf->data + buf->skip + offset;
+        memmove(ptr - n, ptr, buf->len - offset);
+    }
 
     buf->len -= n;
+    return n;
+}
+
+size_t
+sircc_buf_remove(struct sircc_buf *buf, size_t n) {
+    return sircc_buf_remove_at(buf, buf->len, n);
 }
 
 char *
