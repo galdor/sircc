@@ -51,6 +51,7 @@ sircc_history_add_entry(struct sircc_history *history,
                         const struct sircc_history_entry *entry) {
     struct sircc_history_entry *head;
     size_t idx;
+    char *text;
 
     idx = (history->start_idx + history->nb_entries) % history->sz;
     head = history->entries + idx;
@@ -69,6 +70,11 @@ sircc_history_add_entry(struct sircc_history *history,
         history->nb_entries++;
 
     sircc_history_entry_update_margin_text(history, head);
+
+    text = sircc_process_text(head->text);
+    sircc_free(head->text);
+    head->text = text;
+
     sircc_layout_add_history_entry(&history->layout, head);
 }
 

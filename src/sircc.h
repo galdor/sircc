@@ -43,7 +43,7 @@ void *sircc_calloc(size_t, size_t);
 void *sircc_realloc(void *, size_t);
 void sircc_free(void *);
 
-/* String utils */
+/* Strings */
 char *sircc_strdup(const char *);
 char *sircc_strndup(const char *, size_t);
 
@@ -58,6 +58,9 @@ bool sircc_utf8_is_continuation_byte(char);
 size_t sircc_utf8_nb_chars(const char *);
 
 size_t strlcpy(char *, const char *, size_t);
+
+/* Text processing */
+char *sircc_process_text(const char *);
 
 /* Memory buffers */
 struct sircc_buf {
@@ -471,8 +474,9 @@ void sircc_ui_prompt_move_cursor_end(void);
 void sircc_ui_prompt_clear(void);
 void sircc_ui_prompt_execute(void);
 
-int sircc_ui_vformat(WINDOW *, const char *, va_list);
-int sircc_ui_format(WINDOW *, const char *, ...);
+int sircc_ui_write(WINDOW *, const char *, size_t);
+int sircc_ui_vprintf(WINDOW *, const char *, va_list);
+int sircc_ui_printf(WINDOW *, const char *, ...);
 
 void sircc_ui_completion_reset(void);
 void sircc_ui_completion_next(void);

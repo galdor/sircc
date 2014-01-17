@@ -224,10 +224,10 @@ sircc_ui_main_redraw(void) {
 
         if (row->is_entry_first_row) {
             wmove(win, y, 0);
-            sircc_ui_format(win, entry->margin_text);
+            sircc_ui_write(win, entry->margin_text, strlen(entry->margin_text));
 
             wattron(win, attrs);
-            waddnstr(win, row->text, row->text_sz);
+            sircc_ui_write(win, row->text, row->text_sz);
             wattroff(win, attrs);
         } else {
             wmove(win, y, margin_sz);
@@ -638,7 +638,7 @@ sircc_ui_prompt_execute(void) {
 }
 
 int
-sircc_ui_vformat(WINDOW *win, const char *fmt, va_list ap) {
+sircc_ui_write(WINDOW *win, const char *str, size_t sz) {
     /*
      * ^a0   reset attributes
      * ^a1   bold
@@ -657,16 +657,11 @@ sircc_ui_vformat(WINDOW *win, const char *fmt, va_list ap) {
      * ^^   '^' character
      */
 
-    struct sircc_buf buf;
     const char *ptr;
     size_t len;
 
-    sircc_buf_init(&buf);
-    if (sircc_buf_add_vprintf(&buf, fmt, ap) == -1)
-        goto error;
-
-    ptr = sircc_buf_data(&buf);
-    len = sircc_buf_length(&buf);
+    ptr = str;
+    len = sz;
 
     while (len > 0) {
         if (*ptr == '^') {
@@ -734,24 +729,44 @@ sircc_ui_vformat(WINDOW *win, const char *fmt, va_list ap) {
     }
 
     wattrset(win, A_NORMAL);
+    return 0;
+
+error:
+    wattrset(win, A_NORMAL);
+    return -1;
+}
+
+int
+sircc_ui_vprintf(WINDOW *win, const char *fmt, va_list ap) {
+    struct sircc_buf buf;
+    const char *ptr;
+    size_t len;
+
+    sircc_buf_init(&buf);
+    if (sircc_buf_add_vprintf(&buf, fmt, ap) == -1)
+        goto error;
+
+    ptr = sircc_buf_data(&buf);
+    len = sircc_buf_length(&buf);
+
+    if (sircc_ui_write(win, ptr, len) == -1)
+        goto error;
 
     sircc_buf_free(&buf);
     return 0;
 
 error:
-    wattrset(win, A_NORMAL);
-
     sircc_buf_free(&buf);
     return -1;
 }
 
 int
-sircc_ui_format(WINDOW *win, const char *fmt, ...) {
+sircc_ui_printf(WINDOW *win, const char *fmt, ...) {
     va_list ap;
     int ret;
 
     va_start(ap, fmt);
-    ret = sircc_ui_vformat(win, fmt, ap);
+    ret = sircc_ui_vprintf(win, fmt, ap);
     va_end(ap);
 
     return ret;
