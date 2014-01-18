@@ -657,10 +657,10 @@ sircc_ui_write(WINDOW *win, const char *str, size_t sz) {
      * ^^   '^' character
      */
 
-    const char *ptr;
+    const unsigned char *ptr;
     size_t len;
 
-    ptr = str;
+    ptr = (const unsigned char *)str;
     len = sz;
 
     while (len > 0) {
@@ -677,7 +677,7 @@ sircc_ui_write(WINDOW *win, const char *str, size_t sz) {
                 ptr++;
                 len--;
             } else if (*ptr == 'a') {
-                char digit;
+                unsigned char digit;
 
                 ptr++;
                 len--;
@@ -705,7 +705,7 @@ sircc_ui_write(WINDOW *win, const char *str, size_t sz) {
                 ptr++;
                 len--;
             } else if (*ptr == 'c') {
-                char digit;
+                unsigned char digit;
 
                 ptr++;
                 len--;
@@ -715,6 +715,10 @@ sircc_ui_write(WINDOW *win, const char *str, size_t sz) {
                 }
 
                 digit = *ptr - '0';
+                if (digit > 9) {
+                    sircc_set_error("invalid color sequence");
+                    goto error;
+                }
 
                 wattron(win, COLOR_PAIR(digit));
 
