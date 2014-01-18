@@ -855,13 +855,20 @@ sircc_ui_completion_next(void) {
 
 void
 sircc_ui_completion_update_prompt(const char *completion, const char *suffix) {
-    size_t len;
+    size_t len, nb_chars;
 
-    len = sircc_buf_length(&sircc.prompt_buf) -  sircc.completion_offset;
+    len = sircc_buf_length(&sircc.prompt_buf) - sircc.completion_offset;
 
     sircc_buf_remove(&sircc.prompt_buf, len);
+
     sircc_buf_add(&sircc.prompt_buf, completion, strlen(completion));
     sircc_buf_add(&sircc.prompt_buf, suffix, strlen(suffix));
+
+    len = sircc_buf_length(&sircc.prompt_buf);
+    nb_chars = sircc_buf_utf8_nb_chars(&sircc.prompt_buf);
+
+    sircc.prompt_cursor = len;
+    sircc.prompt_vcursor = nb_chars;
 
     sircc_ui_prompt_redraw();
     sircc_ui_update();
