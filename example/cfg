@@ -1,0 +1,14 @@
+
+# Uncommented options override the default value
+
+server freenode
+host irc.freenode.net
+port 7000
+#autoconnect yes
+ssl yes
+#ssl_verify_certificate yes
+#ssl_allow_self_signed_certificate no
+ssl_ca_certificate freenode.pem
+nickname sircc
+realname Simple IRC Client
+#max_nickname_length 15

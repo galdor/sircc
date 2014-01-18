@@ -9,6 +9,18 @@ written in C for Unix platforms.
 It is recommended to build it in debug (`make debug=1`) and to enable core
 files on your machine.
 
+## Configuration
+
+The `example` directory is an example of configuration for `sircc`. You can
+use it by copying in your home directory and renaming it to `.sircc`. You can
+also run `sircc` with the `-c` command line argument pointing on the `example`
+directory.
+
+The SSL certificate chain (`example/ssl/freenode.pem`) provided for the
+Freenode IRC network was created from files downloaded via the Freenode
+website. Note that it may have been changed since the moment it was
+downloaded.
+
 ## Contact
 
 If you have found a bug, have an idea or a question, email me at

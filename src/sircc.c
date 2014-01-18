@@ -126,7 +126,7 @@ sircc_usage(const char *argv0, int exit_code) {
     printf("Usage: %s [-chv]\n"
             "\n"
             "Options:\n"
-            "  -c <dir>  load the configuration from <dir> instead of ~/.sircc\n"
+            "  -c <dir>  load the configuration from <dir> instead of ~/.sircc/\n"
             "  -h        display help\n"
             "  -v        display version information\n",
             argv0);
