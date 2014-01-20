@@ -397,6 +397,7 @@ void sircc_server_send_privmsg(struct sircc_server *, const char *,
 
 struct sircc_highlighter {
     pcre *regexp;
+    pcre_extra *regexp_extra;
 
     char *sequence;
 };

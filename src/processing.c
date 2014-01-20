@@ -44,7 +44,7 @@ static void sircc_highlighter_free(struct sircc_highlighter *);
 static int sircc_highlighter_init_escape_sequences(struct sircc_highlighter *,
                                                    const char *, size_t);
 
-static pcre *sircc_pcre_compile(const char *);
+static pcre *sircc_pcre_compile(const char *, pcre_extra **);
 
 int
 sircc_processing_initialize(void) {
@@ -88,7 +88,8 @@ sircc_processing_initialize(void) {
             goto error;
         }
 
-        highlighter->regexp = sircc_pcre_compile(regexp_str);
+        highlighter->regexp = sircc_pcre_compile(regexp_str,
+                                                 &highlighter->regexp_extra);
     }
 
     return 0;
@@ -131,7 +132,7 @@ sircc_process_buf(struct sircc_buf *buf) {
 
     for (size_t i = 0; i < sircc.nb_highlighters; i++) {
         struct sircc_highlighter *highlighter;
-        size_t buf_len, sequence_len;
+        size_t sequence_len;
         size_t offset;
         int substrings[3];
         int ret;
@@ -147,9 +148,9 @@ sircc_process_buf(struct sircc_buf *buf) {
 
             buf_ptr = sircc_buf_data(buf);
 
-            ret = pcre_exec(highlighter->regexp, NULL, buf_ptr,
-                            sircc_buf_length(buf),
-                            offset, 0, substrings, 3);
+            ret = pcre_exec(highlighter->regexp, highlighter->regexp_extra,
+                            buf_ptr, sircc_buf_length(buf), offset, 0,
+                            substrings, 3);
             if (ret <= 0) {
                 if (ret != PCRE_ERROR_NOMATCH) {
                     sircc_chan_log_error(NULL, "cannot execute regexp (%d)",
@@ -201,6 +202,7 @@ sircc_escape_format_sequences(struct sircc_buf *buf) {
 static void
 sircc_highlighter_free(struct sircc_highlighter *highlighter) {
     pcre_free(highlighter->regexp);
+    pcre_free_study(highlighter->regexp_extra);
 
     sircc_free(highlighter->sequence);
 }
@@ -273,7 +275,7 @@ sircc_highlighter_init_escape_sequences(struct sircc_highlighter *highlighter,
 }
 
 static pcre *
-sircc_pcre_compile(const char *str) {
+sircc_pcre_compile(const char *str, pcre_extra **pextra) {
     const char *error_str;
     int error_offset;
     pcre *regexp;
@@ -281,6 +283,13 @@ sircc_pcre_compile(const char *str) {
     regexp = pcre_compile(str, 0, &error_str, &error_offset, NULL);
     if (!regexp) {
         sircc_set_error("cannot compile regex: %s", error_str);
+        return NULL;
+    }
+
+    *pextra = pcre_study(regexp, PCRE_STUDY_JIT_COMPILE, &error_str);
+    if (!*pextra) {
+        sircc_set_error("cannot study regex: %s", error_str);
+        pcre_free(regexp);
         return NULL;
     }
 
