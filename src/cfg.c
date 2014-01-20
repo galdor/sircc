@@ -42,6 +42,10 @@ static struct {
     const char *key;
     enum sircc_cfg_entry_type type;
 } sircc_cfg_type_array[] = {
+    /* Main */
+    {"highlight",                         SIRCC_CFG_STRING_LIST},
+
+    /* Servers */
     {"autoconnect",                       SIRCC_CFG_BOOLEAN},
 
     {"host",                              SIRCC_CFG_STRING},
@@ -401,8 +405,10 @@ sircc_cfg_entry_parse(struct sircc_cfg_entry **pentry, const char *line,
 
         sircc_free(value);
         value = chan_value;
-    } else {
+    } else if (*pserver) {
         sircc_asprintf(&entry->key, "server.%s.%s", *pserver, key);
+    } else {
+        entry->key = sircc_strdup(key);
     }
 
     if (sircc_cfg_get_key_type(key, &entry->type) == -1) {

@@ -642,6 +642,7 @@ sircc_ui_write(WINDOW *win, const char *str, size_t sz) {
     /*
      * ^a0   reset attributes
      * ^a1   bold
+     * ^a4   underline
      * ^a7   reverse
      *
      * ^c0  black foreground
@@ -652,6 +653,7 @@ sircc_ui_write(WINDOW *win, const char *str, size_t sz) {
      * ^c5  magenta foreground
      * ^c6  cyan foreground
      * ^c7  white foreground
+     * ^c8  gray foreground
      * ^c9  default foreground
      *
      * ^^   '^' character
@@ -695,6 +697,10 @@ sircc_ui_write(WINDOW *win, const char *str, size_t sz) {
 
                 case 1:
                     wattron(win, A_BOLD);
+                    break;
+
+                case 4:
+                    wattron(win, A_UNDERLINE);
                     break;
 
                 case 7:

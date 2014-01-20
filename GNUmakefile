@@ -46,7 +46,7 @@ sircc_OBJ= $(subst .c,.o,$(sircc_SRC))
 
 $(sircc_BIN): CFLAGS+=  -Ilibhashtable/src
 $(sircc_BIN): LDFLAGS+= -Llibhashtable
-$(sircc_BIN): LDLIBS+=  -lhashtable -lncursesw -lcrypto -lssl
+$(sircc_BIN): LDLIBS+=  -lhashtable -lncursesw -lcrypto -lssl -lpcre
 
 # Rules
 all: bin

@@ -1,6 +1,10 @@
 
 # Uncommented options override the default value
 
+highlight blue&underline \w[a-zA-Z]+://\S+\w
+highlight blue \w\S+@\S+\.\S+\w
+
+
 server freenode
 host irc.freenode.net
 port 7000

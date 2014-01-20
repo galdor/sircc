@@ -29,6 +29,8 @@
 #include <openssl/ssl.h>
 #include <openssl/evp.h>
 
+#include <pcre.h>
+
 #include <curses.h>
 
 #include "hashtable.h"
@@ -60,6 +62,9 @@ size_t sircc_utf8_nb_chars(const char *);
 size_t strlcpy(char *, const char *, size_t);
 
 /* Text processing */
+int sircc_processing_initialize(void);
+void sircc_processing_shutdown(void);
+
 char *sircc_process_text(const char *);
 
 /* Memory buffers */
@@ -388,6 +393,12 @@ bool sircc_server_is_current(struct sircc_server *);
 void sircc_server_send_privmsg(struct sircc_server *, const char *,
                                const char *);
 
+struct sircc_highlighter {
+    pcre *regexp;
+
+    char *sequence;
+};
+
 struct sircc {
     struct sircc_server **servers;
     size_t nb_servers;
@@ -428,6 +439,9 @@ struct sircc {
     struct sircc_buf prompt_buf;
     size_t prompt_cursor;  /* offset in prompt_buf */
     size_t prompt_vcursor; /* position in the window */
+
+    struct sircc_highlighter *highlighters;
+    size_t nb_highlighters;
 };
 
 extern struct sircc sircc;

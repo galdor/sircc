@@ -101,10 +101,11 @@ main(int argc, char **argv) {
         }
     }
 
-    if (sircc_cfg_initialize(cfgdir) == -1) {
-        fprintf(stderr, "%s\n", sircc_get_error());
-        exit(1);
-    }
+    if (sircc_cfg_initialize(cfgdir) == -1)
+        die("%s", sircc_get_error());
+
+    if (sircc_processing_initialize() == -1)
+        die("%s", sircc_get_error());
 
     sircc_load_servers();
     sircc_ui_initialize();
@@ -115,6 +116,8 @@ main(int argc, char **argv) {
 
     sircc_shutdown();
     sircc_ui_shutdown();
+
+    sircc_processing_shutdown();
     sircc_cfg_shutdown();
 
     EVP_cleanup();
