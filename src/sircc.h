@@ -223,6 +223,8 @@ struct sircc_history {
     struct sircc_layout layout;
 
     int max_nickname_length;
+
+    bool disable_processing;
 };
 
 void sircc_history_init(struct sircc_history *, size_t sz);

@@ -71,9 +71,15 @@ sircc_history_add_entry(struct sircc_history *history,
 
     sircc_history_entry_update_margin_text(history, head);
 
-    text = sircc_process_text(head->text);
-    sircc_free(head->text);
-    head->text = text;
+    if (!history->disable_processing) {
+        history->disable_processing = true;
+
+        text = sircc_process_text(head->text);
+        sircc_free(head->text);
+        head->text = text;
+
+        history->disable_processing = false;
+    }
 
     sircc_layout_add_history_entry(&history->layout, head);
 }
