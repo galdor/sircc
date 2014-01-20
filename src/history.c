@@ -89,6 +89,8 @@ sircc_history_add_chan_msg(struct sircc_history *history,
                            char *src, char *text) {
     struct sircc_history_entry entry;
 
+    memset(&entry, 0, sizeof(struct sircc_history_entry));
+
     entry.type = SIRCC_HISTORY_CHAN_MSG;
     entry.date = time(NULL);
     entry.src = src;
