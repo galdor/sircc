@@ -138,17 +138,17 @@ sircc_process_buf(struct sircc_buf *buf) {
 
         highlighter = &sircc.highlighters[i];
 
-        buf_len = sircc_buf_length(buf);
         sequence_len = strlen(highlighter->sequence);
         offset = 0;
 
-        while (offset < buf_len) {
+        while (offset < sircc_buf_length(buf)) {
             const char *buf_ptr;
             size_t match_offset, match_len;
 
             buf_ptr = sircc_buf_data(buf);
 
-            ret = pcre_exec(highlighter->regexp, NULL, buf_ptr, buf_len,
+            ret = pcre_exec(highlighter->regexp, NULL, buf_ptr,
+                            sircc_buf_length(buf),
                             offset, 0, substrings, 3);
             if (ret <= 0) {
                 if (ret != PCRE_ERROR_NOMATCH) {
