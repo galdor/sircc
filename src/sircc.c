@@ -292,10 +292,11 @@ sircc_chan_on_msg_added(struct sircc_chan *chan) {
 
     redraw_main = sircc_chan_needs_redraw(chan);
 
-    if (chan && sircc_chan_is_current(chan)) {
+    if (sircc_chan_is_current(chan)) {
         redraw_chans = false;
     } else {
-        chan->activity = true;
+        if (chan)
+            chan->activity = true;
         redraw_chans = true;
     }
 
@@ -1185,7 +1186,8 @@ sircc_server_get_chan(struct sircc_server *server, const char *name) {
 
 bool
 sircc_chan_is_current(struct sircc_chan *chan) {
-    return sircc_server_is_current(chan->server)
+    return chan
+        && sircc_server_is_current(chan->server)
         && chan->server->current_chan == chan;
 }
 
