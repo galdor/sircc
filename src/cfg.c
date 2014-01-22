@@ -62,10 +62,8 @@ static struct {
 
     {"password",                          SIRCC_CFG_STRING},
 
+    {"auto_join",                         SIRCC_CFG_STRING_LIST},
     {"auto_command",                      SIRCC_CFG_STRING_LIST},
-
-    /* Channels */
-    {"autojoin",                          SIRCC_CFG_BOOLEAN},
 };
 
 static struct ht_table *sircc_cfg_types;

@@ -390,32 +390,36 @@ sircc_msgh_topic(struct sircc_server *server, struct sircc_msg *msg) {
 
 static void
 sircc_msgh_rpl_welcome(struct sircc_server *server, struct sircc_msg *msg) {
-    const char **cmds;
-    size_t nb_cmds;
+    const char **strings;
+    size_t nb_strings;
     struct sircc_buf buf;
 
     sircc_server_log_info(server, "irc client registered");
 
+    strings = sircc_cfg_server_strings(server, "auto_join", &nb_strings);
+    for (size_t i = 0; i < nb_strings; i++)
+        sircc_server_printf(server, "JOIN %s\r\n", strings[i]);
+
     sircc_buf_init(&buf);
 
-    cmds = sircc_cfg_server_strings(server, "auto_command", &nb_cmds);
-    for (size_t i = 0; i < nb_cmds; i++) {
-        const char *cmd_string;
+    strings = sircc_cfg_server_strings(server, "auto_command", &nb_strings);
+    for (size_t i = 0; i < nb_strings; i++) {
+        const char *string;
         struct sircc_cmd cmd;
         int ret;
 
-        cmd_string = cmds[i];
+        string = strings[i];
 
         sircc_buf_clear(&buf);
-        sircc_buf_add(&buf, cmd_string, strlen(cmd_string));
+        sircc_buf_add(&buf, string, strlen(string));
 
         ret = sircc_cmd_parse(&cmd, &buf);
         if (ret == -1) {
             sircc_server_log_error(server, "cannot parse auto command '%s': %s",
-                                   cmd_string, sircc_get_error());
+                                   string, sircc_get_error());
         } else if (ret == 0) {
             sircc_chan_log_error(NULL, "cannot parse auto command '%s':"
-                                 " truncated input", cmd_string);
+                                 " truncated input", string);
         } else {
             sircc_cmd_run(&cmd);
             sircc_cmd_free(&cmd);
