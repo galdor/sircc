@@ -532,6 +532,7 @@ enum sircc_cmd_id {
     SIRCC_CMD_NICK,
     SIRCC_CMD_PART,
     SIRCC_CMD_QUIT,
+    SIRCC_CMD_QUOTE,
     SIRCC_CMD_TOPIC,
 
     SIRCC_CMD_COUNT

@@ -52,6 +52,7 @@ static void sircc_cmdh_names(struct sircc_server *, struct sircc_cmd *);
 static void sircc_cmdh_nick(struct sircc_server *, struct sircc_cmd *);
 static void sircc_cmdh_part(struct sircc_server *, struct sircc_cmd *);
 static void sircc_cmdh_quit(struct sircc_server *, struct sircc_cmd *);
+static void sircc_cmdh_quote(struct sircc_server *, struct sircc_cmd *);
 static void sircc_cmdh_topic(struct sircc_server *, struct sircc_cmd *);
 
 static struct sircc_cmd_desc
@@ -80,6 +81,9 @@ sircc_cmd_descs[SIRCC_CMD_COUNT] = {
     {"quit",  SIRCC_CMD_QUIT,  SIRCC_CMD_ARGS_RANGE,      0, 0,
         sircc_cmdh_quit,  "/quit",
         "quit sircc"},
+    {"quote", SIRCC_CMD_QUOTE, SIRCC_CMD_ARGS_TRAILING,   0, 1,
+        sircc_cmdh_quote, "/quote <command...>",
+        "send a command to the server without any processing"},
     {"topic", SIRCC_CMD_TOPIC, SIRCC_CMD_ARGS_TRAILING,   0, 0,
         sircc_cmdh_topic, "/topic [<message...>]",
         "if an argument is provided, change the topic of the current channel"
@@ -449,6 +453,11 @@ sircc_cmdh_part(struct sircc_server *server, struct sircc_cmd *cmd) {
 static void
 sircc_cmdh_quit(struct sircc_server *server, struct sircc_cmd *cmd) {
     sircc.do_exit = true;
+}
+
+static void
+sircc_cmdh_quote(struct sircc_server *server, struct sircc_cmd *cmd) {
+    sircc_server_printf(server, "%s\r\n", cmd->args[0]);
 }
 
 static void
