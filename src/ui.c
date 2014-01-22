@@ -275,9 +275,13 @@ sircc_ui_chans_redraw(void) {
 
         if (is_current)
             wattron(win, A_BOLD);
+        if (chan->activity)
+            wattron(win, COLOR_PAIR(3));
 
         waddstr(win, chan->name);
 
+        if (chan->activity)
+            wattroff(win, COLOR_PAIR(3));
         if (is_current)
             wattroff(win, A_BOLD);
 
@@ -408,6 +412,9 @@ sircc_ui_server_select_chan(struct sircc_server *server,
                             struct sircc_chan *chan) {
     server->last_chan = server->current_chan;
     server->current_chan = chan;
+
+    if (chan)
+        chan->activity = false;
 
     sircc_ui_topic_redraw();
     sircc_ui_main_redraw();

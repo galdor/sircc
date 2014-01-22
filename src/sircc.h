@@ -302,11 +302,17 @@ struct sircc_chan {
     char **users;
     size_t nb_users;
     bool users_sorted;
+
+    bool activity; /* true if there are unread messages */
 };
 
 struct sircc_chan *sircc_chan_new(struct sircc_server *, const char *);
 void sircc_chan_delete(struct sircc_chan *);
 void sircc_chan_set_topic(struct sircc_chan *, const char *);
+
+struct sircc_history *sircc_chan_history(struct sircc_chan *);
+bool sircc_chan_needs_redraw(struct sircc_chan *);
+void sircc_chan_on_msg_added(struct sircc_chan *);
 
 void sircc_chan_log_info(struct sircc_chan *, const char *, ...)
     __attribute__((format(printf, 2, 3)));

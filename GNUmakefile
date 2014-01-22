@@ -43,7 +43,7 @@ with_x11= 1
 
 ifeq ($(with_x11), 1)
 	CFLAGS+= -DSIRCC_WITH_X11
-	LDFLAGS+= -lX11
+	LDLIBS+= -lX11
 endif
 
 # Target: sircc
