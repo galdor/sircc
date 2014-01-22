@@ -1581,9 +1581,9 @@ sircc_read_input(void) {
         char *utf8_str;
         size_t nb_bytes;
 
-        utf8_str = sircc_str_to_utf8(sircc_buf_data(&sircc.input_buf),
-                                     sircc_buf_length(&sircc.input_buf),
-                                     &nb_bytes);
+        utf8_str = sircc_str_locale_to_utf8(sircc_buf_data(&sircc.input_buf),
+                                            sircc_buf_length(&sircc.input_buf),
+                                            &nb_bytes);
         if (!utf8_str) {
             sircc_chan_log_error(NULL, "cannot convert input to UTF-8: %s",
                                  sircc_get_error());

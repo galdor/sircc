@@ -57,7 +57,8 @@ int sircc_vasprintf(char **, const char *, va_list);
 int sircc_asprintf(char **, const char *, ...)
     __attribute__((format(printf, 2, 3)));
 
-char *sircc_str_to_utf8(char *, size_t, size_t *);
+char *sircc_str_convert(char *, size_t, const char *, const char *, size_t *);
+char *sircc_str_locale_to_utf8(char *, size_t, size_t *);
 
 bool sircc_utf8_is_leading_byte(char);
 bool sircc_utf8_is_continuation_byte(char);
@@ -462,6 +463,9 @@ struct sircc {
     /* X11 */
     Display *display;
     Window window;
+
+    Atom atom_utf8_string;
+    Atom atom_sircc_selection;
 #endif
 };
 

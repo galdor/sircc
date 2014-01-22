@@ -36,18 +36,22 @@ sircc_strndup(const char *str, size_t len) {
 }
 
 char *
-sircc_str_to_utf8(char *buf, size_t len, size_t *nb_bytes) {
+sircc_str_convert(char *buf, size_t sz, const char *from, const char *to,
+                  size_t *nb_bytes) {
     iconv_t conv;
     char *out, *tmp, *buf_orig;
     size_t inlen, outlen;
 
     buf_orig = buf;
 
-    conv = iconv_open("", "UTF-8");
-    if (conv == (iconv_t)-1)
-        die("cannot create iconv conversion descriptor: %m");
+    conv = iconv_open(from, to);
+    if (conv == (iconv_t)-1) {
+        sircc_set_error("cannot create iconv conversion descriptor: %m",
+                        from, to);
+        return NULL;
+    }
 
-    inlen = len;
+    inlen = sz;
 
     outlen = inlen + 1;
     tmp = sircc_malloc(outlen);
@@ -75,7 +79,8 @@ sircc_str_to_utf8(char *buf, size_t len, size_t *nb_bytes) {
                 /* Truncated sequence */
                 break;
             } else {
-                sircc_set_error("cannot convert string to UTF-8: %m");
+                sircc_set_error("cannot convert string from %s to %s: %m",
+                                from, to);
                 free(tmp);
                 return NULL;
             }
@@ -91,6 +96,11 @@ sircc_str_to_utf8(char *buf, size_t len, size_t *nb_bytes) {
         *nb_bytes = (size_t)(buf - buf_orig);
 
     return tmp;
+}
+
+char *
+sircc_str_locale_to_utf8(char *buf, size_t sz, size_t *nb_bytes) {
+    return sircc_str_convert(buf, sz, "", "UTF-8", nb_bytes);
 }
 
 int

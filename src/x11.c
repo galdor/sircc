@@ -18,13 +18,18 @@
 
 #include "sircc.h"
 
+static bool sircc_x11_log_errors;
+
 static int sircc_x11_error_handler(Display *, XErrorEvent *);
+
+static char *sircc_x11_get_selection(Atom, Atom);
 
 void
 sircc_x11_initialize(void) {
     const char *display_name;
 
     XSetErrorHandler(sircc_x11_error_handler);
+    sircc_x11_log_errors = true;
 
     display_name = getenv("DISPLAY");
     if (!display_name)
@@ -35,6 +40,10 @@ sircc_x11_initialize(void) {
         /* Having no X11 server running is not an error */
         return;
     }
+
+    sircc.atom_utf8_string = XInternAtom(sircc.display, "UTF8_STRING", False);
+    sircc.atom_sircc_selection = XInternAtom(sircc.display, "SIRCC_SELECTION",
+                                             False);
 
     sircc.window = XCreateSimpleWindow(sircc.display,
                                        DefaultRootWindow(sircc.display),
@@ -49,6 +58,48 @@ sircc_x11_shutdown(void) {
 
 char *
 sircc_x11_primary_selection(void) {
+    char *text;
+
+    sircc_x11_log_errors = false;
+
+    text = sircc_x11_get_selection(XA_PRIMARY, sircc.atom_utf8_string);
+    if (text)
+        return text;
+
+    text = sircc_x11_get_selection(XA_PRIMARY, XA_STRING);
+    if (text) {
+        char *utf8_text;
+
+        utf8_text = sircc_str_convert(text, strlen(text),
+                                      "ISO-8859-1", "UTF-8", NULL);
+        if (!utf8_text) {
+            sircc_chan_log_error(NULL, "%s", sircc_get_error());
+            sircc_free(text);
+            return NULL;
+        }
+
+        sircc_free(text);
+        return utf8_text;
+    }
+
+    sircc_chan_log_error(NULL, "cannot read selection: %s", sircc_get_error());
+    return NULL;
+}
+
+static int
+sircc_x11_error_handler(Display *display, XErrorEvent *event) {
+    char error_str[SIRCC_ERROR_BUFSZ];
+
+    XGetErrorText(display, event->error_code, error_str, sizeof(error_str));
+
+    if (sircc_x11_log_errors)
+        sircc_chan_log_error(NULL, "X11 error: %s", error_str);
+
+    return 0;
+}
+
+static char *
+sircc_x11_get_selection(Atom selection, Atom target) {
     Window win_requestor;
     Atom property, type;
     unsigned char *data_tmp;
@@ -65,8 +116,8 @@ sircc_x11_primary_selection(void) {
     if (!sircc.display)
         return NULL;
 
-    XConvertSelection(sircc.display, XA_PRIMARY, XA_STRING, None,
-                      sircc.window, CurrentTime);
+    XConvertSelection(sircc.display, selection, target,
+                      sircc.atom_sircc_selection, sircc.window, CurrentTime);
     XFlush(sircc.display);
 
     for (;;) {
@@ -78,6 +129,12 @@ sircc_x11_primary_selection(void) {
 
         win_requestor = event.xselection.requestor;
         property = event.xselection.property;
+
+        if (property == None) {
+            sircc_set_error("selection format conversion refused");
+            return NULL;
+        }
+
         break;
     }
 
@@ -92,19 +149,18 @@ sircc_x11_primary_selection(void) {
                                  &data_tmp);
         if (ret != Success) {
             sircc_chan_log_error(NULL, "cannot fetch X11 selection");
-            sircc_free(data);
-            return NULL;
+            goto error;
         }
 
         if (nb_items == 0)
             break;
 
-        if (type != XA_STRING) {
+        if (type != target) {
             if (type == None) {
-                sircc_chan_log_error(NULL, "empty selection data type");
+                sircc_set_error("empty selection data type");
             } else {
-                sircc_chan_log_error(NULL, "unhandled selection data type %s",
-                                     XGetAtomName(sircc.display, type));
+                sircc_set_error("unhandled selection data type %s",
+                                XGetAtomName(sircc.display, type));
             }
 
             goto error;
@@ -127,8 +183,7 @@ sircc_x11_primary_selection(void) {
             break;
 
         default:
-            sircc_chan_log_error(NULL, "unhandled selection data format %d",
-                                 format);
+            sircc_set_error("unhandled selection data format %d", format);
             goto error;
         }
 
@@ -144,11 +199,11 @@ sircc_x11_primary_selection(void) {
         }
 
         XFree(data_tmp);
+        data_tmp = NULL;
 
         if (bytes_left == 0)
             break;
     }
-
     return data;
 
 error:
@@ -158,15 +213,4 @@ error:
         XFree(data_tmp);
 
     return NULL;
-}
-
-static int
-sircc_x11_error_handler(Display *display, XErrorEvent *event) {
-    char error_str[SIRCC_ERROR_BUFSZ];
-
-    XGetErrorText(display, event->error_code, error_str, sizeof(error_str));
-
-    sircc_chan_log_error(NULL, "X11 error: %s", error_str);
-
-    return 0;
 }
