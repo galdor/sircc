@@ -1,8 +1,8 @@
 
 # Uncommented options override the default value
 
-highlight blue&underline \w[a-zA-Z]+://\S+\w
-highlight blue \w\S+@\S+\.\S+\w
+highlight blue&underline [a-zA-Z]+://\S+
+highlight blue \S+@\S+\.\S+
 
 
 server freenode

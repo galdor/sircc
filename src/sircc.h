@@ -33,6 +33,10 @@
 
 #include <curses.h>
 
+#ifdef SIRCC_WITH_X11
+#   include <X11/Xlib.h>
+#endif
+
 #include "hashtable.h"
 
 #define SIRCC_ERROR_BUFSZ 1024
@@ -266,6 +270,14 @@ int sircc_msg_prefix_nickname(const struct sircc_msg *, char *, size_t);
 
 bool sircc_irc_is_chan_prefix(int);
 
+#ifdef SIRCC_WITH_X11
+/* X11 */
+void sircc_x11_initialize(void);
+void sircc_x11_shutdown(void);
+
+char *sircc_x11_primary_selection(void);
+#endif
+
 /* Main */
 void die(const char *, ...)
     __attribute__((format(printf, 1, 2)));
@@ -445,6 +457,12 @@ struct sircc {
 
     struct sircc_highlighter *highlighters;
     size_t nb_highlighters;
+
+#ifdef SIRCC_WITH_X11
+    /* X11 */
+    Display *display;
+    Window window;
+#endif
 };
 
 extern struct sircc sircc;
@@ -476,6 +494,7 @@ void sircc_ui_server_select_previous_chan(struct sircc_server *);
 void sircc_ui_server_select_next_chan(struct sircc_server *);
 
 void sircc_ui_prompt_add(const char *);
+void sircc_ui_prompt_add_selection(void);
 void sircc_ui_prompt_delete_previous_char(void);
 void sircc_ui_prompt_delete_from_cursor(void);
 void sircc_ui_prompt_move_cursor_backward(void);

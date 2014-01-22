@@ -467,6 +467,20 @@ sircc_ui_prompt_add(const char *str) {
 }
 
 void
+sircc_ui_prompt_add_selection(void) {
+#ifdef SIRCC_WITH_X11
+    char *primary_selection;
+
+    primary_selection = sircc_x11_primary_selection();
+    if (!primary_selection)
+        return;
+
+    sircc_ui_prompt_add(primary_selection);
+    sircc_free(primary_selection);
+#endif
+}
+
+void
 sircc_ui_prompt_delete_previous_char(void) {
     char *ptr, *prompt;
     size_t len, nb_bytes = 0, nb_deleted;

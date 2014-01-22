@@ -111,8 +111,16 @@ main(int argc, char **argv) {
     sircc_ui_initialize();
     sircc_initialize();
 
+#ifdef SIRCC_WITH_X11
+    sircc_x11_initialize();
+#endif
+
     while (!sircc.do_exit)
         sircc_poll();
+
+#ifdef SIRCC_WITH_X11
+    sircc_x11_shutdown();
+#endif
 
     sircc_shutdown();
     sircc_ui_shutdown();
@@ -1550,6 +1558,9 @@ sircc_read_input(void) {
         } else if (c == 16) {
             /* ^P */
             sircc_ui_server_select_previous_chan(server);
+        } else if (c == 25) {
+            /* ^Y */
+            sircc_ui_prompt_add_selection();
         } else if (c == 27) {
             /* Escape */
             escape = true;

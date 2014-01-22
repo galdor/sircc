@@ -38,10 +38,21 @@ else
 	CFLAGS+= -O2
 endif
 
+# Options
+with_x11= 1
+
+ifeq ($(with_x11), 1)
+	CFLAGS+= -DSIRCC_WITH_X11
+	LDFLAGS+= -lX11
+endif
+
 # Target: sircc
 sircc_BIN= sircc
 sircc_HDR= $(wildcard src/*.h)
 sircc_SRC= $(wildcard src/*.c)
+ifneq ($(with_x11), 1)
+	sircc_SRC:= $(filter-out src/x11.c,$(sircc_SRC))
+endif
 sircc_OBJ= $(subst .c,.o,$(sircc_SRC))
 
 $(sircc_BIN): CFLAGS+=  -Ilibhashtable/src

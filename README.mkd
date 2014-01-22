@@ -9,6 +9,13 @@ written in C for Unix platforms.
 It is recommended to build it in debug (`make debug=1`) and to enable core
 files on your machine.
 
+## Build
+
+The following build options are available:
+
+- `debug=1`: build a debug binary.
+- `with_x11=0`: build without X11 support.
+
 ## Configuration
 
 The `example` directory is an example of configuration for `sircc`. You can
