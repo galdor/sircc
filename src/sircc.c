@@ -287,15 +287,14 @@ sircc_chan_needs_redraw(struct sircc_chan *chan) {
 }
 
 void
-sircc_chan_on_msg_added(struct sircc_chan *chan) {
+sircc_chan_on_msg_added(struct sircc_chan *chan, bool set_activity) {
     bool redraw_main, redraw_chans;
 
     redraw_main = sircc_chan_needs_redraw(chan);
+    redraw_chans = false;
 
-    if (sircc_chan_is_current(chan)) {
-        redraw_chans = false;
-    } else {
-        if (chan)
+    if (set_activity) {
+        if (chan && !sircc_chan_is_current(chan))
             chan->activity = true;
         redraw_chans = true;
     }
@@ -323,7 +322,7 @@ sircc_chan_log_info(struct sircc_chan *chan, const char *fmt, ...) {
     history = sircc_chan_history(chan);
     sircc_history_add_info(history, str);
 
-    sircc_chan_on_msg_added(chan);
+    sircc_chan_on_msg_added(chan, false);
 }
 
 void
@@ -339,7 +338,7 @@ sircc_chan_log_error(struct sircc_chan *chan, const char *fmt, ...) {
     history = sircc_chan_history(chan);
     sircc_history_add_error(history, str);
 
-    sircc_chan_on_msg_added(chan);
+    sircc_chan_on_msg_added(chan, false);
 }
 
 void
@@ -351,7 +350,7 @@ sircc_chan_add_msg(struct sircc_chan *chan, const char *src,
     sircc_history_add_chan_msg(history, sircc_strdup(src),
                                sircc_strdup(text));
 
-    sircc_chan_on_msg_added(chan);
+    sircc_chan_on_msg_added(chan, true);
 }
 
 void
@@ -363,7 +362,7 @@ sircc_chan_add_server_msg(struct sircc_chan *chan, const char *src,
     sircc_history_add_server_msg(history, sircc_strdup(src),
                                  sircc_strdup(text));
 
-    sircc_chan_on_msg_added(chan);
+    sircc_chan_on_msg_added(chan, true);
 }
 
 void
@@ -1186,8 +1185,7 @@ sircc_server_get_chan(struct sircc_server *server, const char *name) {
 
 bool
 sircc_chan_is_current(struct sircc_chan *chan) {
-    return chan
-        && sircc_server_is_current(chan->server)
+    return sircc_server_is_current(chan->server)
         && chan->server->current_chan == chan;
 }
 
