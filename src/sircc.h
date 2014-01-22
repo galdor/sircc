@@ -70,7 +70,7 @@ size_t strlcpy(char *, const char *, size_t);
 int sircc_processing_initialize(void);
 void sircc_processing_shutdown(void);
 
-char *sircc_process_text(const char *);
+char *sircc_process_text(const char *, bool);
 
 /* Memory buffers */
 struct sircc_buf {

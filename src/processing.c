@@ -36,7 +36,7 @@ static struct {
     {"reverse",   "^a7"},
 };
 
-static void sircc_process_buf(struct sircc_buf *);
+static void sircc_process_buf(struct sircc_buf *, bool);
 
 static void sircc_escape_format_sequences(struct sircc_buf *);
 
@@ -106,14 +106,14 @@ sircc_processing_shutdown(void) {
 }
 
 char *
-sircc_process_text(const char *str) {
+sircc_process_text(const char *str, bool minimal) {
     struct sircc_buf buf;
     char *nstr;
 
     sircc_buf_init(&buf);
     sircc_buf_add(&buf, str, strlen(str));
 
-    sircc_process_buf(&buf);
+    sircc_process_buf(&buf, minimal);
     nstr = sircc_buf_dup_str(&buf);
 
     sircc_buf_free(&buf);
@@ -121,7 +121,7 @@ sircc_process_text(const char *str) {
 }
 
 static void
-sircc_process_buf(struct sircc_buf *buf) {
+sircc_process_buf(struct sircc_buf *buf, bool minimal) {
     const char *suffix;
     size_t suffix_len;
 
@@ -129,6 +129,9 @@ sircc_process_buf(struct sircc_buf *buf) {
     suffix_len = strlen(suffix);
 
     sircc_escape_format_sequences(buf);
+
+    if (minimal)
+        return;
 
     for (size_t i = 0; i < sircc.nb_highlighters; i++) {
         struct sircc_highlighter *highlighter;

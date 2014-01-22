@@ -72,9 +72,13 @@ sircc_history_add_entry(struct sircc_history *history,
     sircc_history_entry_update_margin_text(history, head);
 
     if (!history->disable_processing) {
+        bool minimal;
+
+        minimal = (head->type == SIRCC_HISTORY_TRACE);
+
         history->disable_processing = true;
 
-        text = sircc_process_text(head->text);
+        text = sircc_process_text(head->text, minimal);
         sircc_free(head->text);
         head->text = text;
 
