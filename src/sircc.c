@@ -342,24 +342,24 @@ sircc_chan_log_error(struct sircc_chan *chan, const char *fmt, ...) {
 }
 
 void
-sircc_chan_add_msg(struct sircc_chan *chan, const char *src,
+sircc_chan_add_msg(struct sircc_chan *chan, time_t date, const char *src,
                    const char *text) {
     struct sircc_history *history;
 
     history = sircc_chan_history(chan);
-    sircc_history_add_chan_msg(history, sircc_strdup(src),
+    sircc_history_add_chan_msg(history, date, sircc_strdup(src),
                                sircc_strdup(text));
 
     sircc_chan_on_msg_added(chan, true);
 }
 
 void
-sircc_chan_add_server_msg(struct sircc_chan *chan, const char *src,
-                          const char *text) {
+sircc_chan_add_server_msg(struct sircc_chan *chan, time_t date,
+                          const char *src, const char *text) {
     struct sircc_history *history;
 
     history = sircc_chan_history(chan);
-    sircc_history_add_server_msg(history, sircc_strdup(src),
+    sircc_history_add_server_msg(history, date, sircc_strdup(src),
                                  sircc_strdup(text));
 
     sircc_chan_on_msg_added(chan, true);
@@ -866,12 +866,12 @@ sircc_server_log_error(struct sircc_server *server, const char *fmt, ...) {
 }
 
 void
-sircc_server_add_server_msg(struct sircc_server *server, const char *src,
-                            const char *msg) {
+sircc_server_add_server_msg(struct sircc_server *server, time_t date,
+                            const char *src, const char *msg) {
     if (!server)
         server = sircc_server_get_current();
 
-    sircc_history_add_server_msg(&server->history, sircc_strdup(src),
+    sircc_history_add_server_msg(&server->history, date, sircc_strdup(src),
                                  sircc_strdup(msg));
 
     if (server == sircc_server_get_current()) {

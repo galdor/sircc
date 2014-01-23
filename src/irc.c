@@ -14,6 +14,7 @@
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
+#include <errno.h>
 #include <string.h>
 
 #include "sircc.h"
@@ -52,6 +53,55 @@ sircc_msg_parse(struct sircc_msg *msg, struct sircc_buf *buf) {
     cr = memchr(ptr, '\r', len);
     if (!cr)
         goto needmore;
+
+    /* The znc.in/server-time CAP extension prefixes messages with a
+     * timestamp. In theory, we should only accept this prefix is we
+     * successfully activated the extension for the current connection. In
+     * practice, parsing and using it in any case should not cause any
+     * problem. */
+    if (*ptr == '@') {
+        const char *dot;
+
+        /* There is a timestamp prefix.
+         *
+         * The ZNC documentation describes the format as '@t=<timestamp>', but
+         * it is in fact '@time=<timestamp>.<msec>' */
+
+        /* Skip the prefix */
+        len--;
+        if (len == 0)
+            goto needmore;
+        ptr++;
+
+        if (len < 5)
+            goto needmore;
+        if (memcmp(ptr, "time=", 5) != 0) {
+            sircc_set_error("invalid key in timestamp prefix");
+            goto error;
+        }
+        len -= 5;
+        ptr += 5;
+
+        /* Read the timestamp */
+        dot = memchr(ptr, '.', len);
+        if (!dot)
+            goto needmore;
+
+        errno = 0;
+        msg->server_date = strtol(ptr, NULL, 10);
+        if (errno) {
+            sircc_set_error("invalid value in timestamp prefix");
+            goto error;
+        }
+
+        /* Skip the millisecond part (this kind of precision is useless) */
+        space = memchr(ptr, ' ', len);
+        if (!space)
+            goto needmore;
+
+        len -= (size_t)(space - ptr + 1);
+        ptr = space + 1;
+    }
 
     if (*ptr == ':') {
         /* There is a prefix */

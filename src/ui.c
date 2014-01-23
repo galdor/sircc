@@ -641,11 +641,13 @@ sircc_ui_prompt_execute(void) {
             }
         } else {
             char *text;
+            time_t now;
 
             text = sircc_buf_dup_str(&sircc.prompt_buf);
+            now = time(NULL);
 
             sircc_server_send_privmsg(server, chan->name, text);
-            sircc_chan_add_msg(chan, server->current_nickname, text);
+            sircc_chan_add_msg(chan, now, server->current_nickname, text);
 
             sircc_free(text);
         }

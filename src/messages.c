@@ -22,6 +22,8 @@ static void sircc_set_msg_handler(const char *, sircc_msg_handler);
 
 static void sircc_msgh_cap(struct sircc_server *, struct sircc_msg *);
 static void sircc_msgh_cap_ls(struct sircc_server *, struct sircc_msg *);
+static void sircc_msgh_cap_ack(struct sircc_server *, struct sircc_msg *);
+static void sircc_msgh_cap_nack(struct sircc_server *, struct sircc_msg *);
 static void sircc_msgh_join(struct sircc_server *, struct sircc_msg *);
 static void sircc_msgh_mode(struct sircc_server *, struct sircc_msg *);
 static void sircc_msgh_nick(struct sircc_server *, struct sircc_msg *);
@@ -102,6 +104,10 @@ sircc_msgh_cap(struct sircc_server *server, struct sircc_msg *msg) {
 
     if (strcmp(subcmd, "LS") == 0) {
         sircc_msgh_cap_ls(server, msg);
+    } else if (strcmp(subcmd, "ACK") == 0) {
+        sircc_msgh_cap_ack(server, msg);
+    } else if (strcmp(subcmd, "NACK") == 0) {
+        sircc_msgh_cap_nack(server, msg);
     } else {
         sircc_server_log_error(server, "unknown CAP subcommand '%s'", subcmd);
         return;
@@ -128,9 +134,85 @@ sircc_msgh_cap_ls(struct sircc_server *server, struct sircc_msg *msg) {
         return;
     }
 
+    for (size_t i = 0; i < nb_caps; i++) {
+        struct sircc_irc_cap *cap;
+
+        cap = &caps[i];
+
+        if (strcmp(cap->name, "znc.in/server-time") == 0)
+            sircc_server_printf(server, "CAP REQ :%s\r\n", cap->name);
+    }
+
     sircc_irc_caps_free(caps, nb_caps);
 
     sircc_server_printf(server, "CAP END\r\n");
+}
+
+static void
+sircc_msgh_cap_ack(struct sircc_server *server, struct sircc_msg *msg) {
+    const char *caps_str;
+    struct sircc_irc_cap *caps;
+    size_t nb_caps;
+
+    if (msg->nb_params < 3) {
+        sircc_server_log_error(server, "missing argument in CAP ACK");
+        return;
+    }
+
+    caps_str = msg->params[2];
+
+    caps = sircc_irc_caps_parse(caps_str, &nb_caps);
+    if (!caps) {
+        sircc_server_log_error(server, "cannot parse cap list: %s",
+                               sircc_get_error());
+        return;
+    }
+
+    for (size_t i = 0; i < nb_caps; i++) {
+        struct sircc_irc_cap *cap;
+
+        cap = &caps[i];
+
+        if (strcmp(cap->name, "znc.in/server-time") == 0) {
+            sircc_server_log_info(server, "activate cap extension %s",
+                                  cap->name);
+            server->cap_znc_server_time = true;
+        }
+    }
+
+    sircc_irc_caps_free(caps, nb_caps);
+}
+
+static void
+sircc_msgh_cap_nack(struct sircc_server *server, struct sircc_msg *msg) {
+    const char *caps_str;
+    struct sircc_irc_cap *caps;
+    size_t nb_caps;
+
+    if (msg->nb_params < 3) {
+        sircc_server_log_error(server, "missing argument in CAP NACK");
+        return;
+    }
+
+    caps_str = msg->params[2];
+
+    caps = sircc_irc_caps_parse(caps_str, &nb_caps);
+    if (!caps) {
+        sircc_server_log_error(server, "cannot parse cap list: %s",
+                               sircc_get_error());
+        return;
+    }
+
+    for (size_t i = 0; i < nb_caps; i++) {
+        struct sircc_irc_cap *cap;
+
+        cap = &caps[i];
+
+        if (strcmp(cap->name, "znc.in/server-time") == 0)
+            server->cap_znc_server_time = false;
+    }
+
+    sircc_irc_caps_free(caps, nb_caps);
 }
 
 static void
@@ -242,6 +324,7 @@ sircc_msgh_notice(struct sircc_server *server, struct sircc_msg *msg) {
     struct sircc_chan *chan;
     const char *chan_name;
     bool log_to_chan;
+    time_t date;
 
     if (msg->nb_params < 2) {
         sircc_server_log_error(server, "missing arguments in NOTICE");
@@ -270,6 +353,8 @@ sircc_msgh_notice(struct sircc_server *server, struct sircc_msg *msg) {
         log_to_chan = false;
     }
 
+    date = (msg->server_date > 0) ? msg->server_date : time(NULL);
+
     if (log_to_chan) {
         chan = sircc_server_get_chan(server, chan_name);
         if (!chan) {
@@ -277,9 +362,9 @@ sircc_msgh_notice(struct sircc_server *server, struct sircc_msg *msg) {
             sircc_server_add_chan(server, chan);
         }
 
-        sircc_chan_add_server_msg(chan, nickname, text);
+        sircc_chan_add_server_msg(chan, date, nickname, text);
     } else {
-        sircc_server_add_server_msg(server, nickname, text);
+        sircc_server_add_server_msg(server, date, nickname, text);
     }
 }
 
@@ -341,6 +426,7 @@ sircc_msgh_privmsg(struct sircc_server *server, struct sircc_msg *msg) {
     const char *target, *text;
     struct sircc_chan *chan;
     const char *chan_name;
+    time_t date;
 
     if (msg->nb_params < 2) {
         sircc_server_log_error(server, "missing arguments in PRIVMSG");
@@ -370,7 +456,8 @@ sircc_msgh_privmsg(struct sircc_server *server, struct sircc_msg *msg) {
         sircc_server_add_chan(server, chan);
     }
 
-    sircc_chan_add_msg(chan, nickname, text);
+    date = (msg->server_date > 0) ? msg->server_date : time(NULL);
+    sircc_chan_add_msg(chan, date, nickname, text);
 }
 
 static void

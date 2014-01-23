@@ -237,8 +237,10 @@ void sircc_history_free(struct sircc_history *);
 
 void sircc_history_add_entry(struct sircc_history *,
                              const struct sircc_history_entry *);
-void sircc_history_add_chan_msg(struct sircc_history *, char *, char *);
-void sircc_history_add_server_msg(struct sircc_history *, char *, char *);
+void sircc_history_add_chan_msg(struct sircc_history *, time_t, char *,
+                                char *);
+void sircc_history_add_server_msg(struct sircc_history *, time_t, char *,
+                                  char *);
 void sircc_history_add_trace(struct sircc_history *, char *);
 void sircc_history_add_info(struct sircc_history *, char *);
 void sircc_history_add_error(struct sircc_history *, char *);
@@ -263,6 +265,8 @@ struct sircc_msg {
 
     char **params;
     size_t nb_params;
+
+    time_t server_date; /* cap znc.in/server-time */
 };
 
 void sircc_msg_free(struct sircc_msg *);
@@ -333,8 +337,10 @@ void sircc_chan_log_info(struct sircc_chan *, const char *, ...)
     __attribute__((format(printf, 2, 3)));
 void sircc_chan_log_error(struct sircc_chan *, const char *, ...)
     __attribute__((format(printf, 2, 3)));
-void sircc_chan_add_msg(struct sircc_chan *, const char *, const char *);
-void sircc_chan_add_server_msg(struct sircc_chan *, const char *, const char *);
+void sircc_chan_add_msg(struct sircc_chan *, time_t, const char *,
+                        const char *);
+void sircc_chan_add_server_msg(struct sircc_chan *, time_t, const char *,
+                               const char *);
 
 void sircc_chan_add_user(struct sircc_chan *, const char *, size_t);
 void sircc_chan_remove_user(struct sircc_chan *, const char *);
@@ -391,6 +397,8 @@ struct sircc_server {
     bool ssl_verify_certificate;
     const char *ssl_ca_certificate;
     bool ssl_allow_self_signed_certificate;
+
+    bool cap_znc_server_time;
 };
 
 struct sircc_server *sircc_server_new(const char *name);
@@ -406,7 +414,7 @@ void sircc_server_log_info(struct sircc_server *, const char *, ...)
     __attribute__((format(printf, 2, 3)));
 void sircc_server_log_error(struct sircc_server *, const char *, ...)
     __attribute__((format(printf, 2, 3)));
-void sircc_server_add_server_msg(struct sircc_server *, const char *,
+void sircc_server_add_server_msg(struct sircc_server *, time_t, const char *,
                                  const char *);
 void sircc_server_write(struct sircc_server *, const char *, size_t);
 int sircc_server_vprintf(struct sircc_server *, const char *, va_list);

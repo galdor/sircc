@@ -386,6 +386,7 @@ static void
 sircc_cmdh_msg(struct sircc_server *server, struct sircc_cmd *cmd) {
     const char *target, *text;
     struct sircc_chan *chan;
+    time_t now;
 
     target = cmd->args[0];
     text = cmd->args[1];
@@ -399,7 +400,8 @@ sircc_cmdh_msg(struct sircc_server *server, struct sircc_cmd *cmd) {
 
     sircc_server_printf(server, "PRIVMSG %s :%s\r\n", target, text);
 
-    sircc_chan_add_msg(chan, server->current_nickname, text);
+    now = time(NULL);
+    sircc_chan_add_msg(chan, now, server->current_nickname, text);
 }
 
 static void

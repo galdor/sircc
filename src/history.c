@@ -90,13 +90,13 @@ sircc_history_add_entry(struct sircc_history *history,
 
 void
 sircc_history_add_chan_msg(struct sircc_history *history,
-                           char *src, char *text) {
+                           time_t date, char *src, char *text) {
     struct sircc_history_entry entry;
 
     memset(&entry, 0, sizeof(struct sircc_history_entry));
 
     entry.type = SIRCC_HISTORY_CHAN_MSG;
-    entry.date = time(NULL);
+    entry.date = date;
     entry.src = src;
     entry.text = text;
 
@@ -104,14 +104,14 @@ sircc_history_add_chan_msg(struct sircc_history *history,
 }
 
 void
-sircc_history_add_server_msg(struct sircc_history *history, char *src,
-                             char *text) {
+sircc_history_add_server_msg(struct sircc_history *history, time_t date,
+                             char *src, char *text) {
     struct sircc_history_entry entry;
 
     memset(&entry, 0, sizeof(struct sircc_history_entry));
 
     entry.type = SIRCC_HISTORY_SERVER_MSG;
-    entry.date = time(NULL);
+    entry.date = date;
     entry.src = src;
     entry.text = text;
 
