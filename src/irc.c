@@ -220,6 +220,72 @@ sircc_irc_is_chan_prefix(int c) {
         || c == '+'; /* network + unmoderated */
 }
 
+struct sircc_irc_cap *
+sircc_irc_caps_parse(const char *str, size_t *nb_caps) {
+    struct sircc_irc_cap *caps;
+    size_t caps_sz;
+    const char *ptr;
+
+    caps = NULL;
+    caps_sz = 0;
+
+    ptr = str;
+    while (*ptr != '\0') {
+        const char *space;
+        size_t toklen;
+        struct sircc_irc_cap *cap;
+
+        while (*ptr == ' ')
+            ptr++;
+
+        space = strchr(ptr, ' ');
+        if (space) {
+            toklen = (size_t)(space - ptr);
+        } else {
+            toklen = strlen(ptr);
+        }
+
+        if (caps_sz == 0) {
+            caps_sz = 1;
+            caps = sircc_malloc(sizeof(struct sircc_irc_cap));
+        } else {
+            caps_sz++;
+            caps = sircc_realloc(caps, caps_sz * sizeof(struct sircc_irc_cap));
+        }
+
+        cap = caps + caps_sz - 1;
+        memset(cap, 0, sizeof(struct sircc_irc_cap));
+
+        if (*ptr == '-') {
+            caps->modifier = SIRCC_CAP_DISABLE;
+        } else if (*ptr == '~') {
+            caps->modifier = SIRCC_CAP_ACK;
+        } else if (*ptr == '=') {
+            caps->modifier = SIRCC_CAP_STICKY;
+        } else {
+            cap->modifier = SIRCC_CAP_NONE;
+        }
+
+        if (cap->modifier == SIRCC_CAP_NONE) {
+            cap->name = sircc_strndup(ptr, toklen);
+        } else {
+            cap->name = sircc_strndup(ptr + 1, toklen - 1);
+        }
+
+        ptr += toklen;
+    }
+
+    *nb_caps = caps_sz;
+    return caps;
+}
+
+void
+sircc_irc_caps_free(struct sircc_irc_cap *caps, size_t nb_caps) {
+    for (size_t i = 0; i < nb_caps; i++)
+        sircc_free(caps[i].name);
+    sircc_free(caps);
+}
+
 static void
 sircc_msg_add_param(struct sircc_msg *msg, char *param) {
     if (!msg->params) {

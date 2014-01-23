@@ -271,6 +271,21 @@ int sircc_msg_prefix_nickname(const struct sircc_msg *, char *, size_t);
 
 bool sircc_irc_is_chan_prefix(int);
 
+enum sircc_irc_cap_mod {
+    SIRCC_CAP_NONE = 0,
+    SIRCC_CAP_DISABLE,
+    SIRCC_CAP_ACK,
+    SIRCC_CAP_STICKY
+};
+
+struct sircc_irc_cap {
+    char *name;
+    enum sircc_irc_cap_mod modifier;
+};
+
+struct sircc_irc_cap *sircc_irc_caps_parse(const char *, size_t *);
+void sircc_irc_caps_free(struct sircc_irc_cap *, size_t);
+
 #ifdef SIRCC_WITH_X11
 /* X11 */
 void sircc_x11_initialize(void);

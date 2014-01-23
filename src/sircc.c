@@ -1118,6 +1118,7 @@ sircc_server_on_connection_established(struct sircc_server *server) {
 
     server->pollfd->events = POLLIN;
 
+    sircc_server_printf(server, "CAP LS\r\n");
     if (server->password)
         sircc_server_printf(server, "PASS %s\r\n", server->password);
     sircc_server_printf(server, "NICK %s\r\n", server->nickname);

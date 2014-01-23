@@ -20,6 +20,8 @@ typedef void (*sircc_msg_handler)(struct sircc_server *, struct sircc_msg *);
 
 static void sircc_set_msg_handler(const char *, sircc_msg_handler);
 
+static void sircc_msgh_cap(struct sircc_server *, struct sircc_msg *);
+static void sircc_msgh_cap_ls(struct sircc_server *, struct sircc_msg *);
 static void sircc_msgh_join(struct sircc_server *, struct sircc_msg *);
 static void sircc_msgh_mode(struct sircc_server *, struct sircc_msg *);
 static void sircc_msgh_nick(struct sircc_server *, struct sircc_msg *);
@@ -35,6 +37,7 @@ static void sircc_msgh_rpl_topic(struct sircc_server *, struct sircc_msg *);
 static void sircc_msgh_rpl_topicwhotime(struct sircc_server *, struct sircc_msg *);
 static void sircc_msgh_rpl_namreply(struct sircc_server *, struct sircc_msg *);
 static void sircc_msgh_err_nosuchnick(struct sircc_server *, struct sircc_msg *);
+static void sircc_msgh_err_invalidcapcmd(struct sircc_server *, struct sircc_msg *);
 static void sircc_msgh_err_notregistered(struct sircc_server *, struct sircc_msg *);
 static void sircc_msgh_err_passwdmismatch(struct sircc_server *, struct sircc_msg *);
 static void sircc_msgh_err_unknownmode(struct sircc_server *, struct sircc_msg *);
@@ -44,6 +47,7 @@ static void sircc_msgh_err_umodeunknownflag(struct sircc_server *, struct sircc_
 
 void
 sircc_init_msg_handlers(void) {
+    sircc_set_msg_handler("CAP", sircc_msgh_cap);
     sircc_set_msg_handler("JOIN", sircc_msgh_join);
     sircc_set_msg_handler("MODE", sircc_msgh_mode);
     sircc_set_msg_handler("NICK", sircc_msgh_nick);
@@ -59,6 +63,7 @@ sircc_init_msg_handlers(void) {
     sircc_set_msg_handler("333", sircc_msgh_rpl_topicwhotime); /* non-standard */
     sircc_set_msg_handler("353", sircc_msgh_rpl_namreply);
     sircc_set_msg_handler("401", sircc_msgh_err_nosuchnick);
+    sircc_set_msg_handler("410", sircc_msgh_err_invalidcapcmd);
     sircc_set_msg_handler("451", sircc_msgh_err_notregistered);
     sircc_set_msg_handler("464", sircc_msgh_err_passwdmismatch);
     sircc_set_msg_handler("472", sircc_msgh_err_unknownmode);
@@ -82,6 +87,50 @@ sircc_call_msg_handler(struct sircc_server *server, struct sircc_msg *msg) {
     }
 
     handler(server, msg);
+}
+
+static void
+sircc_msgh_cap(struct sircc_server *server, struct sircc_msg *msg) {
+    char *subcmd;
+
+    if (msg->nb_params < 2) {
+        sircc_server_log_error(server, "missing argument in CAP");
+        return;
+    }
+
+    subcmd = msg->params[1];
+
+    if (strcmp(subcmd, "LS") == 0) {
+        sircc_msgh_cap_ls(server, msg);
+    } else {
+        sircc_server_log_error(server, "unknown CAP subcommand '%s'", subcmd);
+        return;
+    }
+}
+
+static void
+sircc_msgh_cap_ls(struct sircc_server *server, struct sircc_msg *msg) {
+    const char *caps_str;
+    struct sircc_irc_cap *caps;
+    size_t nb_caps;
+
+    if (msg->nb_params < 3) {
+        sircc_server_log_error(server, "missing argument in CAP LS");
+        return;
+    }
+
+    caps_str = msg->params[2];
+
+    caps = sircc_irc_caps_parse(caps_str, &nb_caps);
+    if (!caps) {
+        sircc_server_log_error(server, "cannot parse cap list: %s",
+                               sircc_get_error());
+        return;
+    }
+
+    sircc_irc_caps_free(caps, nb_caps);
+
+    sircc_server_printf(server, "CAP END\r\n");
 }
 
 static void
@@ -560,6 +609,39 @@ sircc_msgh_rpl_namreply(struct sircc_server *server, struct sircc_msg *msg) {
         if (!space)
             break;
         ptr = space + 1;
+    }
+}
+
+static void
+sircc_msgh_err_invalidcapcmd(struct sircc_server *server, struct sircc_msg *msg) {
+    const char *cmdname, *errstr;
+
+    /* IRCv3 Client Capability Negotiation 3.1
+     *
+     * If a client sends a subcommand which is not in the list above or
+     * otherwise issues an invalid command, then numeric 410
+     * (ERR_INVALIDCAPCMD) should be sent. The first parameter after the
+     * client identifier (usually nickname) should be the commandname; the
+     * second parameter should be a human-readable description of the error.
+     */
+
+    cmdname = NULL;
+    errstr = NULL;
+
+    if (msg->nb_params >= 2)
+        cmdname = msg->params[1];
+
+    if (msg->nb_params >= 3)
+        errstr = msg->params[2];
+
+    if (cmdname && errstr) {
+        sircc_chan_log_error(NULL, "unknown cap command '%s': %s",
+                             cmdname, errstr);
+    } else if (cmdname) {
+        sircc_chan_log_error(NULL, "unknown cap command '%s'",
+                             cmdname);
+    } else {
+        sircc_chan_log_error(NULL, "unknown cap command");
     }
 }
 
