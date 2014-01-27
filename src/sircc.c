@@ -366,6 +366,18 @@ sircc_chan_add_server_msg(struct sircc_chan *chan, time_t date,
 }
 
 void
+sircc_chan_add_action(struct sircc_chan *chan, time_t date, const char *src,
+                      const char *text) {
+    struct sircc_history *history;
+
+    history = sircc_chan_history(chan);
+    sircc_history_add_action(history, date, sircc_strdup(src),
+                             sircc_strdup(text));
+
+    sircc_chan_on_msg_added(chan, true);
+}
+
+void
 sircc_chan_add_user(struct sircc_chan *chan, const char *user, size_t sz) {
     if (sz == (size_t)-1)
         sz = strlen(user);

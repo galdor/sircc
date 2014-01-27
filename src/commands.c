@@ -46,6 +46,7 @@ static struct sircc_cmd_desc *sircc_cmd_get_desc(const char *);
 
 static void sircc_cmdh_help(struct sircc_server *, struct sircc_cmd *);
 static void sircc_cmdh_join(struct sircc_server *, struct sircc_cmd *);
+static void sircc_cmdh_me(struct sircc_server *, struct sircc_cmd *);
 static void sircc_cmdh_mode(struct sircc_server *, struct sircc_cmd *);
 static void sircc_cmdh_msg(struct sircc_server *, struct sircc_cmd *);
 static void sircc_cmdh_names(struct sircc_server *, struct sircc_cmd *);
@@ -63,6 +64,9 @@ sircc_cmd_descs[SIRCC_CMD_COUNT] = {
     {"join",  SIRCC_CMD_JOIN,  SIRCC_CMD_ARGS_RANGE,      1, 2,
         sircc_cmdh_join,  "/join <chan> [<key>]",
         "join a new channel"},
+    {"me",    SIRCC_CMD_ME,    SIRCC_CMD_ARGS_TRAILING,   0, 0,
+        sircc_cmdh_me,    "/me [<message...>]",
+        "send a CTCP action message to a user or channel"},
     {"mode",  SIRCC_CMD_MODE,  SIRCC_CMD_ARGS_TRAILING,   2, 2,
         sircc_cmdh_mode,  "/mode <target> <flags> [<parameters...>]",
         "change the mode flags of a user or channel"},
@@ -364,6 +368,31 @@ sircc_cmdh_join(struct sircc_server *server, struct sircc_cmd *cmd) {
         sircc_server_printf(server, "JOIN %s\r\n",
                             cmd->args[0]);
     }
+}
+
+static void
+sircc_cmdh_me(struct sircc_server *server, struct sircc_cmd *cmd) {
+    struct sircc_chan *chan;
+    const char *text;
+    time_t now;
+
+    if (cmd->nb_args > 0) {
+        text = cmd->args[0];
+    } else {
+        text = "";
+    }
+
+    chan = server->current_chan;
+    if (!chan) {
+        sircc_chan_log_error(NULL, "no channel selected");
+        return;
+    }
+
+    sircc_server_printf(server, "PRIVMSG %s :\001ACTION %s\001\r\n",
+                        chan->name, text);
+
+    now = time(NULL);
+    sircc_chan_add_action(chan, now, server->current_nickname, text);
 }
 
 static void

@@ -204,6 +204,7 @@ void sircc_layout_skip_history_entry(struct sircc_layout *);
 enum sircc_history_entry_type {
     SIRCC_HISTORY_CHAN_MSG,
     SIRCC_HISTORY_SERVER_MSG,
+    SIRCC_HISTORY_ACTION,
     SIRCC_HISTORY_TRACE,
     SIRCC_HISTORY_INFO,
     SIRCC_HISTORY_ERROR,
@@ -241,6 +242,8 @@ void sircc_history_add_chan_msg(struct sircc_history *, time_t, char *,
                                 char *);
 void sircc_history_add_server_msg(struct sircc_history *, time_t, char *,
                                   char *);
+void sircc_history_add_action(struct sircc_history *, time_t, char *,
+                              char *);
 void sircc_history_add_trace(struct sircc_history *, char *);
 void sircc_history_add_info(struct sircc_history *, char *);
 void sircc_history_add_error(struct sircc_history *, char *);
@@ -341,6 +344,8 @@ void sircc_chan_add_msg(struct sircc_chan *, time_t, const char *,
                         const char *);
 void sircc_chan_add_server_msg(struct sircc_chan *, time_t, const char *,
                                const char *);
+void sircc_chan_add_action(struct sircc_chan *, time_t, const char *,
+                           const char *);
 
 void sircc_chan_add_user(struct sircc_chan *, const char *, size_t);
 void sircc_chan_remove_user(struct sircc_chan *, const char *);
@@ -549,6 +554,7 @@ void sircc_ui_completion_update_prompt(const char *, const char *);
 enum sircc_cmd_id {
     SIRCC_CMD_HELP = 0,
     SIRCC_CMD_JOIN,
+    SIRCC_CMD_ME,
     SIRCC_CMD_MODE,
     SIRCC_CMD_MSG,
     SIRCC_CMD_NAMES,

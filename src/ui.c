@@ -202,6 +202,7 @@ sircc_ui_main_redraw(void) {
 
         switch (entry->type) {
         case SIRCC_HISTORY_CHAN_MSG:
+        case SIRCC_HISTORY_ACTION:
             attrs = 0;
             break;
 

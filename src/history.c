@@ -119,6 +119,24 @@ sircc_history_add_server_msg(struct sircc_history *history, time_t date,
 }
 
 void
+sircc_history_add_action(struct sircc_history *history, time_t date,
+                         char *src, char *text) {
+    struct sircc_history_entry entry;
+
+    memset(&entry, 0, sizeof(struct sircc_history_entry));
+
+    entry.type = SIRCC_HISTORY_ACTION;
+    entry.date = date;
+    entry.src = NULL;
+    sircc_asprintf(&entry.text, "%s %s", src, text);
+
+    sircc_free(src);
+    sircc_free(text);
+
+    sircc_history_add_entry(history, &entry);
+}
+
+void
 sircc_history_add_trace(struct sircc_history *history, char *text) {
     struct sircc_history_entry entry;
 
@@ -235,6 +253,7 @@ sircc_history_entry_update_margin_text(struct sircc_history *history,
                        date_str, src_field_sz, entry->src);
         break;
 
+    case SIRCC_HISTORY_ACTION:
     case SIRCC_HISTORY_TRACE:
     case SIRCC_HISTORY_INFO:
     case SIRCC_HISTORY_ERROR:
