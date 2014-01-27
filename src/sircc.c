@@ -413,8 +413,13 @@ sircc_chan_remove_user(struct sircc_chan *chan, const char *user) {
             }
 
             chan->nb_users--;
-            chan->users = sircc_realloc(chan->users,
-                                        chan->nb_users * sizeof(char *));
+            if (chan->nb_users == 0) {
+                sircc_free(chan->users);
+                chan->users = NULL;
+            } else {
+                chan->users = sircc_realloc(chan->users,
+                                            chan->nb_users * sizeof(char *));
+            }
             break;
         }
     }
