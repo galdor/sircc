@@ -336,6 +336,38 @@ sircc_irc_caps_free(struct sircc_irc_cap *caps, size_t nb_caps) {
     sircc_free(caps);
 }
 
+char *
+sircc_ctcp_quote(const char *str) {
+    char *nstr, *nptr;
+    size_t nsz;
+
+    nsz = 0;
+    for (const char *ptr = str; *ptr != '\0'; ptr++) {
+        nsz++;
+
+        if (*ptr == '\001' || *ptr == '\134')
+            nsz++;
+    }
+
+    nstr = sircc_malloc(nsz + 1);
+    nptr = nstr;
+
+    for (const char *ptr = str; *ptr != '\0'; ptr++) {
+        if (*ptr == '\001') {
+            *nptr++ = '\134';
+            *nptr++ = 'a';
+        } else if (*ptr == '\134') {
+            *nptr++ = '\134';
+            *nptr++ = '\134';
+        } else {
+            *nptr++ = *ptr;
+        }
+    }
+
+    *nptr = '\0';
+    return nstr;
+}
+
 static void
 sircc_msg_add_param(struct sircc_msg *msg, char *param) {
     if (!msg->params) {

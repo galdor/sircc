@@ -374,6 +374,7 @@ static void
 sircc_cmdh_me(struct sircc_server *server, struct sircc_cmd *cmd) {
     struct sircc_chan *chan;
     const char *text;
+    char *quoted_text;
     time_t now;
 
     if (cmd->nb_args > 0) {
@@ -388,11 +389,15 @@ sircc_cmdh_me(struct sircc_server *server, struct sircc_cmd *cmd) {
         return;
     }
 
+    quoted_text = sircc_ctcp_quote(text);
+
     sircc_server_printf(server, "PRIVMSG %s :\001ACTION %s\001\r\n",
-                        chan->name, text);
+                        chan->name, quoted_text);
 
     now = time(NULL);
     sircc_chan_add_action(chan, now, server->current_nickname, text);
+
+    sircc_free(quoted_text);
 }
 
 static void

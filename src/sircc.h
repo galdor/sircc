@@ -293,6 +293,8 @@ struct sircc_irc_cap {
 struct sircc_irc_cap *sircc_irc_caps_parse(const char *, size_t *);
 void sircc_irc_caps_free(struct sircc_irc_cap *, size_t);
 
+char *sircc_ctcp_quote(const char *);
+
 #ifdef SIRCC_WITH_X11
 /* X11 */
 void sircc_x11_initialize(void);
