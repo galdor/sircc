@@ -22,7 +22,7 @@ static bool sircc_x11_log_errors;
 
 static int sircc_x11_error_handler(Display *, XErrorEvent *);
 
-static char *sircc_x11_get_selection(Atom, Atom);
+static int sircc_x11_get_selection(Atom, Atom, char **);
 
 void
 sircc_x11_initialize(void) {
@@ -58,31 +58,37 @@ sircc_x11_shutdown(void) {
 
 char *
 sircc_x11_primary_selection(void) {
-    char *text;
+    char *utf8_text, *text;
+    int ret;
 
     sircc_x11_log_errors = false;
 
-    text = sircc_x11_get_selection(XA_PRIMARY, sircc.atom_utf8_string);
-    if (text)
+    ret = sircc_x11_get_selection(XA_PRIMARY, sircc.atom_utf8_string, &text);
+    if (ret == -1)
+        goto error;
+    if (ret == 1)
         return text;
 
-    text = sircc_x11_get_selection(XA_PRIMARY, XA_STRING);
-    if (text) {
-        char *utf8_text;
+    ret = sircc_x11_get_selection(XA_PRIMARY, XA_STRING, &text);
+    if (ret == -1)
+        goto error;
+    if (ret == 0)
+        return NULL;
 
-        utf8_text = sircc_str_convert(text, strlen(text),
-                                      "ISO-8859-1", "UTF-8", NULL);
-        if (!utf8_text) {
-            sircc_chan_log_error(NULL, "%s", sircc_get_error());
-            sircc_free(text);
-            return NULL;
-        }
-
+    utf8_text = sircc_str_convert(text, strlen(text),
+                                  "ISO-8859-1", "UTF-8", NULL);
+    if (!utf8_text) {
+        sircc_chan_log_error(NULL, "%s", sircc_get_error());
         sircc_free(text);
-        return utf8_text;
+        return NULL;
     }
 
-    sircc_chan_log_error(NULL, "cannot read selection: %s", sircc_get_error());
+    sircc_free(text);
+    return utf8_text;
+
+error:
+    sircc_chan_log_error(NULL, "cannot read selection: %s",
+                         sircc_get_error());
     return NULL;
 }
 
@@ -98,8 +104,8 @@ sircc_x11_error_handler(Display *display, XErrorEvent *event) {
     return 0;
 }
 
-static char *
-sircc_x11_get_selection(Atom selection, Atom target) {
+static int
+sircc_x11_get_selection(Atom selection, Atom target, char **pdata) {
     Window win_requestor;
     Atom property, type;
     unsigned char *data_tmp;
@@ -114,7 +120,7 @@ sircc_x11_get_selection(Atom selection, Atom target) {
     data_tmp = NULL;
 
     if (!sircc.display)
-        return NULL;
+        return 0;
 
     XConvertSelection(sircc.display, selection, target,
                       sircc.atom_sircc_selection, sircc.window, CurrentTime);
@@ -130,10 +136,8 @@ sircc_x11_get_selection(Atom selection, Atom target) {
         win_requestor = event.xselection.requestor;
         property = event.xselection.property;
 
-        if (property == None) {
-            sircc_set_error("selection format conversion refused");
-            return NULL;
-        }
+        if (property == None)
+            return 0;
 
         break;
     }
@@ -204,7 +208,9 @@ sircc_x11_get_selection(Atom selection, Atom target) {
         if (bytes_left == 0)
             break;
     }
-    return data;
+
+    *pdata = data;
+    return 1;
 
 error:
     sircc_free(data);
@@ -212,5 +218,5 @@ error:
     if (data_tmp)
         XFree(data_tmp);
 
-    return NULL;
+    return -1;
 }
