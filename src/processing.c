@@ -14,6 +14,8 @@
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
+#include <ctype.h>
+
 #include "sircc.h"
 
 static struct {
@@ -38,6 +40,7 @@ static struct {
 
 static void sircc_process_buf(struct sircc_buf *, bool);
 
+static void sircc_remove_control_characters(struct sircc_buf *);
 static void sircc_escape_format_sequences(struct sircc_buf *);
 
 static void sircc_highlighter_free(struct sircc_highlighter *);
@@ -128,6 +131,7 @@ sircc_process_buf(struct sircc_buf *buf, bool minimal) {
     suffix = "^a0";
     suffix_len = strlen(suffix);
 
+    sircc_remove_control_characters(buf);
     sircc_escape_format_sequences(buf);
 
     if (minimal)
@@ -175,6 +179,30 @@ sircc_process_buf(struct sircc_buf *buf, bool minimal) {
             sircc_buf_insert(buf, offset, suffix, suffix_len);
             offset += suffix_len;
         }
+    }
+}
+
+static void
+sircc_remove_control_characters(struct sircc_buf *buf) {
+    size_t offset;
+
+    offset = 0;
+    for (;;) {
+        char *ptr;
+        size_t len;
+
+        ptr = sircc_buf_data(buf);
+        len = sircc_buf_length(buf);
+
+        if (offset >= len)
+            break;
+
+        if (iscntrl((unsigned char)(ptr[offset]))) {
+            sircc_buf_remove_at(buf, offset + 1, 1);
+            offset--;
+        }
+
+        offset++;
     }
 }
 
