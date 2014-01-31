@@ -38,10 +38,10 @@ static struct {
     {"reverse",   "^a7"},
 };
 
-static void sircc_process_buf(struct sircc_buf *, bool);
+static void sircc_process_buf(struct bf_buffer *, bool);
 
-static void sircc_remove_control_characters(struct sircc_buf *);
-static void sircc_escape_format_sequences(struct sircc_buf *);
+static void sircc_remove_control_characters(struct bf_buffer *);
+static void sircc_escape_format_sequences(struct bf_buffer *);
 
 static void sircc_highlighter_free(struct sircc_highlighter *);
 static int sircc_highlighter_init_escape_sequences(struct sircc_highlighter *,
@@ -110,21 +110,21 @@ sircc_processing_shutdown(void) {
 
 char *
 sircc_process_text(const char *str, bool minimal) {
-    struct sircc_buf buf;
+    struct bf_buffer *buf;
     char *nstr;
 
-    sircc_buf_init(&buf);
-    sircc_buf_add(&buf, str, strlen(str));
+    buf = bf_buffer_new(128);
+    bf_buffer_add_string(buf, str);
 
-    sircc_process_buf(&buf, minimal);
-    nstr = sircc_buf_dup_str(&buf);
+    sircc_process_buf(buf, minimal);
+    nstr = bf_buffer_dup_string(buf);
 
-    sircc_buf_free(&buf);
+    bf_buffer_delete(buf);
     return nstr;
 }
 
 static void
-sircc_process_buf(struct sircc_buf *buf, bool minimal) {
+sircc_process_buf(struct bf_buffer *buf, bool minimal) {
     const char *suffix;
     size_t suffix_len;
 
@@ -149,14 +149,14 @@ sircc_process_buf(struct sircc_buf *buf, bool minimal) {
         sequence_len = strlen(highlighter->sequence);
         offset = 0;
 
-        while (offset < sircc_buf_length(buf)) {
+        while (offset < bf_buffer_length(buf)) {
             const char *buf_ptr;
             size_t match_offset, match_len;
 
-            buf_ptr = sircc_buf_data(buf);
+            buf_ptr = bf_buffer_data(buf);
 
             ret = pcre_exec(highlighter->regexp, highlighter->regexp_extra,
-                            buf_ptr, sircc_buf_length(buf), offset, 0,
+                            buf_ptr, bf_buffer_length(buf), offset, 0,
                             substrings, 3);
             if (ret <= 0) {
                 if (ret != PCRE_ERROR_NOMATCH) {
@@ -172,18 +172,18 @@ sircc_process_buf(struct sircc_buf *buf, bool minimal) {
 
             offset = match_offset;
 
-            sircc_buf_insert(buf, offset, highlighter->sequence, sequence_len);
+            bf_buffer_insert(buf, offset, highlighter->sequence, sequence_len);
             offset += sequence_len;
 
             offset += match_len;
-            sircc_buf_insert(buf, offset, suffix, suffix_len);
+            bf_buffer_insert(buf, offset, suffix, suffix_len);
             offset += suffix_len;
         }
     }
 }
 
 static void
-sircc_remove_control_characters(struct sircc_buf *buf) {
+sircc_remove_control_characters(struct bf_buffer *buf) {
     size_t offset;
 
     offset = 0;
@@ -191,14 +191,14 @@ sircc_remove_control_characters(struct sircc_buf *buf) {
         char *ptr;
         size_t len;
 
-        ptr = sircc_buf_data(buf);
-        len = sircc_buf_length(buf);
+        ptr = bf_buffer_data(buf);
+        len = bf_buffer_length(buf);
 
         if (offset >= len)
             break;
 
         if (iscntrl((unsigned char)(ptr[offset]))) {
-            sircc_buf_remove_at(buf, offset + 1, 1);
+            bf_buffer_remove_before(buf, offset + 1, 1);
             offset--;
         }
 
@@ -207,7 +207,7 @@ sircc_remove_control_characters(struct sircc_buf *buf) {
 }
 
 static void
-sircc_escape_format_sequences(struct sircc_buf *buf) {
+sircc_escape_format_sequences(struct bf_buffer *buf) {
     size_t offset;
 
     offset = 0;
@@ -215,14 +215,14 @@ sircc_escape_format_sequences(struct sircc_buf *buf) {
         char *ptr;
         size_t len;
 
-        ptr = sircc_buf_data(buf);
-        len = sircc_buf_length(buf);
+        ptr = bf_buffer_data(buf);
+        len = bf_buffer_length(buf);
 
         if (offset >= len)
             break;
 
         if (ptr[offset] == '^') {
-            sircc_buf_insert(buf, offset, "^", 1);
+            bf_buffer_insert(buf, offset, "^", 1);
             offset++;
         }
 

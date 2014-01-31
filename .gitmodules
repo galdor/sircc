@@ -1,3 +1,6 @@
 [submodule "libhashtable"]
 	path = libhashtable
 	url = https://github.com/galdor/libhashtable.git
+[submodule "libbuffer"]
+	path = libbuffer
+	url = https://github.com/galdor/libbuffer.git

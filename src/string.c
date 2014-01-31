@@ -105,14 +105,14 @@ sircc_str_locale_to_utf8(char *buf, size_t sz, size_t *nb_bytes) {
 
 int
 sircc_vasprintf(char **pstr, const char *fmt, va_list ap) {
-    struct sircc_buf buf;
+    struct bf_buffer *buf;
 
-    sircc_buf_init(&buf);
+    buf = bf_buffer_new(128);
 
-    sircc_buf_add_vprintf(&buf, fmt, ap);
-    *pstr = sircc_buf_dup_str(&buf);
+    bf_buffer_add_vprintf(buf, fmt, ap);
+    *pstr = bf_buffer_dup_string(buf);
 
-    sircc_buf_free(&buf);
+    bf_buffer_delete(buf);
     return 0;
 }
 

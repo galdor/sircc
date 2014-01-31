@@ -38,6 +38,7 @@
 #endif
 
 #include "hashtable.h"
+#include "buffer.h"
 
 #define SIRCC_ERROR_BUFSZ 1024
 
@@ -73,44 +74,8 @@ void sircc_processing_shutdown(void);
 char *sircc_process_text(const char *, bool);
 
 /* Memory buffers */
-struct sircc_buf {
-    char *data;
-    size_t sz;
-    size_t skip;
-    size_t len;
-};
-
-void sircc_buf_init(struct sircc_buf *);
-void sircc_buf_free(struct sircc_buf *);
-struct sircc_buf *sircc_buf_new(void);
-void sircc_buf_delete(struct sircc_buf *);
-
-char *sircc_buf_data(const struct sircc_buf *);
-size_t sircc_buf_length(const struct sircc_buf *);
-size_t sircc_buf_free_space(const struct sircc_buf *);
-
-void sircc_buf_clear(struct sircc_buf *);
-void sircc_buf_truncate(struct sircc_buf *, size_t);
-
-void sircc_buf_insert(struct sircc_buf *, size_t, const char *, size_t);
-void sircc_buf_add(struct sircc_buf *, const char *, size_t);
-void sircc_buf_add_buf(struct sircc_buf *, const struct sircc_buf *);
-int sircc_buf_add_vprintf(struct sircc_buf *, const char *, va_list);
-int sircc_buf_add_printf(struct sircc_buf *, const char *, ...)
-    __attribute__((format(printf, 2, 3)));
-
-void sircc_buf_skip(struct sircc_buf *, size_t);
-size_t sircc_buf_remove_at(struct sircc_buf *, size_t, size_t);
-size_t sircc_buf_remove(struct sircc_buf *, size_t);
-
-char *sircc_buf_dup(const struct sircc_buf *);
-char *sircc_buf_dup_str(const struct sircc_buf *);
-
-size_t sircc_buf_utf8_nb_chars(const struct sircc_buf *);
-char *sircc_buf_utf8_last_n_chars(const struct sircc_buf *, size_t, size_t *);
-
-ssize_t sircc_buf_read(struct sircc_buf *, int, size_t);
-ssize_t sircc_buf_write(struct sircc_buf *, int);
+size_t bf_buffer_utf8_nb_chars(const struct bf_buffer *);
+char *bf_buffer_utf8_last_n_chars(const struct bf_buffer *, size_t, size_t *);
 
 /* Configuration */
 enum sircc_cfg_entry_type {
@@ -273,7 +238,7 @@ struct sircc_msg {
 };
 
 void sircc_msg_free(struct sircc_msg *);
-int sircc_msg_parse(struct sircc_msg *, struct sircc_buf *);
+int sircc_msg_parse(struct sircc_msg *, struct bf_buffer *);
 int sircc_msg_prefix_nickname(const struct sircc_msg *, char *, size_t);
 
 bool sircc_irc_is_chan_prefix(int);
@@ -389,8 +354,8 @@ struct sircc_server {
 
     struct pollfd *pollfd;
 
-    struct sircc_buf rbuf;
-    struct sircc_buf wbuf;
+    struct bf_buffer *rbuf;
+    struct bf_buffer *wbuf;
 
     struct sircc_history history;
 
@@ -480,15 +445,15 @@ struct sircc {
     WINDOW *win_servers;
     WINDOW *win_prompt;
 
-    struct sircc_buf input_read_buf;
-    struct sircc_buf input_buf;
+    struct bf_buffer *input_read_buf;
+    struct bf_buffer *input_buf;
 
     bool completion; /* is completion in progress */
     size_t completion_offset;
     char *completion_prefix;
     char *last_completion;
 
-    struct sircc_buf prompt_buf;
+    struct bf_buffer *prompt_buf;
     size_t prompt_cursor;  /* offset in prompt_buf */
     size_t prompt_vcursor; /* position in the window */
 
@@ -577,7 +542,7 @@ struct sircc_cmd {
 };
 
 void sircc_cmd_free(struct sircc_cmd *);
-int sircc_cmd_parse(struct sircc_cmd *, struct sircc_buf *);
+int sircc_cmd_parse(struct sircc_cmd *, struct bf_buffer *);
 void sircc_cmd_run(struct sircc_cmd *cmd);
 
 char *sircc_cmd_next_completion(const char *, const char *);

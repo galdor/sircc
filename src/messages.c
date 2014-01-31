@@ -528,7 +528,7 @@ static void
 sircc_msgh_rpl_welcome(struct sircc_server *server, struct sircc_msg *msg) {
     const char **strings;
     size_t nb_strings;
-    struct sircc_buf buf;
+    struct bf_buffer *buf;
 
     sircc_server_log_info(server, "irc client registered");
 
@@ -536,7 +536,7 @@ sircc_msgh_rpl_welcome(struct sircc_server *server, struct sircc_msg *msg) {
     for (size_t i = 0; i < nb_strings; i++)
         sircc_server_printf(server, "JOIN %s\r\n", strings[i]);
 
-    sircc_buf_init(&buf);
+    buf = bf_buffer_new(0);
 
     strings = sircc_cfg_server_strings(server, "auto_command", &nb_strings);
     for (size_t i = 0; i < nb_strings; i++) {
@@ -546,10 +546,10 @@ sircc_msgh_rpl_welcome(struct sircc_server *server, struct sircc_msg *msg) {
 
         string = strings[i];
 
-        sircc_buf_clear(&buf);
-        sircc_buf_add(&buf, string, strlen(string));
+        bf_buffer_clear(buf);
+        bf_buffer_add_string(buf, string);
 
-        ret = sircc_cmd_parse(&cmd, &buf);
+        ret = sircc_cmd_parse(&cmd, buf);
         if (ret == -1) {
             sircc_server_log_error(server, "cannot parse auto command '%s': %s",
                                    string, sircc_get_error());
@@ -562,7 +562,7 @@ sircc_msgh_rpl_welcome(struct sircc_server *server, struct sircc_msg *msg) {
         }
     }
 
-    sircc_buf_free(&buf);
+    bf_buffer_delete(buf);
 }
 
 static void

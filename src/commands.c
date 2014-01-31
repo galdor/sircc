@@ -102,15 +102,15 @@ sircc_cmd_free(struct sircc_cmd *cmd) {
 }
 
 int
-sircc_cmd_parse(struct sircc_cmd *cmd, struct sircc_buf *buf) {
+sircc_cmd_parse(struct sircc_cmd *cmd, struct bf_buffer *buf) {
     struct sircc_cmd_desc *desc;
     const char *ptr;
     const char *space;
     size_t len, toklen;
     char *name;
 
-    ptr = sircc_buf_data(buf);
-    len = sircc_buf_length(buf);
+    ptr = bf_buffer_data(buf);
+    len = bf_buffer_length(buf);
 
     memset(cmd, 0, sizeof(struct sircc_cmd));
 

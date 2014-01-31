@@ -489,8 +489,8 @@ sircc_server_new(const char *name) {
 
     server->sock = -1;
 
-    sircc_buf_init(&server->rbuf);
-    sircc_buf_init(&server->wbuf);
+    server->rbuf = bf_buffer_new(128);
+    server->wbuf = bf_buffer_new(128);
 
     server->max_nickname_length = 15;
 
@@ -516,8 +516,8 @@ sircc_server_delete(struct sircc_server *server) {
         sircc_free(server->addresses);
     }
 
-    sircc_buf_free(&server->rbuf);
-    sircc_buf_free(&server->wbuf);
+    bf_buffer_delete(server->rbuf);
+    bf_buffer_delete(server->wbuf);
 
     sircc_history_free(&server->history);
 
@@ -706,8 +706,8 @@ sircc_server_disconnect(struct sircc_server *server) {
         server->pollfd->fd = -1;
     }
 
-    sircc_buf_clear(&server->rbuf);
-    sircc_buf_clear(&server->wbuf);
+    bf_buffer_clear(server->rbuf);
+    bf_buffer_clear(server->wbuf);
 
     if (server->ssl_ctx) {
         SSL_CTX_free(server->ssl_ctx);
@@ -815,20 +815,20 @@ error:
 
 void
 sircc_server_trace(struct sircc_server *server, const char *fmt, ...) {
-    struct sircc_buf buf;
+    struct bf_buffer *buf;
     va_list ap;
 
     if (!server)
         server = sircc_server_get_current();
 
-    sircc_buf_init(&buf);
+    buf = bf_buffer_new(128);
 
     va_start(ap, fmt);
-    sircc_buf_add_vprintf(&buf, fmt, ap);
+    bf_buffer_add_vprintf(buf, fmt, ap);
     va_end(ap);
 
-    sircc_history_add_trace(&server->history, sircc_buf_dup_str(&buf));
-    sircc_buf_free(&buf);
+    sircc_history_add_trace(&server->history, bf_buffer_dup_string(buf));
+    bf_buffer_delete(buf);
 
     if (server == sircc_server_get_current()) {
         sircc_ui_main_redraw();
@@ -838,20 +838,20 @@ sircc_server_trace(struct sircc_server *server, const char *fmt, ...) {
 
 void
 sircc_server_log_info(struct sircc_server *server, const char *fmt, ...) {
-    struct sircc_buf buf;
+    struct bf_buffer *buf;
     va_list ap;
 
     if (!server)
         server = sircc_server_get_current();
 
-    sircc_buf_init(&buf);
+    buf = bf_buffer_new(128);
 
     va_start(ap, fmt);
-    sircc_buf_add_vprintf(&buf, fmt, ap);
+    bf_buffer_add_vprintf(buf, fmt, ap);
     va_end(ap);
 
-    sircc_history_add_info(&server->history, sircc_buf_dup_str(&buf));
-    sircc_buf_free(&buf);
+    sircc_history_add_info(&server->history, bf_buffer_dup_string(buf));
+    bf_buffer_delete(buf);
 
     if (server == sircc_server_get_current()) {
         sircc_ui_main_redraw();
@@ -861,20 +861,20 @@ sircc_server_log_info(struct sircc_server *server, const char *fmt, ...) {
 
 void
 sircc_server_log_error(struct sircc_server *server, const char *fmt, ...) {
-    struct sircc_buf buf;
+    struct bf_buffer *buf;
     va_list ap;
 
     if (!server)
         server = sircc_server_get_current();
 
-    sircc_buf_init(&buf);
+    buf = bf_buffer_new(128);
 
     va_start(ap, fmt);
-    sircc_buf_add_vprintf(&buf, fmt, ap);
+    bf_buffer_add_vprintf(buf, fmt, ap);
     va_end(ap);
 
-    sircc_history_add_error(&server->history, sircc_buf_dup_str(&buf));
-    sircc_buf_free(&buf);
+    sircc_history_add_error(&server->history, bf_buffer_dup_string(buf));
+    bf_buffer_delete(buf);
 
     if (server == sircc_server_get_current()) {
         sircc_ui_main_redraw();
@@ -905,7 +905,7 @@ sircc_server_write(struct sircc_server *server, const char *buf, size_t sz) {
         return;
     }
 
-    sircc_buf_add(&server->wbuf, buf, sz);
+    bf_buffer_add(server->wbuf, buf, sz);
 
     server->pollfd->events |= POLLOUT;
 }
@@ -918,7 +918,7 @@ sircc_server_vprintf(struct sircc_server *server, const char *fmt, va_list ap) {
         return -1;
     }
 
-    if (sircc_buf_add_vprintf(&server->wbuf, fmt, ap) == -1)
+    if (bf_buffer_add_vprintf(server->wbuf, fmt, ap) == -1)
         return -1;
 
     server->pollfd->events |= POLLOUT;
@@ -954,7 +954,7 @@ sircc_server_on_pollin(struct sircc_server *server) {
         {
             ssize_t ret;
 
-            ret = sircc_buf_read(&server->rbuf, server->sock, BUFSIZ);
+            ret = bf_buffer_read(server->rbuf, server->sock, BUFSIZ);
             if (ret == -1) {
                 sircc_server_log_error(server, "cannot read socket: %m");
                 sircc_server_disconnect(server);
@@ -1003,7 +1003,7 @@ sircc_server_on_pollin(struct sircc_server *server) {
                 return;
             }
 
-            sircc_buf_add(&server->rbuf, buf, (size_t)ret);
+            bf_buffer_add(server->rbuf, buf, (size_t)ret);
             sircc_server_read_msgs(server);
         }
         break;
@@ -1054,13 +1054,13 @@ sircc_server_on_pollout(struct sircc_server *server) {
         {
             ssize_t ret;
 
-            ret = sircc_buf_write(&server->wbuf, server->sock);
+            ret = bf_buffer_write(server->wbuf, server->sock);
             if (ret == -1) {
                 sircc_server_log_error(server, "cannot write to socket: %m");
                 sircc_server_disconnect(server);
             }
 
-            if (sircc_buf_length(&server->wbuf) == 0)
+            if (bf_buffer_length(server->wbuf) == 0)
                 server->pollfd->events &= ~POLLOUT;
         }
         break;
@@ -1070,12 +1070,12 @@ sircc_server_on_pollout(struct sircc_server *server) {
             const char *data;
             int len, ret, err;
 
-            data = sircc_buf_data(&server->wbuf);
+            data = bf_buffer_data(server->wbuf);
 
             if (server->ssl_last_write_length > 0) {
                 len = server->ssl_last_write_length;
             } else {
-                len = (int)sircc_buf_length(&server->wbuf);
+                len = (int)bf_buffer_length(server->wbuf);
             }
 
             ret = SSL_write(server->ssl, data, len);
@@ -1112,8 +1112,8 @@ sircc_server_on_pollout(struct sircc_server *server) {
 
             server->ssl_last_write_length = 0;
 
-            sircc_buf_skip(&server->wbuf, (size_t)ret);
-            if (sircc_buf_length(&server->wbuf) == 0)
+            bf_buffer_skip(server->wbuf, (size_t)ret);
+            if (bf_buffer_length(server->wbuf) == 0)
                 server->pollfd->events &= ~POLLOUT;
         }
         break;
@@ -1145,7 +1145,7 @@ sircc_server_on_connection_established(struct sircc_server *server) {
 
 void
 sircc_server_read_msgs(struct sircc_server *server) {
-    while (sircc_buf_length(&server->rbuf) > 0) {
+    while (bf_buffer_length(server->rbuf) > 0) {
         struct sircc_msg msg;
         int ret;
 
@@ -1153,7 +1153,7 @@ sircc_server_read_msgs(struct sircc_server *server) {
             const char *ptr;
             char *cr;
 
-            ptr = sircc_buf_data(&server->rbuf);
+            ptr = bf_buffer_data(server->rbuf);
 
             cr = strchr(ptr, '\r');
             if (cr) {
@@ -1163,7 +1163,7 @@ sircc_server_read_msgs(struct sircc_server *server) {
             }
         }
 
-        ret = sircc_msg_parse(&msg, &server->rbuf);
+        ret = sircc_msg_parse(&msg, server->rbuf);
         if (ret == -1) {
             sircc_server_log_error(server, "cannot parse message: %s",
                                    sircc_get_error());
@@ -1174,7 +1174,7 @@ sircc_server_read_msgs(struct sircc_server *server) {
         if (ret == 0)
             break;
 
-        sircc_buf_skip(&server->rbuf, (size_t)ret);
+        bf_buffer_skip(server->rbuf, (size_t)ret);
 
         sircc_server_msg_process(server, &msg);
         sircc_msg_free(&msg);
@@ -1287,9 +1287,9 @@ sircc_initialize(void) {
     sircc.msg_handlers = ht_table_new(ht_hash_string, ht_equal_string);
     sircc_init_msg_handlers();
 
-    sircc_buf_init(&sircc.input_buf);
-    sircc_buf_init(&sircc.input_read_buf);
-    sircc_buf_init(&sircc.prompt_buf);
+    sircc.input_buf = bf_buffer_new(0);
+    sircc.input_read_buf = bf_buffer_new(0);
+    sircc.prompt_buf = bf_buffer_new(0);
 
     sircc_setup_poll_array();
 
@@ -1322,9 +1322,9 @@ sircc_shutdown(void) {
 
     ht_table_delete(sircc.msg_handlers);
 
-    sircc_buf_free(&sircc.input_read_buf);
-    sircc_buf_free(&sircc.input_buf);
-    sircc_buf_free(&sircc.prompt_buf);
+    bf_buffer_delete(sircc.input_read_buf);
+    bf_buffer_delete(sircc.input_buf);
+    bf_buffer_delete(sircc.prompt_buf);
 
     sigaction(SIGINT, &sircc.old_sigact_sigint, NULL);
     sigaction(SIGTERM, &sircc.old_sigact_sigterm, NULL);
@@ -1497,14 +1497,14 @@ sircc_read_input(void) {
 
     server = sircc_server_get_current();
 
-    ret = sircc_buf_read(&sircc.input_read_buf, STDIN_FILENO, 64);
+    ret = bf_buffer_read(sircc.input_read_buf, STDIN_FILENO, 64);
     if (ret < 0)
         die("cannot read terminal device: %m");
     if (ret == 0)
         die("eof on terminal device");
 
-    len = sircc_buf_length(&sircc.input_read_buf);
-    ptr = (unsigned char *)sircc_buf_data(&sircc.input_read_buf);
+    len = bf_buffer_length(sircc.input_read_buf);
+    ptr = (unsigned char *)bf_buffer_data(sircc.input_read_buf);
 
     for (size_t i = 0; i < len; i++) {
         unsigned char c;
@@ -1560,7 +1560,7 @@ sircc_read_input(void) {
 
             escape = false;
         } else {
-            sircc_buf_add(&sircc.input_buf, (char *)&c, 1);
+            bf_buffer_add(sircc.input_buf, (char *)&c, 1);
         }
     }
 
@@ -1568,15 +1568,15 @@ sircc_read_input(void) {
         char *utf8_str;
         size_t nb_bytes;
 
-        utf8_str = sircc_str_locale_to_utf8(sircc_buf_data(&sircc.input_buf),
-                                            sircc_buf_length(&sircc.input_buf),
+        utf8_str = sircc_str_locale_to_utf8(bf_buffer_data(sircc.input_buf),
+                                            bf_buffer_length(sircc.input_buf),
                                             &nb_bytes);
         if (!utf8_str) {
             sircc_chan_log_error(NULL, "cannot convert input to UTF-8: %s",
                                  sircc_get_error());
 
-            sircc_buf_clear(&sircc.input_read_buf);
-            sircc_buf_clear(&sircc.input_buf);
+            bf_buffer_clear(sircc.input_read_buf);
+            bf_buffer_clear(sircc.input_buf);
         }
 
         sircc_ui_prompt_add(utf8_str);
@@ -1585,10 +1585,10 @@ sircc_read_input(void) {
         /* If there is a truncated multibyte character at the end of
          * input_buf, it will stay in it to be completed the next time there
          * is something to read on stdin. */
-        sircc_buf_skip(&sircc.input_buf, nb_bytes);
+        bf_buffer_skip(sircc.input_buf, nb_bytes);
     }
 
-    sircc_buf_clear(&sircc.input_read_buf);
+    bf_buffer_clear(sircc.input_read_buf);
 }
 
 static int

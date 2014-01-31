@@ -35,13 +35,13 @@ sircc_msg_free(struct sircc_msg *msg) {
 }
 
 int
-sircc_msg_parse(struct sircc_msg *msg, struct sircc_buf *buf) {
+sircc_msg_parse(struct sircc_msg *msg, struct bf_buffer *buf) {
     const char *start, *ptr;
     const char *space, *cr;
     size_t len, toklen;
 
-    len = sircc_buf_length(buf);
-    ptr = sircc_buf_data(buf);
+    len = bf_buffer_length(buf);
+    ptr = bf_buffer_data(buf);
 
     start = ptr;
 
