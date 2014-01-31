@@ -55,6 +55,13 @@ static struct ht_memory_allocator sircc_ht_allocator = {
     .free = sircc_free
 };
 
+static struct bf_memory_allocator sircc_bf_allocator = {
+    .malloc = sircc_malloc,
+    .calloc = sircc_calloc,
+    .realloc = sircc_realloc,
+    .free = sircc_free
+};
+
 __thread char sircc_error_buf[SIRCC_ERROR_BUFSZ];
 
 struct sircc sircc;
@@ -74,6 +81,7 @@ main(int argc, char **argv) {
     OpenSSL_add_all_algorithms();
 
     ht_set_memory_allocator(&sircc_ht_allocator);
+    bf_set_memory_allocator(&sircc_bf_allocator);
 
     home = getenv("HOME");
     if (!home)
