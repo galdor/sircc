@@ -671,10 +671,10 @@ sircc_ui_prompt_execute(void) {
 int
 sircc_ui_write(WINDOW *win, const char *str, size_t sz) {
     /*
-     * ^a0   reset attributes
-     * ^a1   bold
-     * ^a4   underline
-     * ^a7   reverse
+     * ^a0  reset attributes
+     * ^a1  bold
+     * ^a4  underline
+     * ^a7  reverse
      *
      * ^c0  black foreground
      * ^c1  red foreground
@@ -689,6 +689,9 @@ sircc_ui_write(WINDOW *win, const char *str, size_t sz) {
      *
      * ^^   '^' character
      */
+
+    /* XXX sircc_layout_add_history_entry() rely on the fact that all format
+     * sequences have two characters after the initial '^'. */
 
     const unsigned char *ptr;
     size_t len;

@@ -68,13 +68,14 @@ sircc_layout_add_row(struct sircc_layout *layout,
 
 void
 sircc_layout_add_history_entry(struct sircc_layout *layout,
+                               struct sircc_history *history,
                                struct sircc_history_entry *entry) {
     struct sircc_layout_row row;
     int window_width, margin_sz, width, x;
     const char *ptr, *start;
 
-    window_width = (int)sircc_ui_main_window_width();
-    margin_sz = (int)strlen(entry->margin_text);
+    window_width = sircc_ui_main_window_width();
+    margin_sz = sircc_history_margin_size(history);
     width = window_width - margin_sz;
 
     x = 0;
@@ -85,6 +86,12 @@ sircc_layout_add_history_entry(struct sircc_layout *layout,
     while (*ptr != '\0') {
         size_t nb_bytes;
         bool truncated_seq, eos;
+
+        /* Skip any leading format sequence */
+        while (*ptr == '^' && *(ptr + 1) != '^') {
+            /* All format sequences have two characters after '^' */
+            ptr += 3;
+        }
 
         /* If we find a truncated UTF-8 sequence, we ignore it. It should not
          * happen since the string was converted to UTF-8 by iconv. */

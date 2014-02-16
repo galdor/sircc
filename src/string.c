@@ -14,10 +14,16 @@
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
+#include <ctype.h>
 #include <errno.h>
 #include <string.h>
 
 #include "sircc.h"
+
+int
+sircc_is_breaking_space(int c) {
+    return isspace(c) && c != 0xa0; /* NO-BREAK SPACE */
+}
 
 char *
 sircc_strdup(const char *str) {

@@ -51,6 +51,8 @@ void *sircc_realloc(void *, size_t);
 void sircc_free(void *);
 
 /* Strings */
+int sircc_is_breaking_space(int);
+
 char *sircc_strdup(const char *);
 char *sircc_strndup(const char *, size_t);
 
@@ -135,6 +137,7 @@ int sircc_cfg_server_integer(struct sircc_server *, const char *, int);
 bool sircc_cfg_server_boolean(struct sircc_server *, const char *, bool);
 
 /* Layout */
+struct sircc_history;
 struct sircc_history_entry;
 
 struct sircc_layout_row {
@@ -162,6 +165,7 @@ void sircc_layout_add_row(struct sircc_layout *,
                           const struct sircc_layout_row *);
 
 void sircc_layout_add_history_entry(struct sircc_layout *,
+                                    struct sircc_history *,
                                     struct sircc_history_entry *);
 void sircc_layout_skip_history_entry(struct sircc_layout *);
 

@@ -85,7 +85,7 @@ sircc_history_add_entry(struct sircc_history *history,
         history->disable_processing = false;
     }
 
-    sircc_layout_add_history_entry(&history->layout, head);
+    sircc_layout_add_history_entry(&history->layout, history, head);
 }
 
 void
@@ -187,7 +187,7 @@ sircc_history_recompute_layout(struct sircc_history *history) {
         struct sircc_history_entry *entry;
 
         entry = history->entries + idx;
-        sircc_layout_add_history_entry(&history->layout, entry);
+        sircc_layout_add_history_entry(&history->layout, history, entry);
 
         idx++;
         if (idx >= history->sz)
