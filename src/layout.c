@@ -84,8 +84,12 @@ sircc_layout_add_history_entry(struct sircc_layout *layout,
     start = ptr;
 
     while (*ptr != '\0') {
-        size_t nb_bytes;
-        bool truncated_seq, eos;
+        size_t nb_bytes, wordsz;
+        bool truncated_seq, eos, force_split;
+        const char *end;
+
+        truncated_seq = false;
+        force_split = false;
 
         /* Skip any leading format sequence */
         while (*ptr == '^' && *(ptr + 1) != '^') {
@@ -93,11 +97,27 @@ sircc_layout_add_history_entry(struct sircc_layout *layout,
             ptr += 3;
         }
 
+        /* Search for the end of the next word */
+        end = ptr;
+        while (*end != '\0') {
+            if (sircc_is_breaking_space((unsigned char)*end))
+                break;
+
+            end++;
+        }
+
+        wordsz = (size_t)(end - ptr);
+
+        /* If we do not have enough space for the next word, split right here.
+         * If the word is larger than the window width, we will have to split
+         * between characters of this word. */
+        if (wordsz > (size_t)(width - x) && wordsz < (size_t)width) {
+            force_split = true;
+            goto split;
+        }
+
         /* If we find a truncated UTF-8 sequence, we ignore it. It should not
          * happen since the string was converted to UTF-8 by iconv. */
-
-        truncated_seq = false;
-
         if ((*ptr & 0x80) == 0x0) {
             nb_bytes = 1;
         } else if ((*ptr & 0xe0) == 0xc0) {
@@ -125,9 +145,10 @@ sircc_layout_add_history_entry(struct sircc_layout *layout,
             x++;
         }
 
+split:
         eos = truncated_seq || *ptr == '\0';
 
-        if (x >= width || eos) {
+        if (x >= width || eos || force_split) {
             bool is_first_row;
 
             is_first_row = (start == entry->text);
