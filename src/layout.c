@@ -98,22 +98,25 @@ sircc_layout_add_history_entry(struct sircc_layout *layout,
         }
 
         /* Search for the end of the next word */
-        end = ptr;
-        while (*end != '\0') {
-            if (sircc_is_breaking_space((unsigned char)*end))
-                break;
+        if (ptr > entry->text
+         && sircc_is_breaking_space((unsigned char)*(ptr - 1))) {
+            end = ptr;
+            while (*end != '\0') {
+                if (sircc_is_breaking_space((unsigned char)*end))
+                    break;
 
-            end++;
-        }
+                end++;
+            }
 
-        wordsz = (size_t)(end - ptr);
+            wordsz = (size_t)(end - ptr);
 
-        /* If we do not have enough space for the next word, split right here.
-         * If the word is larger than the window width, we will have to split
-         * between characters of this word. */
-        if (wordsz > (size_t)(width - x) && wordsz < (size_t)width) {
-            force_split = true;
-            goto split;
+            /* If we do not have enough space for the next word, split right
+             * here.  If the word is larger than the window width, we will
+             * have to split between characters of this word. */
+            if (wordsz > (size_t)(width - x) && wordsz < (size_t)width) {
+                force_split = true;
+                goto split;
+            }
         }
 
         /* If we find a truncated UTF-8 sequence, we ignore it. It should not
