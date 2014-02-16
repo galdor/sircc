@@ -380,9 +380,15 @@ sircc_ui_main_window_width(void) {
 
 void
 sircc_ui_server_select(int idx) {
+    struct sircc_server *server;
+
     assert(idx >= 0 && (size_t)idx < sircc.nb_servers);
 
     sircc.current_server = idx;
+    server = sircc_server_get_current();
+
+    if (server->current_chan)
+        server->current_chan->activity = false;
 
     sircc_ui_topic_redraw();
     sircc_ui_main_redraw();
