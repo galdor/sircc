@@ -162,8 +162,6 @@ sircc_ui_main_redraw(void) {
     WINDOW *win;
     int win_height;
     int y;
-    attr_t saved_attrs;
-    short saved_color_pair;
 
     win = sircc.win_main;
 
@@ -192,8 +190,6 @@ sircc_ui_main_redraw(void) {
     } else {
         nb_rows = layout->nb_rows;
     }
-
-    saved_attrs = 0;
 
     for (size_t i = layout->start_idx + layout->nb_rows - nb_rows;
          i < layout->start_idx + layout->nb_rows; i++) {
@@ -234,19 +230,8 @@ sircc_ui_main_redraw(void) {
             wmove(win, y, margin_sz);
         }
 
-        if (saved_attrs != 0)
-            wattron(win, attrs);
         wattron(win, attrs);
-        wattron(win, saved_attrs);
-        wattron(win, COLOR_PAIR(saved_color_pair));
-
         sircc_ui_write(win, row->text, row->text_sz);
-
-        wattr_get(win, &saved_attrs, &saved_color_pair, NULL);
-
-        wattroff(win, attrs);
-        wattroff(win, saved_attrs);
-        wattroff(win, COLOR_PAIR(saved_color_pair));
 
         y++;
     }
