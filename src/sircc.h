@@ -44,6 +44,18 @@
 
 #define SIRCC_NICKNAME_MAXSZ 32
 
+/* Debug */
+#ifdef NDEBUG
+#   define sircc_debug_initialize 1
+#   define sircc_debug_shutdown 1
+#   define sircc_debug 1
+#else
+void sircc_debug_initialize(void);
+void sircc_debug_shutdown(void);
+void sircc_debug(const char *, ...)
+    __attribute__((format(printf, 1, 2)));
+#endif
+
 /* Memory */
 void *sircc_malloc(size_t);
 void *sircc_calloc(size_t, size_t);

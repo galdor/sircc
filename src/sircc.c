@@ -74,6 +74,8 @@ main(int argc, char **argv) {
     const char *cfgdir;
     int opt;
 
+    sircc_debug_initialize();
+
     setlocale(LC_ALL, "");
 
     SSL_library_init();
@@ -137,6 +139,8 @@ main(int argc, char **argv) {
     sircc_cfg_shutdown();
 
     EVP_cleanup();
+
+    sircc_debug_shutdown();
     return 0;
 }
 

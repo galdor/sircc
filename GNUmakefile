@@ -6,6 +6,8 @@ build_id =
 prefix= /usr/local
 bindir= $(prefix)/bin
 
+debug_file= "/tmp/sircc.debug"
+
 CC= clang
 
 CFLAGS+= -std=c99
@@ -14,6 +16,7 @@ CFLAGS+= -Wno-unused-parameter -Wno-unused-function
 
 CFLAGS+= -DSIRCC_VERSION=\"$(version)\"
 CFLAGS+= -DSIRCC_BUILD_ID=\"$(build_id)\"
+CFLAGS+= -DSIRCC_DEBUG_FILE=\"$(debug_file)\"
 
 LDFLAGS=
 
