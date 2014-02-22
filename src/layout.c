@@ -121,26 +121,16 @@ sircc_layout_add_history_entry(struct sircc_layout *layout,
 
         /* If we find a truncated UTF-8 sequence, we ignore it. It should not
          * happen since the string was converted to UTF-8 by iconv. */
-        if ((*ptr & 0x80) == 0x0) {
+        nb_bytes = sircc_utf8_sequence_length(*ptr);
+        if (nb_bytes == 0) {
+            /* TODO Handle invalid UTF-8 sequences. For the time being we just
+             * ignore the invalid byte. */
             nb_bytes = 1;
-        } else if ((*ptr & 0xe0) == 0xc0) {
-            nb_bytes = 2;
+        }
 
-            if (*(ptr + 1) == '\0')
+        for (size_t i = 1; i < nb_bytes; i++) {
+            if (*(ptr + i) == '\0')
                 truncated_seq = true;
-        } else if ((*ptr & 0xf0) == 0xe0) {
-            nb_bytes = 3;
-
-            if (*(ptr + 1) == '\0' || *(ptr + 2) == '\0')
-                truncated_seq = true;
-        } else if ((*ptr & 0xf8) == 0xf0) {
-            nb_bytes = 4;
-
-            if (*(ptr + 1) == '\0' || *(ptr + 2) == '\0' || *(ptr + 3) == '\0')
-                truncated_seq = true;
-        } else {
-            /* TODO Handle invalid UTF-8 sequences */
-            nb_bytes = 1;
         }
 
         if (!truncated_seq) {

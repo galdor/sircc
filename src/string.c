@@ -146,6 +146,21 @@ sircc_utf8_is_continuation_byte(char c) {
 }
 
 size_t
+sircc_utf8_sequence_length(char c) {
+    if ((c & 0x80) == 0x0) {
+        return 1;
+    } else if ((c & 0xe0) == 0xc0) {
+        return 2;
+    } else if ((c & 0xf0) == 0xe0) {
+        return 3;
+    } else if ((c & 0xf8) == 0xf0) {
+        return 4;
+    } else {
+        return 0;
+    }
+}
+
+size_t
 sircc_utf8_nb_chars(const char *str) {
     size_t nb_chars;
 
