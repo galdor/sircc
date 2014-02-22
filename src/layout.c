@@ -97,6 +97,9 @@ sircc_layout_add_history_entry(struct sircc_layout *layout,
             ptr += 3;
         }
 
+        if (*ptr == '\0')
+            goto split;
+
         /* Search for the end of the next word */
         if (ptr > entry->text
          && sircc_is_breaking_space((unsigned char)*(ptr - 1))) {
