@@ -122,8 +122,6 @@ sircc_layout_add_history_entry(struct sircc_layout *layout,
             }
         }
 
-        /* If we find a truncated UTF-8 sequence, we ignore it. It should not
-         * happen since the string was converted to UTF-8 by iconv. */
         nb_bytes = sircc_utf8_sequence_length(*ptr);
         if (nb_bytes == 0) {
             /* TODO Handle invalid UTF-8 sequences. For the time being we just
@@ -131,10 +129,19 @@ sircc_layout_add_history_entry(struct sircc_layout *layout,
             nb_bytes = 1;
         }
 
+        /* If we find a truncated UTF-8 sequence, we ignore it. It should not
+         * happen since the string was converted to UTF-8 by iconv. */
+
         for (size_t i = 1; i < nb_bytes; i++) {
             if (*(ptr + i) == '\0')
                 truncated_seq = true;
         }
+
+        /* Since '^' is a special character used for format sequences, '^'
+         * characters are escaped as "^^". Therefore the "^^" sequence only
+         * uses one horizontal space. */
+        if (*ptr == '^' && *(ptr + 1) == '^')
+            ptr++;
 
         if (!truncated_seq) {
             ptr += nb_bytes;
