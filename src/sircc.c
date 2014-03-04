@@ -15,7 +15,6 @@
  */
 
 #include <assert.h>
-#include <errno.h>
 #include <locale.h>
 #include <stdio.h>
 #include <string.h>
@@ -168,7 +167,7 @@ sircc_signal_handler(int signo) {
 
     ret = write(sircc.signal_pipe[1], &signo, sizeof(signo));
     if (ret < (ssize_t)sizeof(signo))
-        die("cannot write to pipe: %m");
+        die("cannot write to pipe: %s", strerror(errno));
 }
 
 void
@@ -597,8 +596,9 @@ sircc_server_connect(struct sircc_server *server) {
             return 0;
         } else {
             /* We will try another address next time */
-            sircc_server_log_error(server, "cannot connect to %s:%s: %m",
-                                   server->host, server->port);
+            sircc_server_log_error(server, "cannot connect to %s:%s: %s",
+                                   server->host, server->port,
+                                   strerror(errno));
             server->next_address_idx++;
             if (server->next_address_idx >= server->nb_addresses)
                 server->next_address_idx = 0;
@@ -968,7 +968,8 @@ sircc_server_on_pollin(struct sircc_server *server) {
 
             ret = bf_buffer_read(server->rbuf, server->sock, BUFSIZ);
             if (ret == -1) {
-                sircc_server_log_error(server, "cannot read socket: %m");
+                sircc_server_log_error(server, "cannot read socket: %s",
+                                       strerror(errno));
                 sircc_server_disconnect(server);
                 return;
             }
@@ -1068,7 +1069,8 @@ sircc_server_on_pollout(struct sircc_server *server) {
 
             ret = bf_buffer_write(server->wbuf, server->sock);
             if (ret == -1) {
-                sircc_server_log_error(server, "cannot write to socket: %m");
+                sircc_server_log_error(server, "cannot write to socket: %s",
+                                       strerror(errno));
                 sircc_server_disconnect(server);
             }
 
@@ -1294,7 +1296,7 @@ sircc_initialize(void) {
     sigaction(SIGWINCH, &sigact, &sircc.old_sigact_sigwinch);
 
     if (pipe(sircc.signal_pipe) == -1)
-        die("cannot create pipe: %m");
+        die("cannot create pipe: %s", strerror(errno));
 
     sircc.msg_handlers = ht_table_new(ht_hash_string, ht_equal_string);
     sircc_init_msg_handlers();
@@ -1444,7 +1446,7 @@ sircc_poll(void) {
         if (errno == EINTR) {
             return;
         } else {
-            die("cannot poll fds: %m");
+            die("cannot poll fds: %s", strerror(errno));
         }
     }
 
@@ -1484,7 +1486,7 @@ sircc_read_signal(void) {
 
     ret = read(sircc.signal_pipe[0], &signo, sizeof(int));
     if (ret < (ssize_t)sizeof(int))
-        die("cannot read pipe: %m");
+        die("cannot read pipe: %s", strerror(errno));
 
     switch (signo) {
     case SIGINT:
@@ -1511,7 +1513,7 @@ sircc_read_input(void) {
 
     ret = bf_buffer_read(sircc.input_read_buf, STDIN_FILENO, 64);
     if (ret < 0)
-        die("cannot read terminal device: %m");
+        die("cannot read terminal device: %s", strerror(errno));
     if (ret == 0)
         die("eof on terminal device");
 

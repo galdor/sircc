@@ -71,13 +71,13 @@ sircc_socket_open(struct addrinfo *ai) {
 
     sock = socket(ai->ai_family, ai->ai_socktype, ai->ai_protocol);
     if (sock == -1) {
-        sircc_set_error("cannot create socket: %m");
+        sircc_set_error("cannot create socket: %s", strerror(errno));
         return -1;
     }
 
     flags = fcntl(sock, F_GETFL, 0);
     if (flags == -1) {
-        sircc_set_error("cannot get socket flags: %m");
+        sircc_set_error("cannot get socket flags: %s", strerror(errno));
         close(sock);
         return -1;
     }
@@ -85,7 +85,7 @@ sircc_socket_open(struct addrinfo *ai) {
     flags |= O_NONBLOCK;
 
     if (fcntl(sock, F_SETFL, flags) == -1) {
-        sircc_set_error("cannot set socket flags: %m");
+        sircc_set_error("cannot set socket flags: %s", strerror(errno));
         close(sock);
         return -1;
     }
@@ -99,7 +99,7 @@ sircc_socket_get_so_error(int sock, int *perr) {
 
     len = sizeof(*perr);
     if (getsockopt(sock, SOL_SOCKET, SO_ERROR, perr, &len) == -1) {
-        sircc_set_error("cannot get socket info: %m");
+        sircc_set_error("cannot get socket info: %s", strerror(errno));
         return -1;
     }
 

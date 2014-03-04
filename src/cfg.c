@@ -16,7 +16,6 @@
 
 #include <assert.h>
 #include <ctype.h>
-#include <errno.h>
 #include <limits.h>
 
 #include <dirent.h>
@@ -142,7 +141,7 @@ sircc_cfg_load_file(struct sircc_cfg *cfg, const char *path) {
 
     file = fopen(path, "r");
     if (!file) {
-        sircc_set_error("cannot open file %s: %m", path);
+        sircc_set_error("cannot open file %s: %s`", path, strerror(errno));
         return -1;
     }
 
@@ -160,7 +159,8 @@ sircc_cfg_load_file(struct sircc_cfg *cfg, const char *path) {
             if (feof(file)) {
                 break;
             } else {
-                sircc_set_error("cannot read file %s: %m", path);
+                sircc_set_error("cannot read file %s: %s",
+                                path, strerror(errno));
                 return -1;
             }
         }

@@ -88,7 +88,7 @@ sircc_ui_on_resize(void) {
     struct winsize size;
 
     if (ioctl(STDIN_FILENO, TIOCGWINSZ, &size) == -1)
-        die("cannot get terminal size: %m");
+        die("cannot get terminal size: %s", strerror(errno));
 
     if (size.ws_row < 8)
         die("terminal too small, not enough lines");

@@ -25,7 +25,7 @@ sircc_malloc(size_t sz) {
 
     ptr = malloc(sz);
     if (!ptr) {
-        fprintf(stderr, "cannot allocate %zu bytes: %m\n", sz);
+        fprintf(stderr, "cannot allocate %zu bytes: %s\n", sz, strerror(errno));
         abort();
     }
 
@@ -38,8 +38,8 @@ sircc_calloc(size_t nb, size_t sz) {
 
     ptr = calloc(nb, sz);
     if (!ptr) {
-        fprintf(stderr, "cannot allocate %zu elements of %zu bytes each: %m\n",
-                nb, sz);
+        fprintf(stderr, "cannot allocate %zu elements of %zu bytes each: %s\n",
+                nb, sz, strerror(errno));
         abort();
     }
 
@@ -52,7 +52,8 @@ sircc_realloc(void *ptr, size_t sz) {
 
     nptr = realloc(ptr, sz);
     if (!nptr) {
-        fprintf(stderr, "cannot reallocate %zu bytes: %m\n", sz);
+        fprintf(stderr, "cannot reallocate %zu bytes: %s\n",
+                sz, strerror(errno));
         abort();
     }
 

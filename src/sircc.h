@@ -17,6 +17,7 @@
 #ifndef SIRCC_SIRCC_H
 #define SIRCC_SIRCC_H
 
+#include <errno.h>
 #include <signal.h>
 #include <stdarg.h>
 #include <stdbool.h>

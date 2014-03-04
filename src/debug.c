@@ -26,7 +26,7 @@ void
 sircc_debug_initialize(void) {
     sircc_debug_file = fopen(SIRCC_DEBUG_FILE, "w");
     if (!sircc_debug_file)
-        die("cannot open debug file %s: %m", SIRCC_DEBUG_FILE);
+        die("cannot open debug file %s: %s", SIRCC_DEBUG_FILE, strerror(errno));
 }
 
 void
