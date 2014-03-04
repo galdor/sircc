@@ -26,6 +26,10 @@
 #include <netdb.h>
 #include <poll.h>
 
+#ifdef SIRCC_PLATFORM_DARWIN
+#   include <sys/syslimits.h>
+#endif
+
 #include <openssl/ssl.h>
 #include <openssl/evp.h>
 
@@ -80,7 +84,9 @@ bool sircc_utf8_is_continuation_byte(char);
 size_t sircc_utf8_sequence_length(char);
 size_t sircc_utf8_nb_chars(const char *);
 
+#ifndef strlcpy
 size_t strlcpy(char *, const char *, size_t);
+#endif
 
 /* Text processing */
 int sircc_processing_initialize(void);

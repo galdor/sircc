@@ -32,6 +32,12 @@ ifeq ($(platform), FreeBSD)
 	CFLAGS+= -I/usr/local/include
 	LDFLAGS+= -L/usr/local/lib
 endif
+ifeq ($(platform), Darwin)
+	CFLAGS+= -DSIRCC_PLATFORM_DARWIN
+	CFLAGS+= -I/opt/local/include
+	LDFLAGS+= -L/opt/local/lib
+	LDLIBS+= -liconv
+endif
 
 # Debug
 debug=0
