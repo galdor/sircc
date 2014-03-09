@@ -26,7 +26,7 @@ sircc_is_breaking_space(int c) {
 
 char *
 sircc_strdup(const char *str) {
-    return strndup(str, strlen(str));
+    return sircc_strndup(str, strlen(str));
 }
 
 char *
