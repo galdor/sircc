@@ -64,26 +64,18 @@ ifneq ($(with_x11), 1)
 endif
 sircc_OBJ= $(subst .c,.o,$(sircc_SRC))
 
-$(sircc_BIN): CFLAGS+=  -Ilibhashtable/src -Ilibbuffer/src
-$(sircc_BIN): LDFLAGS+= -Llibhashtable -Llibbuffer
 $(sircc_BIN): LDLIBS+=  -lhashtable -lbuffer -lncursesw -lcrypto -lssl -lpcre
 
 # Rules
 all: bin
 
-bin: deps $(sircc_BIN)
-
-deps:
-	$(MAKE) -C libhashtable lib
-	$(MAKE) -C libbuffer lib
+bin: $(sircc_BIN)
 
 $(sircc_OBJ): $(sircc_HDR)
 $(sircc_BIN): $(sircc_OBJ)
 	$(CC) $(LDFLAGS) -o $@ $^ $(LDLIBS)
 
 clean:
-	$(MAKE) -C libhashtable clean
-	$(MAKE) -C libbuffer clean
 	$(RM) $(sircc_BIN) $(wildcard src/*.o)
 
 install: bin
@@ -94,9 +86,6 @@ uninstall:
 	$(RM) $(addprefix $(bindir)/,$(sircc_BIN))
 
 tags:
-	ctags -o .tags -a \
-		$(wildcard src/*.[hc]) \
-		$(wildcard libhashtable/src/*.[hc]) \
-		$(wildcard libbuffer/src/*.[hc])
+	ctags -o .tags -a $(wildcard src/*.[hc])
 
 .PHONY: all bin clean install uninstall tags
