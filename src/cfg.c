@@ -111,7 +111,7 @@ sircc_cfg_free(struct sircc_cfg *cfg) {
     struct sircc_cfg_entry *entry;
 
     it = ht_table_iterate(cfg->entries);
-    while (ht_table_iterator_get_next(it, NULL, (void **)&entry) == 1)
+    while (ht_table_iterator_next(it, NULL, (void **)&entry) == 1)
         sircc_cfg_entry_delete(entry);
     ht_table_iterator_delete(it);
 
