@@ -86,7 +86,8 @@ sircc_str_convert(char *buf, size_t sz, const char *from, const char *to,
             } else {
                 sircc_set_error("cannot convert string from %s to %s: %s",
                                 from, to, strerror(errno));
-                free(tmp);
+                sircc_free(tmp);
+                iconv_close(conv);
                 return NULL;
             }
         }
