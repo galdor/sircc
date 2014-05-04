@@ -51,7 +51,7 @@ sircc_str_convert(char *buf, size_t sz, const char *from, const char *to,
 
     conv = iconv_open(from, to);
     if (conv == (iconv_t)-1) {
-        sircc_set_error("cannot create iconv conversion descriptor: %s",
+        sircc_set_error("cannot create iconv descriptor from %s to %s: %s",
                         from, to, strerror(errno));
         return NULL;
     }

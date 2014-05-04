@@ -297,7 +297,8 @@ void die(const char *, ...)
     __attribute__((format(printf, 1, 2)));
 
 const char *sircc_get_error();
-void sircc_set_error(const char *, ...);
+void sircc_set_error(const char *, ...)
+    __attribute__((format(printf, 1, 2)));
 
 struct sircc_chan {
     char *name;
