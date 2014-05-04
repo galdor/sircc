@@ -49,7 +49,7 @@ sircc_str_convert(char *buf, size_t sz, const char *from, const char *to,
 
     buf_orig = buf;
 
-    conv = iconv_open(from, to);
+    conv = iconv_open(to, from);
     if (conv == (iconv_t)-1) {
         sircc_set_error("cannot create iconv descriptor from %s to %s: %s",
                         from, to, strerror(errno));
