@@ -34,13 +34,13 @@ sircc_msg_free(struct sircc_msg *msg) {
 }
 
 int
-sircc_msg_parse(struct sircc_msg *msg, struct bf_buffer *buf) {
+sircc_msg_parse(struct sircc_msg *msg, struct c_buffer *buf) {
     const char *start, *ptr;
     const char *space, *cr;
     size_t len, toklen;
 
-    len = bf_buffer_length(buf);
-    ptr = bf_buffer_data(buf);
+    len = c_buffer_length(buf);
+    ptr = c_buffer_data(buf);
 
     start = ptr;
 
@@ -119,7 +119,7 @@ sircc_msg_parse(struct sircc_msg *msg, struct bf_buffer *buf) {
         }
 
         toklen = (size_t)(space - ptr);
-        msg->prefix = sircc_strndup(ptr, toklen);
+        msg->prefix = c_strndup(ptr, toklen);
 
         len -= toklen + 1;
         ptr = space + 1;
@@ -134,7 +134,7 @@ sircc_msg_parse(struct sircc_msg *msg, struct bf_buffer *buf) {
         }
 
         toklen = (size_t)(space - ptr);
-        msg->command = sircc_strndup(ptr, toklen);
+        msg->command = c_strndup(ptr, toklen);
 
         len -= toklen + 1;
         ptr = space + 1;
@@ -146,7 +146,7 @@ sircc_msg_parse(struct sircc_msg *msg, struct bf_buffer *buf) {
         }
 
         toklen = (size_t)(cr - ptr);
-        msg->command = sircc_strndup(ptr, toklen);
+        msg->command = c_strndup(ptr, toklen);
 
         len -= toklen;
         ptr = cr;
@@ -168,7 +168,7 @@ sircc_msg_parse(struct sircc_msg *msg, struct bf_buffer *buf) {
             ptr++;
 
             toklen = (size_t)(cr - ptr);
-            param = sircc_strndup(ptr, toklen);
+            param = c_strndup(ptr, toklen);
             sircc_msg_add_param(msg, param);
 
             len -= toklen;
@@ -184,7 +184,7 @@ sircc_msg_parse(struct sircc_msg *msg, struct bf_buffer *buf) {
                 }
 
                 toklen = (size_t)(space - ptr);
-                param = sircc_strndup(ptr, toklen);
+                param = c_strndup(ptr, toklen);
                 sircc_msg_add_param(msg, param);
 
                 len -= toklen + 1;
@@ -197,7 +197,7 @@ sircc_msg_parse(struct sircc_msg *msg, struct bf_buffer *buf) {
                 }
 
                 toklen = (size_t)(cr - ptr);
-                param = sircc_strndup(ptr, toklen);
+                param = c_strndup(ptr, toklen);
                 sircc_msg_add_param(msg, param);
 
                 len -= toklen;
@@ -316,9 +316,9 @@ sircc_irc_caps_parse(const char *str, size_t *nb_caps) {
         }
 
         if (cap->modifier == SIRCC_CAP_NONE) {
-            cap->name = sircc_strndup(ptr, toklen);
+            cap->name = c_strndup(ptr, toklen);
         } else {
-            cap->name = sircc_strndup(ptr + 1, toklen - 1);
+            cap->name = c_strndup(ptr + 1, toklen - 1);
         }
 
         ptr += toklen;

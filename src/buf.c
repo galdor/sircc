@@ -25,15 +25,15 @@
 #include "sircc.h"
 
 size_t
-bf_buffer_utf8_nb_chars(const struct bf_buffer *buf) {
+c_buffer_utf8_nb_chars(const struct c_buffer *buf) {
     size_t nb_chars;
     char *ptr;
     size_t len;
 
     nb_chars = 0;
 
-    ptr = bf_buffer_data(buf);
-    len = bf_buffer_length(buf);
+    ptr = c_buffer_data(buf);
+    len = c_buffer_length(buf);
 
     for (size_t i = 0; i < len; i++) {
         if (sircc_utf8_is_leading_byte(*ptr))
@@ -46,16 +46,16 @@ bf_buffer_utf8_nb_chars(const struct bf_buffer *buf) {
 }
 
 char *
-bf_buffer_utf8_last_n_chars(const struct bf_buffer *buf, size_t n,
+c_buffer_utf8_last_n_chars(const struct c_buffer *buf, size_t n,
                             size_t *nb_bytes) {
     char *data, *end, *ptr;
     size_t nb_chars;
     size_t len;
 
-    data = bf_buffer_data(buf);
+    data = c_buffer_data(buf);
     if (!data)
         return NULL;
-    len = bf_buffer_length(buf);
+    len = c_buffer_length(buf);
 
     if (n >= len) {
         *nb_bytes = len;

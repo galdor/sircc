@@ -345,8 +345,8 @@ sircc_ui_prompt_redraw(void) {
         goto end;
     }
 
-    prompt = bf_buffer_data(sircc.prompt_buf);
-    prompt_len = bf_buffer_length(sircc.prompt_buf);
+    prompt = c_buffer_data(sircc.prompt_buf);
+    prompt_len = c_buffer_length(sircc.prompt_buf);
     if (prompt_len == 0)
         goto end;
 
@@ -470,7 +470,7 @@ sircc_ui_prompt_add(const char *str) {
     size_t len;
 
     len = strlen(str);
-    bf_buffer_insert(sircc.prompt_buf, sircc.prompt_cursor, str, len);
+    c_buffer_insert(sircc.prompt_buf, sircc.prompt_cursor, str, len);
 
     sircc.prompt_cursor += len;
     sircc.prompt_vcursor += sircc_utf8_nb_chars(str);
@@ -503,8 +503,8 @@ sircc_ui_prompt_delete_previous_char(void) {
     if (sircc.prompt_cursor == 0)
         return;
 
-    prompt = bf_buffer_data(sircc.prompt_buf);
-    len = bf_buffer_length(sircc.prompt_buf);
+    prompt = c_buffer_data(sircc.prompt_buf);
+    len = c_buffer_length(sircc.prompt_buf);
     if (len == 0)
         return;
 
@@ -516,7 +516,7 @@ sircc_ui_prompt_delete_previous_char(void) {
         nb_bytes++;
     } while (ptr > prompt && sircc_utf8_is_continuation_byte(*ptr));
 
-    nb_deleted = bf_buffer_remove_before(sircc.prompt_buf, sircc.prompt_cursor,
+    nb_deleted = c_buffer_remove_before(sircc.prompt_buf, sircc.prompt_cursor,
                                          nb_bytes);
 
     sircc.prompt_cursor -= nb_deleted;
@@ -530,7 +530,7 @@ sircc_ui_prompt_delete_previous_char(void) {
 
 void
 sircc_ui_prompt_delete_from_cursor(void) {
-    bf_buffer_truncate(sircc.prompt_buf, sircc.prompt_cursor);
+    c_buffer_truncate(sircc.prompt_buf, sircc.prompt_cursor);
 
     sircc_ui_prompt_redraw();
     sircc_ui_update();
@@ -541,8 +541,8 @@ sircc_ui_prompt_move_cursor_backward(void) {
     char *ptr;
     size_t len;
 
-    ptr = bf_buffer_data(sircc.prompt_buf);
-    len = bf_buffer_length(sircc.prompt_buf);
+    ptr = c_buffer_data(sircc.prompt_buf);
+    len = c_buffer_length(sircc.prompt_buf);
 
     if (sircc.prompt_cursor == 0)
         return;
@@ -564,8 +564,8 @@ sircc_ui_prompt_move_cursor_forward(void) {
     char *ptr;
     size_t len;
 
-    ptr = bf_buffer_data(sircc.prompt_buf);
-    len = bf_buffer_length(sircc.prompt_buf);
+    ptr = c_buffer_data(sircc.prompt_buf);
+    len = c_buffer_length(sircc.prompt_buf);
 
     if (sircc.prompt_cursor >= len)
         return;
@@ -595,8 +595,8 @@ void
 sircc_ui_prompt_move_cursor_end(void) {
     size_t len, nb_chars;
 
-    len = bf_buffer_length(sircc.prompt_buf);
-    nb_chars = bf_buffer_utf8_nb_chars(sircc.prompt_buf);
+    len = c_buffer_length(sircc.prompt_buf);
+    nb_chars = c_buffer_utf8_nb_chars(sircc.prompt_buf);
 
     sircc.prompt_cursor = len;
     sircc.prompt_vcursor = nb_chars;
@@ -607,7 +607,7 @@ sircc_ui_prompt_move_cursor_end(void) {
 
 void
 sircc_ui_prompt_clear(void) {
-    bf_buffer_clear(sircc.prompt_buf);
+    c_buffer_clear(sircc.prompt_buf);
 
     sircc.prompt_cursor = 0;
     sircc.prompt_vcursor = 0;
@@ -622,12 +622,14 @@ void
 sircc_ui_prompt_execute(void) {
     struct sircc_server *server;
     struct sircc_chan *chan;
+    char *data;
     bool is_cmd;
 
-    if (bf_buffer_length(sircc.prompt_buf) == 0)
+    if (c_buffer_length(sircc.prompt_buf) == 0)
         return;
 
-    is_cmd = bf_buffer_data(sircc.prompt_buf)[0] == '/';
+    data = c_buffer_data(sircc.prompt_buf);
+    is_cmd = data[0] == '/';
 
     server = sircc_server_get_current();
     chan = server->current_chan;
@@ -651,7 +653,7 @@ sircc_ui_prompt_execute(void) {
             char *text;
             time_t now;
 
-            text = bf_buffer_dup_string(sircc.prompt_buf);
+            text = c_buffer_dup_string(sircc.prompt_buf);
             now = time(NULL);
 
             sircc_server_send_privmsg(server, chan->name, text);
@@ -660,8 +662,8 @@ sircc_ui_prompt_execute(void) {
             sircc_free(text);
         }
     } else {
-        sircc_server_write(server, bf_buffer_data(sircc.prompt_buf),
-                           bf_buffer_length(sircc.prompt_buf));
+        sircc_server_write(server, c_buffer_data(sircc.prompt_buf),
+                           c_buffer_length(sircc.prompt_buf));
         sircc_server_write(server, "\r\n", 2);
     }
 
@@ -785,25 +787,25 @@ error:
 
 int
 sircc_ui_vprintf(WINDOW *win, const char *fmt, va_list ap) {
-    struct bf_buffer *buf;
+    struct c_buffer *buf;
     const char *ptr;
     size_t len;
 
-    buf = bf_buffer_new(128);
-    if (bf_buffer_add_vprintf(buf, fmt, ap) == -1)
+    buf = c_buffer_new();
+    if (c_buffer_add_vprintf(buf, fmt, ap) == -1)
         goto error;
 
-    ptr = bf_buffer_data(buf);
-    len = bf_buffer_length(buf);
+    ptr = c_buffer_data(buf);
+    len = c_buffer_length(buf);
 
     if (sircc_ui_write(win, ptr, len) == -1)
         goto error;
 
-    bf_buffer_delete(buf);
+    c_buffer_delete(buf);
     return 0;
 
 error:
-    bf_buffer_delete(buf);
+    c_buffer_delete(buf);
     return -1;
 }
 
@@ -858,8 +860,8 @@ sircc_ui_completion_next(void) {
         sircc.completion_offset = offset;
     }
 
-    ptr = bf_buffer_data(sircc.prompt_buf);
-    len = bf_buffer_length(sircc.prompt_buf);
+    ptr = c_buffer_data(sircc.prompt_buf);
+    len = c_buffer_length(sircc.prompt_buf);
 
     /* Search for a matching user/command */
     is_command = (sircc.completion_prefix[0] == '/');
@@ -900,15 +902,15 @@ void
 sircc_ui_completion_update_prompt(const char *completion, const char *suffix) {
     size_t len, nb_chars;
 
-    len = bf_buffer_length(sircc.prompt_buf) - sircc.completion_offset;
+    len = c_buffer_length(sircc.prompt_buf) - sircc.completion_offset;
 
-    bf_buffer_remove(sircc.prompt_buf, len);
+    c_buffer_remove(sircc.prompt_buf, len);
 
-    bf_buffer_add_string(sircc.prompt_buf, completion);
-    bf_buffer_add_string(sircc.prompt_buf, suffix);
+    c_buffer_add_string(sircc.prompt_buf, completion);
+    c_buffer_add_string(sircc.prompt_buf, suffix);
 
-    len = bf_buffer_length(sircc.prompt_buf);
-    nb_chars = bf_buffer_utf8_nb_chars(sircc.prompt_buf);
+    len = c_buffer_length(sircc.prompt_buf);
+    nb_chars = c_buffer_utf8_nb_chars(sircc.prompt_buf);
 
     sircc.prompt_cursor = len;
     sircc.prompt_vcursor = nb_chars;
@@ -922,8 +924,8 @@ sircc_ui_completion_prefix(size_t *poffset) {
     const char *ptr;
     size_t len, offset;
 
-    ptr = bf_buffer_data(sircc.prompt_buf);
-    len = bf_buffer_length(sircc.prompt_buf);
+    ptr = c_buffer_data(sircc.prompt_buf);
+    len = c_buffer_length(sircc.prompt_buf);
     if (len == 0)
         return NULL;
 
@@ -936,7 +938,7 @@ sircc_ui_completion_prefix(size_t *poffset) {
         if (isspace(ptr[offset])) {
             offset++;
             *poffset = offset;
-            return sircc_strndup(ptr + offset, len - offset);
+            return c_strndup(ptr + offset, len - offset);
         }
 
         offset--;
@@ -944,7 +946,7 @@ sircc_ui_completion_prefix(size_t *poffset) {
 
     /* The prefix is the whole prompt */
     *poffset = 0;
-    return sircc_strndup(ptr, len);
+    return c_strndup(ptr, len);
 }
 
 static void

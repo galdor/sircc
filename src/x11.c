@@ -194,11 +194,11 @@ sircc_x11_get_selection(Atom selection, Atom target, char **pdata) {
         if (!data) {
             datasz = length + 1;
             data = sircc_malloc(datasz);
-            strlcpy(data, (char *)data_tmp, datasz);
+            c_strlcpy(data, (char *)data_tmp, datasz);
         } else {
             datasz += length;
             data = sircc_realloc(data, datasz);
-            strlcpy(data + datasz - length - 1,
+            c_strlcpy(data + datasz - length - 1,
                     (char *)data_tmp, datasz);
         }
 

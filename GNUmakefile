@@ -64,7 +64,7 @@ ifneq ($(with_x11), 1)
 endif
 sircc_OBJ= $(subst .c,.o,$(sircc_SRC))
 
-$(sircc_BIN): LDLIBS+=  -lhashtable -lbuffer -lncursesw -lcrypto -lssl -lpcre
+$(sircc_BIN): LDLIBS+= -lcore -lncursesw -lcrypto -lssl -lpcre
 
 # Rules
 all: bin

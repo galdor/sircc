@@ -76,14 +76,14 @@ sircc_init_msg_handlers(void) {
 
 static void
 sircc_set_msg_handler(const char *command, sircc_msg_handler handler) {
-    ht_table_insert(sircc.msg_handlers, (void *)command, handler);
+    c_hash_table_insert(sircc.msg_handlers, (void *)command, handler);
 }
 
 void
 sircc_call_msg_handler(struct sircc_server *server, struct sircc_msg *msg) {
     sircc_msg_handler handler;
 
-    if (ht_table_get(sircc.msg_handlers, msg->command,
+    if (c_hash_table_get(sircc.msg_handlers, msg->command,
                      (void **)&handler) == 0) {
         return;
     }
@@ -309,7 +309,7 @@ sircc_msgh_nick(struct sircc_server *server, struct sircc_msg *msg) {
                             "you changed your nickname to %s",
                             new_nickname);
         sircc_free(server->current_nickname);
-        server->current_nickname = sircc_strdup(new_nickname);
+        server->current_nickname = c_strdup(new_nickname);
     } else {
         sircc_chan_log_info(server->current_chan,
                             "%s has changed is nickname to %s",
@@ -528,7 +528,7 @@ static void
 sircc_msgh_rpl_welcome(struct sircc_server *server, struct sircc_msg *msg) {
     const char **strings;
     size_t nb_strings;
-    struct bf_buffer *buf;
+    struct c_buffer *buf;
 
     sircc_server_log_info(server, "irc client registered");
 
@@ -536,7 +536,7 @@ sircc_msgh_rpl_welcome(struct sircc_server *server, struct sircc_msg *msg) {
     for (size_t i = 0; i < nb_strings; i++)
         sircc_server_printf(server, "JOIN %s\r\n", strings[i]);
 
-    buf = bf_buffer_new(0);
+    buf = c_buffer_new();
 
     strings = sircc_cfg_server_strings(server, "auto_command", &nb_strings);
     for (size_t i = 0; i < nb_strings; i++) {
@@ -546,8 +546,8 @@ sircc_msgh_rpl_welcome(struct sircc_server *server, struct sircc_msg *msg) {
 
         string = strings[i];
 
-        bf_buffer_clear(buf);
-        bf_buffer_add_string(buf, string);
+        c_buffer_clear(buf);
+        c_buffer_add_string(buf, string);
 
         ret = sircc_cmd_parse(&cmd, buf);
         if (ret == -1) {
@@ -562,7 +562,7 @@ sircc_msgh_rpl_welcome(struct sircc_server *server, struct sircc_msg *msg) {
         }
     }
 
-    bf_buffer_delete(buf);
+    c_buffer_delete(buf);
 }
 
 static void

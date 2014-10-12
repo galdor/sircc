@@ -49,7 +49,7 @@ sircc_ssl_get_error(void) {
         empty_queue = false;
 
         errstr = ERR_error_string(errcode, NULL);
-        strlcpy(ptr, errstr, len);
+        c_strlcpy(ptr, errstr, len);
 
         errlen = strlen(errstr);
         if (errlen >= len)
@@ -60,7 +60,7 @@ sircc_ssl_get_error(void) {
     }
 
     if (empty_queue)
-        strlcpy(ptr, "empty ssl error queue", len);
+        c_strlcpy(ptr, "empty ssl error queue", len);
 
     return sircc_ssl_error_buf;
 }

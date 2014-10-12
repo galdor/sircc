@@ -128,7 +128,7 @@ sircc_history_add_action(struct sircc_history *history, time_t date,
     entry.type = SIRCC_HISTORY_ACTION;
     entry.date = date;
     entry.src = NULL;
-    sircc_asprintf(&entry.text, "%s %s", src, text);
+    c_asprintf(&entry.text, "%s %s", src, text);
 
     sircc_free(src);
     sircc_free(text);
@@ -249,7 +249,7 @@ sircc_history_entry_update_margin_text(struct sircc_history *history,
     switch (entry->type) {
     case SIRCC_HISTORY_CHAN_MSG:
     case SIRCC_HISTORY_SERVER_MSG:
-        sircc_asprintf(&str, "^a1^c8%s^a0 ^c3%-*s^c0^a0  ",
+        c_asprintf(&str, "^a1^c8%s^a0 ^c3%-*s^c0^a0  ",
                        date_str, src_field_sz, entry->src);
         break;
 
@@ -257,7 +257,7 @@ sircc_history_entry_update_margin_text(struct sircc_history *history,
     case SIRCC_HISTORY_TRACE:
     case SIRCC_HISTORY_INFO:
     case SIRCC_HISTORY_ERROR:
-        sircc_asprintf(&str, "^a1^c8%s^a0 %-*s  ",
+        c_asprintf(&str, "^a1^c8%s^a0 %-*s  ",
                        date_str, src_field_sz, "");
         break;
 

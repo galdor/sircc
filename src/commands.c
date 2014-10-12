@@ -102,15 +102,15 @@ sircc_cmd_free(struct sircc_cmd *cmd) {
 }
 
 int
-sircc_cmd_parse(struct sircc_cmd *cmd, struct bf_buffer *buf) {
+sircc_cmd_parse(struct sircc_cmd *cmd, struct c_buffer *buf) {
     struct sircc_cmd_desc *desc;
     const char *ptr;
     const char *space;
     size_t len, toklen;
     char *name;
 
-    ptr = bf_buffer_data(buf);
-    len = bf_buffer_length(buf);
+    ptr = c_buffer_data(buf);
+    len = c_buffer_length(buf);
 
     memset(cmd, 0, sizeof(struct sircc_cmd));
 
@@ -133,7 +133,7 @@ sircc_cmd_parse(struct sircc_cmd *cmd, struct bf_buffer *buf) {
         toklen = len;
     }
 
-    name = sircc_strndup(ptr, toklen);
+    name = c_strndup(ptr, toklen);
     desc = sircc_cmd_get_desc(name);
     if (!desc) {
         sircc_set_error("unknown command '%s'", name);
@@ -203,7 +203,7 @@ sircc_cmd_parse(struct sircc_cmd *cmd, struct bf_buffer *buf) {
                 }
             }
 
-            arg = sircc_strndup(ptr, len);
+            arg = c_strndup(ptr, len);
             sircc_cmd_add_arg(cmd, arg);
         }
         break;
@@ -265,7 +265,7 @@ sircc_cmd_next_completion(const char *prefix, const char *last_completion) {
                     next_completion = first_match;
                 }
 
-                sircc_asprintf(&completion, "/%s", next_completion);
+                c_asprintf(&completion, "/%s", next_completion);
                 return completion;
             }
         }
@@ -315,7 +315,7 @@ sircc_cmd_parse_arg(const char **pptr, size_t *plen, char **parg) {
         arglen = len;
     }
 
-    arg = sircc_strndup(ptr, arglen);
+    arg = c_strndup(ptr, arglen);
 
     ptr += arglen;
     len -= arglen;

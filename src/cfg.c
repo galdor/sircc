@@ -65,7 +65,7 @@ static struct {
     {"auto_command",                      SIRCC_CFG_STRING_LIST},
 };
 
-static struct ht_table *sircc_cfg_types;
+static struct c_hash_table *sircc_cfg_types;
 
 
 int
@@ -74,12 +74,12 @@ sircc_cfg_initialize(const char *dirpath) {
 
     sircc.cfgdir = dirpath;
 
-    sircc_cfg_types = ht_table_new(ht_hash_string, ht_equal_string);
+    sircc_cfg_types = c_hash_table_new(c_hash_string, c_equal_string);
 
     nb_types = sizeof(sircc_cfg_type_array) / sizeof(sircc_cfg_type_array[0]);
     for (size_t i = 0; i < nb_types; i++) {
-        ht_table_insert(sircc_cfg_types, (char *)sircc_cfg_type_array[i].key,
-                        HT_INT32_TO_POINTER(sircc_cfg_type_array[i].type));
+        c_hash_table_insert(sircc_cfg_types, (char *)sircc_cfg_type_array[i].key,
+                        C_INT32_TO_POINTER(sircc_cfg_type_array[i].type));
     }
 
     sircc_cfg_init(&sircc.cfg);
@@ -94,7 +94,7 @@ sircc_cfg_initialize(const char *dirpath) {
 
 void
 sircc_cfg_shutdown(void) {
-    ht_table_delete(sircc_cfg_types);
+    c_hash_table_delete(sircc_cfg_types);
     sircc_cfg_free(&sircc.cfg);
 }
 
@@ -102,20 +102,20 @@ void
 sircc_cfg_init(struct sircc_cfg *cfg) {
     memset(cfg, 0, sizeof(struct sircc_cfg));
 
-    cfg->entries = ht_table_new(ht_hash_string, ht_equal_string);
+    cfg->entries = c_hash_table_new(c_hash_string, c_equal_string);
 }
 
 void
 sircc_cfg_free(struct sircc_cfg *cfg) {
-    struct ht_table_iterator *it;
+    struct c_hash_table_iterator *it;
     struct sircc_cfg_entry *entry;
 
-    it = ht_table_iterate(cfg->entries);
-    while (ht_table_iterator_next(it, NULL, (void **)&entry) == 1)
+    it = c_hash_table_iterate(cfg->entries);
+    while (c_hash_table_iterator_next(it, NULL, (void **)&entry) == 1)
         sircc_cfg_entry_delete(entry);
-    ht_table_iterator_delete(it);
+    c_hash_table_iterator_delete(it);
 
-    ht_table_delete(cfg->entries);
+    c_hash_table_delete(cfg->entries);
 
     for (size_t i = 0; i < cfg->nb_servers; i++)
         sircc_free(cfg->servers[i]);
@@ -191,11 +191,11 @@ sircc_cfg_load_file(struct sircc_cfg *cfg, const char *path) {
         }
 
         if (entry->type == SIRCC_CFG_STRING_LIST
-         && ht_table_get(cfg->entries, entry->key, (void **)&old_entry) == 1) {
+         && c_hash_table_get(cfg->entries, entry->key, (void **)&old_entry) == 1) {
             sircc_cfg_entry_add_string(old_entry, entry->u.sl.strs[0]);
             sircc_cfg_entry_delete(entry);
         } else {
-            ht_table_insert2(cfg->entries, entry->key, entry,
+            c_hash_table_insert2(cfg->entries, entry->key, entry,
                              NULL, (void **)&old_entry);
             if (old_entry)
                 sircc_cfg_entry_delete(old_entry);
@@ -218,7 +218,7 @@ void
 sircc_cfg_ssl_file_path(char *buf, const char *file, size_t sz) {
     if (file[0] == '/') {
         /* Absolute path */
-        strlcpy(buf, file, sz);
+        c_strlcpy(buf, file, sz);
     } else {
         /* Relative path */
         snprintf(buf, sz, "%s/ssl/%s", sircc.cfgdir, file);
@@ -230,7 +230,7 @@ sircc_cfg_string(struct sircc_cfg *cfg, const char *key,
                  const char *default_value) {
     struct sircc_cfg_entry *entry;
 
-    if (ht_table_get(cfg->entries, key, (void **)&entry) == 0)
+    if (c_hash_table_get(cfg->entries, key, (void **)&entry) == 0)
         return default_value;
 
     return entry->u.s;
@@ -240,7 +240,7 @@ const char **
 sircc_cfg_strings(struct sircc_cfg *cfg, const char *key, size_t *pnb) {
     struct sircc_cfg_entry *entry;
 
-    if (ht_table_get(cfg->entries, key, (void **)&entry) == 0) {
+    if (c_hash_table_get(cfg->entries, key, (void **)&entry) == 0) {
         *pnb = 0;
         return NULL;
     }
@@ -253,7 +253,7 @@ int
 sircc_cfg_integer(struct sircc_cfg *cfg, const char *key, int default_value) {
     struct sircc_cfg_entry *entry;
 
-    if (ht_table_get(cfg->entries, key, (void **)&entry) == 0)
+    if (c_hash_table_get(cfg->entries, key, (void **)&entry) == 0)
         return default_value;
 
     return entry->u.i;
@@ -263,7 +263,7 @@ bool
 sircc_cfg_boolean(struct sircc_cfg *cfg, const char *key, bool default_value) {
     struct sircc_cfg_entry *entry;
 
-    if (ht_table_get(cfg->entries, key, (void **)&entry) == 0)
+    if (c_hash_table_get(cfg->entries, key, (void **)&entry) == 0)
         return default_value;
 
     return entry->u.b;
@@ -319,7 +319,7 @@ sircc_cfg_add_server(struct sircc_cfg *cfg, const char *server_name) {
                (cfg->servers_sz / 2) * sizeof(char *));
     }
 
-    cfg->servers[cfg->nb_servers] = sircc_strdup(server_name);
+    cfg->servers[cfg->nb_servers] = c_strdup(server_name);
     cfg->nb_servers++;
 }
 
@@ -327,7 +327,7 @@ static int
 sircc_cfg_get_key_type(const char *key, enum sircc_cfg_entry_type *ptype) {
     intptr_t value;
 
-    if (ht_table_get(sircc_cfg_types, key, (void **)&value) == 0)
+    if (c_hash_table_get(sircc_cfg_types, key, (void **)&value) == 0)
         return -1;
 
     *ptype = value;
@@ -372,7 +372,7 @@ sircc_cfg_entry_parse(struct sircc_cfg_entry **pentry, const char *line,
             goto error;
         }
 
-        chan_name = sircc_strndup(value, (size_t)(space - value));
+        chan_name = c_strndup(value, (size_t)(space - value));
 
         ptr = space + 1;
         while (isspace((unsigned char)*ptr))
@@ -393,7 +393,7 @@ sircc_cfg_entry_parse(struct sircc_cfg_entry **pentry, const char *line,
             goto error;
         }
 
-        sircc_asprintf(&entry->key, "server.%s.chan.%s.%s",
+        c_asprintf(&entry->key, "server.%s.chan.%s.%s",
                        *pserver, chan_name, chan_key);
 
         sircc_free(chan_name);
@@ -404,9 +404,9 @@ sircc_cfg_entry_parse(struct sircc_cfg_entry **pentry, const char *line,
         sircc_free(value);
         value = chan_value;
     } else if (*pserver) {
-        sircc_asprintf(&entry->key, "server.%s.%s", *pserver, key);
+        c_asprintf(&entry->key, "server.%s.%s", *pserver, key);
     } else {
-        entry->key = sircc_strdup(key);
+        entry->key = c_strdup(key);
     }
 
     if (sircc_cfg_get_key_type(key, &entry->type) == -1) {
@@ -437,13 +437,13 @@ static int
 sircc_cfg_entry_parse_value(struct sircc_cfg_entry *entry, const char *str) {
     switch (entry->type) {
     case SIRCC_CFG_STRING:
-        entry->u.s = sircc_strdup(str);
+        entry->u.s = c_strdup(str);
         break;
 
     case SIRCC_CFG_STRING_LIST:
         entry->u.sl.nb = 1;
         entry->u.sl.strs = sircc_malloc(sizeof(char *));
-        entry->u.sl.strs[0] = sircc_strdup(str);
+        entry->u.sl.strs[0] = c_strdup(str);
         break;
 
     case SIRCC_CFG_INTEGER:
@@ -494,7 +494,7 @@ sircc_cfg_entry_add_string(struct sircc_cfg_entry *entry, const char *str) {
     entry->u.sl.nb++;
     entry->u.sl.strs = sircc_realloc(entry->u.sl.strs,
                                      entry->u.sl.nb * sizeof(char *));
-    entry->u.sl.strs[entry->u.sl.nb - 1] = sircc_strdup(str);
+    entry->u.sl.strs[entry->u.sl.nb - 1] = c_strdup(str);
 }
 
 static void
@@ -549,7 +549,7 @@ sircc_cfg_parse_key_value(const char *ptr, char **pkey, char **pvalue) {
         goto error;
     }
 
-    key = sircc_strndup(ptr, toklen);
+    key = c_strndup(ptr, toklen);
 
     /* Skip spaces */
     ptr = space + 1;
@@ -562,7 +562,7 @@ sircc_cfg_parse_key_value(const char *ptr, char **pkey, char **pvalue) {
     }
 
     /* Read the value */
-    value = sircc_strdup(ptr);
+    value = c_strdup(ptr);
 
     *pkey = key;
     *pvalue = value;

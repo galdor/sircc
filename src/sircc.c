@@ -47,14 +47,7 @@ static void sircc_read_input(void);
 static int sircc_cmp_users(const void *, const void *);
 
 
-static struct ht_memory_allocator sircc_ht_allocator = {
-    .malloc = sircc_malloc,
-    .calloc = sircc_calloc,
-    .realloc = sircc_realloc,
-    .free = sircc_free
-};
-
-static struct bf_memory_allocator sircc_bf_allocator = {
+static struct c_memory_allocator sircc_memory_allocator = {
     .malloc = sircc_malloc,
     .calloc = sircc_calloc,
     .realloc = sircc_realloc,
@@ -81,8 +74,7 @@ main(int argc, char **argv) {
     SSL_load_error_strings();
     OpenSSL_add_all_algorithms();
 
-    ht_set_memory_allocator(&sircc_ht_allocator);
-    bf_set_memory_allocator(&sircc_bf_allocator);
+    c_set_memory_allocator(&sircc_memory_allocator);
 
     home = getenv("HOME");
     if (!home)
@@ -221,7 +213,7 @@ sircc_chan_new(struct sircc_server *server, const char *name) {
     chan = sircc_malloc(sizeof(struct sircc_chan));
     memset(chan, 0, sizeof(struct sircc_chan));
 
-    chan->name = sircc_strdup(name);
+    chan->name = c_strdup(name);
     chan->server = server;
 
     sircc_history_init(&chan->history, 1024);
@@ -257,7 +249,7 @@ sircc_chan_set_topic(struct sircc_chan *chan, const char *topic) {
     }
 
     if (topic)
-        chan->topic = sircc_strdup(topic);
+        chan->topic = c_strdup(topic);
 
     if (sircc_chan_is_current(chan)) {
         sircc_ui_topic_redraw();
@@ -327,7 +319,7 @@ sircc_chan_log_info(struct sircc_chan *chan, const char *fmt, ...) {
     char *str;
 
     va_start(ap, fmt);
-    sircc_vasprintf(&str, fmt, ap);
+    c_vasprintf(&str, fmt, ap);
     va_end(ap);
 
     history = sircc_chan_history(chan);
@@ -343,7 +335,7 @@ sircc_chan_log_error(struct sircc_chan *chan, const char *fmt, ...) {
     char *str;
 
     va_start(ap, fmt);
-    sircc_vasprintf(&str, fmt, ap);
+    c_vasprintf(&str, fmt, ap);
     va_end(ap);
 
     history = sircc_chan_history(chan);
@@ -358,8 +350,8 @@ sircc_chan_add_msg(struct sircc_chan *chan, time_t date, const char *src,
     struct sircc_history *history;
 
     history = sircc_chan_history(chan);
-    sircc_history_add_chan_msg(history, date, sircc_strdup(src),
-                               sircc_strdup(text));
+    sircc_history_add_chan_msg(history, date, c_strdup(src),
+                               c_strdup(text));
 
     sircc_chan_on_msg_added(chan, true);
 }
@@ -370,8 +362,8 @@ sircc_chan_add_server_msg(struct sircc_chan *chan, time_t date,
     struct sircc_history *history;
 
     history = sircc_chan_history(chan);
-    sircc_history_add_server_msg(history, date, sircc_strdup(src),
-                                 sircc_strdup(text));
+    sircc_history_add_server_msg(history, date, c_strdup(src),
+                                 c_strdup(text));
 
     sircc_chan_on_msg_added(chan, true);
 }
@@ -382,8 +374,8 @@ sircc_chan_add_action(struct sircc_chan *chan, time_t date, const char *src,
     struct sircc_history *history;
 
     history = sircc_chan_history(chan);
-    sircc_history_add_action(history, date, sircc_strdup(src),
-                             sircc_strdup(text));
+    sircc_history_add_action(history, date, c_strdup(src),
+                             c_strdup(text));
 
     sircc_chan_on_msg_added(chan, true);
 }
@@ -406,7 +398,7 @@ sircc_chan_add_user(struct sircc_chan *chan, const char *user, size_t sz) {
                                     (chan->nb_users + 1) * sizeof(char *));
     }
 
-    chan->users[chan->nb_users] = sircc_strndup(user, sz);
+    chan->users[chan->nb_users] = c_strndup(user, sz);
     chan->nb_users++;
 
     chan->users_sorted = false;
@@ -481,7 +473,7 @@ sircc_chan_next_user_completion(struct sircc_chan *chan,
                     next_completion = first_match;
                 }
 
-                return sircc_strdup(next_completion);
+                return c_strdup(next_completion);
             }
         }
     }
@@ -500,8 +492,8 @@ sircc_server_new(const char *name) {
 
     server->sock = -1;
 
-    server->rbuf = bf_buffer_new(128);
-    server->wbuf = bf_buffer_new(128);
+    server->rbuf = c_buffer_new();
+    server->wbuf = c_buffer_new();
 
     server->max_nickname_length = 15;
 
@@ -527,8 +519,8 @@ sircc_server_delete(struct sircc_server *server) {
         sircc_free(server->addresses);
     }
 
-    bf_buffer_delete(server->rbuf);
-    bf_buffer_delete(server->wbuf);
+    c_buffer_delete(server->rbuf);
+    c_buffer_delete(server->wbuf);
 
     sircc_history_free(&server->history);
 
@@ -718,8 +710,8 @@ sircc_server_disconnect(struct sircc_server *server) {
         server->pollfd->fd = -1;
     }
 
-    bf_buffer_clear(server->rbuf);
-    bf_buffer_clear(server->wbuf);
+    c_buffer_clear(server->rbuf);
+    c_buffer_clear(server->wbuf);
 
     if (server->ssl_ctx) {
         SSL_CTX_free(server->ssl_ctx);
@@ -827,20 +819,20 @@ error:
 
 void
 sircc_server_trace(struct sircc_server *server, const char *fmt, ...) {
-    struct bf_buffer *buf;
+    struct c_buffer *buf;
     va_list ap;
 
     if (!server)
         server = sircc_server_get_current();
 
-    buf = bf_buffer_new(128);
+    buf = c_buffer_new();
 
     va_start(ap, fmt);
-    bf_buffer_add_vprintf(buf, fmt, ap);
+    c_buffer_add_vprintf(buf, fmt, ap);
     va_end(ap);
 
-    sircc_history_add_trace(&server->history, bf_buffer_dup_string(buf));
-    bf_buffer_delete(buf);
+    sircc_history_add_trace(&server->history, c_buffer_dup_string(buf));
+    c_buffer_delete(buf);
 
     if (server == sircc_server_get_current()) {
         sircc_ui_main_redraw();
@@ -850,20 +842,20 @@ sircc_server_trace(struct sircc_server *server, const char *fmt, ...) {
 
 void
 sircc_server_log_info(struct sircc_server *server, const char *fmt, ...) {
-    struct bf_buffer *buf;
+    struct c_buffer *buf;
     va_list ap;
 
     if (!server)
         server = sircc_server_get_current();
 
-    buf = bf_buffer_new(128);
+    buf = c_buffer_new();
 
     va_start(ap, fmt);
-    bf_buffer_add_vprintf(buf, fmt, ap);
+    c_buffer_add_vprintf(buf, fmt, ap);
     va_end(ap);
 
-    sircc_history_add_info(&server->history, bf_buffer_dup_string(buf));
-    bf_buffer_delete(buf);
+    sircc_history_add_info(&server->history, c_buffer_dup_string(buf));
+    c_buffer_delete(buf);
 
     if (server == sircc_server_get_current()) {
         sircc_ui_main_redraw();
@@ -873,20 +865,20 @@ sircc_server_log_info(struct sircc_server *server, const char *fmt, ...) {
 
 void
 sircc_server_log_error(struct sircc_server *server, const char *fmt, ...) {
-    struct bf_buffer *buf;
+    struct c_buffer *buf;
     va_list ap;
 
     if (!server)
         server = sircc_server_get_current();
 
-    buf = bf_buffer_new(128);
+    buf = c_buffer_new();
 
     va_start(ap, fmt);
-    bf_buffer_add_vprintf(buf, fmt, ap);
+    c_buffer_add_vprintf(buf, fmt, ap);
     va_end(ap);
 
-    sircc_history_add_error(&server->history, bf_buffer_dup_string(buf));
-    bf_buffer_delete(buf);
+    sircc_history_add_error(&server->history, c_buffer_dup_string(buf));
+    c_buffer_delete(buf);
 
     if (server == sircc_server_get_current()) {
         sircc_ui_main_redraw();
@@ -900,8 +892,8 @@ sircc_server_add_server_msg(struct sircc_server *server, time_t date,
     if (!server)
         server = sircc_server_get_current();
 
-    sircc_history_add_server_msg(&server->history, date, sircc_strdup(src),
-                                 sircc_strdup(msg));
+    sircc_history_add_server_msg(&server->history, date, c_strdup(src),
+                                 c_strdup(msg));
 
     if (server == sircc_server_get_current()) {
         sircc_ui_main_redraw();
@@ -917,7 +909,7 @@ sircc_server_write(struct sircc_server *server, const char *buf, size_t sz) {
         return;
     }
 
-    bf_buffer_add(server->wbuf, buf, sz);
+    c_buffer_add(server->wbuf, buf, sz);
 
     server->pollfd->events |= POLLOUT;
 }
@@ -930,7 +922,7 @@ sircc_server_vprintf(struct sircc_server *server, const char *fmt, va_list ap) {
         return -1;
     }
 
-    if (bf_buffer_add_vprintf(server->wbuf, fmt, ap) == -1)
+    if (c_buffer_add_vprintf(server->wbuf, fmt, ap) == -1)
         return -1;
 
     server->pollfd->events |= POLLOUT;
@@ -966,7 +958,7 @@ sircc_server_on_pollin(struct sircc_server *server) {
         {
             ssize_t ret;
 
-            ret = bf_buffer_read(server->rbuf, server->sock, BUFSIZ);
+            ret = c_buffer_read(server->rbuf, server->sock, BUFSIZ);
             if (ret == -1) {
                 sircc_server_log_error(server, "cannot read socket: %s",
                                        strerror(errno));
@@ -1016,7 +1008,7 @@ sircc_server_on_pollin(struct sircc_server *server) {
                 return;
             }
 
-            bf_buffer_add(server->rbuf, buf, (size_t)ret);
+            c_buffer_add(server->rbuf, buf, (size_t)ret);
             sircc_server_read_msgs(server);
         }
         break;
@@ -1067,14 +1059,14 @@ sircc_server_on_pollout(struct sircc_server *server) {
         {
             ssize_t ret;
 
-            ret = bf_buffer_write(server->wbuf, server->sock);
+            ret = c_buffer_write(server->wbuf, server->sock);
             if (ret == -1) {
                 sircc_server_log_error(server, "cannot write to socket: %s",
                                        strerror(errno));
                 sircc_server_disconnect(server);
             }
 
-            if (bf_buffer_length(server->wbuf) == 0)
+            if (c_buffer_length(server->wbuf) == 0)
                 server->pollfd->events &= ~POLLOUT;
         }
         break;
@@ -1084,12 +1076,12 @@ sircc_server_on_pollout(struct sircc_server *server) {
             const char *data;
             int len, ret, err;
 
-            data = bf_buffer_data(server->wbuf);
+            data = c_buffer_data(server->wbuf);
 
             if (server->ssl_last_write_length > 0) {
                 len = server->ssl_last_write_length;
             } else {
-                len = (int)bf_buffer_length(server->wbuf);
+                len = (int)c_buffer_length(server->wbuf);
             }
 
             ret = SSL_write(server->ssl, data, len);
@@ -1126,8 +1118,8 @@ sircc_server_on_pollout(struct sircc_server *server) {
 
             server->ssl_last_write_length = 0;
 
-            bf_buffer_skip(server->wbuf, (size_t)ret);
-            if (bf_buffer_length(server->wbuf) == 0)
+            c_buffer_skip(server->wbuf, (size_t)ret);
+            if (c_buffer_length(server->wbuf) == 0)
                 server->pollfd->events &= ~POLLOUT;
         }
         break;
@@ -1159,7 +1151,7 @@ sircc_server_on_connection_established(struct sircc_server *server) {
 
 void
 sircc_server_read_msgs(struct sircc_server *server) {
-    while (bf_buffer_length(server->rbuf) > 0) {
+    while (c_buffer_length(server->rbuf) > 0) {
         struct sircc_msg msg;
         int ret;
 
@@ -1167,7 +1159,7 @@ sircc_server_read_msgs(struct sircc_server *server) {
             const char *ptr;
             char *cr;
 
-            ptr = bf_buffer_data(server->rbuf);
+            ptr = c_buffer_data(server->rbuf);
 
             cr = strchr(ptr, '\r');
             if (cr) {
@@ -1188,7 +1180,7 @@ sircc_server_read_msgs(struct sircc_server *server) {
         if (ret == 0)
             break;
 
-        bf_buffer_skip(server->rbuf, (size_t)ret);
+        c_buffer_skip(server->rbuf, (size_t)ret);
 
         sircc_server_msg_process(server, &msg);
         sircc_msg_free(&msg);
@@ -1298,12 +1290,12 @@ sircc_initialize(void) {
     if (pipe(sircc.signal_pipe) == -1)
         die("cannot create pipe: %s", strerror(errno));
 
-    sircc.msg_handlers = ht_table_new(ht_hash_string, ht_equal_string);
+    sircc.msg_handlers = c_hash_table_new(c_hash_string, c_equal_string);
     sircc_init_msg_handlers();
 
-    sircc.input_buf = bf_buffer_new(0);
-    sircc.input_read_buf = bf_buffer_new(0);
-    sircc.prompt_buf = bf_buffer_new(0);
+    sircc.input_buf = c_buffer_new();
+    sircc.input_read_buf = c_buffer_new();
+    sircc.prompt_buf = c_buffer_new();
 
     sircc_setup_poll_array();
 
@@ -1334,11 +1326,11 @@ sircc_shutdown(void) {
     close(sircc.signal_pipe[0]);
     close(sircc.signal_pipe[1]);
 
-    ht_table_delete(sircc.msg_handlers);
+    c_hash_table_delete(sircc.msg_handlers);
 
-    bf_buffer_delete(sircc.input_read_buf);
-    bf_buffer_delete(sircc.input_buf);
-    bf_buffer_delete(sircc.prompt_buf);
+    c_buffer_delete(sircc.input_read_buf);
+    c_buffer_delete(sircc.input_buf);
+    c_buffer_delete(sircc.prompt_buf);
 
     sigaction(SIGINT, &sircc.old_sigact_sigint, NULL);
     sigaction(SIGTERM, &sircc.old_sigact_sigterm, NULL);
@@ -1391,7 +1383,7 @@ sircc_load_servers(void) {
         if (!server->nickname)
             die("no nickname defined for server %s", server->name);
 
-        server->current_nickname = sircc_strdup(server->nickname);
+        server->current_nickname = c_strdup(server->nickname);
 
         sircc_server_add(server);
     }
@@ -1511,14 +1503,14 @@ sircc_read_input(void) {
 
     server = sircc_server_get_current();
 
-    ret = bf_buffer_read(sircc.input_read_buf, STDIN_FILENO, 64);
+    ret = c_buffer_read(sircc.input_read_buf, STDIN_FILENO, 64);
     if (ret < 0)
         die("cannot read terminal device: %s", strerror(errno));
     if (ret == 0)
         die("eof on terminal device");
 
-    len = bf_buffer_length(sircc.input_read_buf);
-    ptr = (unsigned char *)bf_buffer_data(sircc.input_read_buf);
+    len = c_buffer_length(sircc.input_read_buf);
+    ptr = (unsigned char *)c_buffer_data(sircc.input_read_buf);
 
     for (size_t i = 0; i < len; i++) {
         unsigned char c;
@@ -1574,7 +1566,7 @@ sircc_read_input(void) {
 
             escape = false;
         } else {
-            bf_buffer_add(sircc.input_buf, (char *)&c, 1);
+            c_buffer_add(sircc.input_buf, (char *)&c, 1);
         }
     }
 
@@ -1582,15 +1574,15 @@ sircc_read_input(void) {
         char *utf8_str;
         size_t nb_bytes;
 
-        utf8_str = sircc_str_locale_to_utf8(bf_buffer_data(sircc.input_buf),
-                                            bf_buffer_length(sircc.input_buf),
+        utf8_str = sircc_str_locale_to_utf8(c_buffer_data(sircc.input_buf),
+                                            c_buffer_length(sircc.input_buf),
                                             &nb_bytes);
         if (!utf8_str) {
             sircc_chan_log_error(NULL, "cannot convert input to UTF-8: %s",
                                  sircc_get_error());
 
-            bf_buffer_clear(sircc.input_read_buf);
-            bf_buffer_clear(sircc.input_buf);
+            c_buffer_clear(sircc.input_read_buf);
+            c_buffer_clear(sircc.input_buf);
         }
 
         sircc_ui_prompt_add(utf8_str);
@@ -1599,10 +1591,10 @@ sircc_read_input(void) {
         /* If there is a truncated multibyte character at the end of
          * input_buf, it will stay in it to be completed the next time there
          * is something to read on stdin. */
-        bf_buffer_skip(sircc.input_buf, nb_bytes);
+        c_buffer_skip(sircc.input_buf, nb_bytes);
     }
 
-    bf_buffer_clear(sircc.input_read_buf);
+    c_buffer_clear(sircc.input_read_buf);
 }
 
 static int

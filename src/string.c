@@ -25,22 +25,6 @@ sircc_is_breaking_space(int c) {
 }
 
 char *
-sircc_strdup(const char *str) {
-    return sircc_strndup(str, strlen(str));
-}
-
-char *
-sircc_strndup(const char *str, size_t len) {
-    char *nstr;
-
-    nstr = sircc_malloc(len + 1);
-    memcpy(nstr, str, len);
-    nstr[len] = '\0';
-
-    return nstr;
-}
-
-char *
 sircc_str_convert(char *buf, size_t sz, const char *from, const char *to,
                   size_t *nb_bytes) {
     iconv_t conv;
@@ -109,31 +93,6 @@ sircc_str_locale_to_utf8(char *buf, size_t sz, size_t *nb_bytes) {
     return sircc_str_convert(buf, sz, "", "UTF-8", nb_bytes);
 }
 
-int
-sircc_vasprintf(char **pstr, const char *fmt, va_list ap) {
-    struct bf_buffer *buf;
-
-    buf = bf_buffer_new(128);
-
-    bf_buffer_add_vprintf(buf, fmt, ap);
-    *pstr = bf_buffer_dup_string(buf);
-
-    bf_buffer_delete(buf);
-    return 0;
-}
-
-int
-sircc_asprintf(char **pstr, const char *fmt, ...) {
-    va_list ap;
-    int ret;
-
-    va_start(ap, fmt);
-    ret = sircc_vasprintf(pstr, fmt, ap);
-    va_end(ap);
-
-    return ret;
-}
-
 bool
 sircc_utf8_is_leading_byte(char c) {
     return ((c & 0x80) == 0x00) /* one byte character */
@@ -174,47 +133,3 @@ sircc_utf8_nb_chars(const char *str) {
 
     return nb_chars;
 }
-
-#ifndef strlcpy
-/*
- * Copyright (c) 1998 Todd C. Miller <Todd.Miller@courtesan.com>
- *
- * Permission to use, copy, modify, and distribute this software for any
- * purpose with or without fee is hereby granted, provided that the above
- * copyright notice and this permission notice appear in all copies.
- *
- * THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
- * WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
- * MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR
- * ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
- * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
- * ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
- * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
- */
-size_t
-strlcpy(char *dst, const char *src, size_t siz)
-{
-    char *d = dst;
-    const char *s = src;
-    size_t n = siz;
-
-    /* Copy as many bytes as will fit */
-    if (n != 0) {
-        while (--n != 0) {
-            if ((*d++ = *s++) == '\0')
-                break;
-        }
-    }
-
-    /* Not enough room in dst, add NUL and traverse rest of src */
-    if (n == 0) {
-        if (siz != 0)
-            *d = '\0';      /* NUL-terminate dst */
-        while (*s++)
-            ;
-    }
-
-    return (size_t)(s - src - 1);    /* count does not include NUL */
-}
-#endif
-
