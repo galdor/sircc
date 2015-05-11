@@ -17,20 +17,31 @@
 #ifndef SIRCC_SIRCC_H
 #define SIRCC_SIRCC_H
 
+#include <assert.h>
+#include <ctype.h>
 #include <errno.h>
+#include <limits.h>
+#include <locale.h>
 #include <signal.h>
 #include <stdarg.h>
 #include <stdbool.h>
+#include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 
+#include <dirent.h>
+#include <fcntl.h>
 #include <iconv.h>
 #include <netdb.h>
 #include <poll.h>
+#include <sys/ioctl.h>
+#include <unistd.h>
 
 #ifdef SIRCC_PLATFORM_DARWIN
 #   include <sys/syslimits.h>
 #endif
 
+#include <openssl/err.h>
 #include <openssl/ssl.h>
 #include <openssl/evp.h>
 

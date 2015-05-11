@@ -14,16 +14,6 @@
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
-#include <assert.h>
-#include <ctype.h>
-#include <stdio.h>
-#include <string.h>
-#include <time.h>
-
-#include <fcntl.h>
-#include <sys/ioctl.h>
-#include <unistd.h>
-
 #include "sircc.h"
 
 static char *sircc_ui_completion_prefix(size_t *);

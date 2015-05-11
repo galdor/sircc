@@ -14,9 +14,6 @@
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
-#include <string.h>
-#include <time.h>
-
 #include "sircc.h"
 
 static void sircc_history_entry_free(struct sircc_history_entry *);

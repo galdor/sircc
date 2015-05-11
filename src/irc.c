@@ -14,8 +14,6 @@
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
-#include <string.h>
-
 #include "sircc.h"
 
 static void sircc_msg_add_param(struct sircc_msg *, char *);

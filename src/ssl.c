@@ -14,8 +14,6 @@
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
-#include <openssl/err.h>
-
 #include "sircc.h"
 
 static __thread char sircc_ssl_error_buf[SIRCC_ERROR_BUFSZ];

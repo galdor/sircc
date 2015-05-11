@@ -14,16 +14,6 @@
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
-#include <assert.h>
-#include <locale.h>
-#include <stdio.h>
-#include <string.h>
-#include <time.h>
-
-#include <dirent.h>
-#include <unistd.h>
-#include <sys/socket.h>
-#include <sys/types.h>
 #ifdef SIRCC_PLATFORM_FREEBSD
 #   include <sys/signal.h> /* Required for SIGWINCH */
 #endif
