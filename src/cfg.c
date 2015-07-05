@@ -135,7 +135,7 @@ sircc_cfg_load_file(struct sircc_cfg *cfg, const char *path) {
 
     file = fopen(path, "r");
     if (!file) {
-        sircc_set_error("cannot open file %s: %s`", path, strerror(errno));
+        c_set_error("cannot open file %s: %s`", path, strerror(errno));
         return -1;
     }
 
@@ -153,7 +153,7 @@ sircc_cfg_load_file(struct sircc_cfg *cfg, const char *path) {
             if (feof(file)) {
                 break;
             } else {
-                sircc_set_error("cannot read file %s: %s",
+                c_set_error("cannot read file %s: %s",
                                 path, strerror(errno));
                 return -1;
             }
@@ -179,8 +179,8 @@ sircc_cfg_load_file(struct sircc_cfg *cfg, const char *path) {
         }
 
         if (ret == -1) {
-            sircc_set_error("syntax error in %s at line %d: %s",
-                            path, lineno, sircc_get_error());
+            c_set_error("syntax error in %s at line %d: %s",
+                            path, lineno, c_get_error());
             goto error;
         }
 
@@ -360,7 +360,7 @@ sircc_cfg_entry_parse(struct sircc_cfg_entry **pentry, const char *line,
 
         space = strchr(value, ' ');
         if (!space) {
-            sircc_set_error("empty chan entry");
+            c_set_error("empty chan entry");
             sircc_free(key);
             sircc_free(value);
             goto error;
@@ -372,7 +372,7 @@ sircc_cfg_entry_parse(struct sircc_cfg_entry **pentry, const char *line,
         while (isspace((unsigned char)*ptr))
             ptr++;
         if (*ptr == '\0') {
-            sircc_set_error("empty chan entry");
+            c_set_error("empty chan entry");
             sircc_free(key);
             sircc_free(value);
             sircc_free(chan_name);
@@ -404,7 +404,7 @@ sircc_cfg_entry_parse(struct sircc_cfg_entry **pentry, const char *line,
     }
 
     if (sircc_cfg_get_key_type(key, &entry->type) == -1) {
-        sircc_set_error("unknown key '%s'", key);
+        c_set_error("unknown key '%s'", key);
         sircc_free(key);
         sircc_free(value);
         goto error;
@@ -448,17 +448,17 @@ sircc_cfg_entry_parse_value(struct sircc_cfg_entry *entry, const char *str) {
             errno = 0;
             value = strtol(str, &end, 10);
             if (errno) {
-                sircc_set_error("cannot parse integer value");
+                c_set_error("cannot parse integer value");
                 return -1;
             }
 
             if (value < INT_MIN || value > INT_MAX) {
-                sircc_set_error("integer too large");
+                c_set_error("integer too large");
                 return -1;
             }
 
             if (*end != '\0') {
-                sircc_set_error("invalid data after integer");
+                c_set_error("invalid data after integer");
                 return -1;
             }
 
@@ -472,7 +472,7 @@ sircc_cfg_entry_parse_value(struct sircc_cfg_entry *entry, const char *str) {
         } else if (strcmp(str, "no") == 0) {
             entry->u.b = false;
         } else {
-            sircc_set_error("cannot parse boolean value");
+            c_set_error("cannot parse boolean value");
             return -1;
         }
         break;
@@ -533,13 +533,13 @@ sircc_cfg_parse_key_value(const char *ptr, char **pkey, char **pvalue) {
     /* Read the key */
     space = strchr(ptr, ' ');
     if (!space) {
-        sircc_set_error("missing value");
+        c_set_error("missing value");
         goto error;
     }
 
     toklen = (size_t)(space - ptr);
     if (toklen == 0) {
-        sircc_set_error("missing key");
+        c_set_error("missing key");
         goto error;
     }
 
@@ -551,7 +551,7 @@ sircc_cfg_parse_key_value(const char *ptr, char **pkey, char **pvalue) {
         ptr++;
 
     if (*ptr == '\0') {
-        sircc_set_error("missing value");
+        c_set_error("missing value");
         goto error;
     }
 

@@ -73,7 +73,7 @@ sircc_msg_parse(struct sircc_msg *msg, struct c_buffer *buf) {
         if (len < 5)
             goto needmore;
         if (memcmp(ptr, "time=", 5) != 0) {
-            sircc_set_error("invalid key in timestamp prefix");
+            c_set_error("invalid key in timestamp prefix");
             goto error;
         }
         len -= 5;
@@ -87,7 +87,7 @@ sircc_msg_parse(struct sircc_msg *msg, struct c_buffer *buf) {
         errno = 0;
         msg->server_date = strtol(ptr, NULL, 10);
         if (errno) {
-            sircc_set_error("invalid value in timestamp prefix");
+            c_set_error("invalid value in timestamp prefix");
             goto error;
         }
 
@@ -112,7 +112,7 @@ sircc_msg_parse(struct sircc_msg *msg, struct c_buffer *buf) {
             goto needmore;
 
         if (space - ptr == 0) {
-            sircc_set_error("empty prefix");
+            c_set_error("empty prefix");
             goto error;
         }
 
@@ -127,7 +127,7 @@ sircc_msg_parse(struct sircc_msg *msg, struct c_buffer *buf) {
     space = memchr(ptr, ' ', len);
     if (space && space < cr) {
         if (space - ptr == 0) {
-            sircc_set_error("empty command");
+            c_set_error("empty command");
             goto error;
         }
 
@@ -139,7 +139,7 @@ sircc_msg_parse(struct sircc_msg *msg, struct c_buffer *buf) {
     } else {
         /* No parameter */
         if (cr - ptr == 0) {
-            sircc_set_error("empty command");
+            c_set_error("empty command");
             goto error;
         }
 
@@ -177,7 +177,7 @@ sircc_msg_parse(struct sircc_msg *msg, struct c_buffer *buf) {
             space = memchr(ptr, ' ', len);
             if (space && space < cr) {
                 if (space - ptr == 0) {
-                    sircc_set_error("empty parameter");
+                    c_set_error("empty parameter");
                     goto error;
                 }
 
@@ -190,7 +190,7 @@ sircc_msg_parse(struct sircc_msg *msg, struct c_buffer *buf) {
             } else {
                 /* Last parameter */
                 if (cr - ptr == 0) {
-                    sircc_set_error("empty parameter");
+                    c_set_error("empty parameter");
                     goto error;
                 }
 
@@ -211,7 +211,7 @@ checkcrlf:
     if (len == 0)
         goto needmore;
     if (*ptr != '\r') {
-        sircc_set_error("missing \\r");
+        c_set_error("missing \\r");
         goto error;
     }
 
@@ -221,7 +221,7 @@ checkcrlf:
     ptr++;
 
     if (*ptr != '\n') {
-        sircc_set_error("missing \\n after \\r");
+        c_set_error("missing \\n after \\r");
         goto error;
     }
     len--;
@@ -244,13 +244,13 @@ sircc_msg_prefix_nickname(const struct sircc_msg *msg,
     size_t len;
 
     if (!msg->prefix) {
-        sircc_set_error("no prefix in message");
+        c_set_error("no prefix in message");
         return -1;
     }
 
     len = strcspn(msg->prefix, "!@");
     if (len >= bufsz) {
-        sircc_set_error("nickname buffer too small");
+        c_set_error("nickname buffer too small");
         return -1;
     }
 

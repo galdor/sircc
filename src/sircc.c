@@ -44,8 +44,6 @@ static struct c_memory_allocator sircc_memory_allocator = {
     .free = sircc_free
 };
 
-__thread char sircc_error_buf[SIRCC_ERROR_BUFSZ];
-
 struct sircc sircc;
 
 int
@@ -93,10 +91,10 @@ main(int argc, char **argv) {
     }
 
     if (sircc_cfg_initialize(cfgdir) == -1)
-        die("%s", sircc_get_error());
+        die("%s", c_get_error());
 
     if (sircc_processing_initialize() == -1)
-        die("%s", sircc_get_error());
+        die("%s", c_get_error());
 
     sircc_load_servers();
     sircc_ui_initialize();
@@ -167,31 +165,6 @@ die(const char *fmt, ...) {
 
     putc('\n', stderr);
     exit(1);
-}
-
-const char *
-sircc_get_error() {
-    return sircc_error_buf;
-}
-
-void
-sircc_set_error(const char *fmt, ...) {
-    char buf[SIRCC_ERROR_BUFSZ];
-    va_list ap;
-    int ret;
-
-    va_start(ap, fmt);
-    ret = vsnprintf(buf, SIRCC_ERROR_BUFSZ, fmt, ap);
-    va_end(ap);
-
-    if ((size_t)ret >= SIRCC_ERROR_BUFSZ) {
-        memcpy(sircc_error_buf, buf, SIRCC_ERROR_BUFSZ);
-        sircc_error_buf[SIRCC_ERROR_BUFSZ - 1] = '\0';
-        return;
-    }
-
-    strncpy(sircc_error_buf, buf, (size_t)ret + 1);
-    sircc_error_buf[ret] = '\0';
 }
 
 struct sircc_chan *
@@ -540,7 +513,7 @@ sircc_server_prepare_connection(struct sircc_server *server) {
     if (sircc_address_resolve(server->host, server->port,
                               &server->addresses,
                               &server->nb_addresses) == -1) {
-        sircc_server_log_error(server, "%s", sircc_get_error());
+        sircc_server_log_error(server, "%s", c_get_error());
         server->state = SIRCC_SERVER_BROKEN;
         return -1;
     }
@@ -561,7 +534,7 @@ sircc_server_connect(struct sircc_server *server) {
     if (server->state == SIRCC_SERVER_DISCONNECTED) {
         server->sock = sircc_socket_open(ai);
         if (server->sock == -1) {
-            sircc_server_log_error(server, "%s", sircc_get_error());
+            sircc_server_log_error(server, "%s", c_get_error());
             return -1;
         }
 
@@ -753,7 +726,7 @@ sircc_server_ssl_check_certificate(struct sircc_server *server) {
     sircc_server_log_info(server, "loading ssl ca certificate from %s", path);
 
     if (sircc_x509_store_add_certificate(store, path) == -1) {
-        sircc_server_log_error(server, "%s", sircc_get_error());
+        sircc_server_log_error(server, "%s", c_get_error());
         goto error;
     }
 
@@ -1018,7 +991,7 @@ sircc_server_on_pollout(struct sircc_server *server) {
             int err;
 
             if (sircc_socket_get_so_error(server->sock, &err) == -1) {
-                sircc_server_log_error(server, "%s", sircc_get_error());
+                sircc_server_log_error(server, "%s", c_get_error());
                 sircc_server_disconnect(server);
                 return;
             }
@@ -1162,7 +1135,7 @@ sircc_server_read_msgs(struct sircc_server *server) {
         ret = sircc_msg_parse(&msg, server->rbuf);
         if (ret == -1) {
             sircc_server_log_error(server, "cannot parse message: %s",
-                                   sircc_get_error());
+                                   c_get_error());
             sircc_server_disconnect(server);
             return;
         }
@@ -1569,7 +1542,7 @@ sircc_read_input(void) {
                                             &nb_bytes);
         if (!utf8_str) {
             sircc_chan_log_error(NULL, "cannot convert input to UTF-8: %s",
-                                 sircc_get_error());
+                                 c_get_error());
 
             c_buffer_clear(sircc.input_read_buf);
             c_buffer_clear(sircc.input_buf);

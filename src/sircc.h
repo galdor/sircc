@@ -295,10 +295,6 @@ char *sircc_x11_primary_selection(void);
 void die(const char *, ...)
     __attribute__((format(printf, 1, 2)));
 
-const char *sircc_get_error();
-void sircc_set_error(const char *, ...)
-    __attribute__((format(printf, 1, 2)));
-
 struct sircc_chan {
     char *name;
     struct sircc_server *server;

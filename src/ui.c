@@ -631,7 +631,7 @@ sircc_ui_prompt_execute(void) {
             ret = sircc_cmd_parse(&cmd, sircc.prompt_buf);
             if (ret == -1) {
                 sircc_chan_log_error(NULL, "cannot parse command: %s",
-                                     sircc_get_error());
+                                     c_get_error());
             } else if (ret == 0) {
                 sircc_chan_log_error(NULL, "cannot parse command:"
                                      " truncated input");
@@ -700,7 +700,7 @@ sircc_ui_write(WINDOW *win, const char *str, size_t sz) {
             ptr++;
             len--;
             if (len == 0) {
-                sircc_set_error("truncated sequence");
+                c_set_error("truncated sequence");
                 goto error;
             }
 
@@ -714,7 +714,7 @@ sircc_ui_write(WINDOW *win, const char *str, size_t sz) {
                 ptr++;
                 len--;
                 if (len == 0) {
-                    sircc_set_error("truncated attribute sequence");
+                    c_set_error("truncated attribute sequence");
                     goto error;
                 }
 
@@ -746,13 +746,13 @@ sircc_ui_write(WINDOW *win, const char *str, size_t sz) {
                 ptr++;
                 len--;
                 if (len == 0) {
-                    sircc_set_error("truncated color sequence");
+                    c_set_error("truncated color sequence");
                     goto error;
                 }
 
                 digit = *ptr - '0';
                 if (digit > 9) {
-                    sircc_set_error("invalid color sequence");
+                    c_set_error("invalid color sequence");
                     goto error;
                 }
 

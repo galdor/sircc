@@ -16,7 +16,7 @@
 
 #include "sircc.h"
 
-static __thread char sircc_ssl_error_buf[SIRCC_ERROR_BUFSZ];
+static __thread char sircc_ssl_error_buf[C_ERROR_BUFSZ];
 
 const char *
 sircc_ssl_get_error(void) {
@@ -25,7 +25,7 @@ sircc_ssl_get_error(void) {
     bool empty_queue;
 
     ptr = sircc_ssl_error_buf;
-    len = SIRCC_ERROR_BUFSZ;
+    len = C_ERROR_BUFSZ;
 
     empty_queue = true;
 
@@ -69,13 +69,13 @@ sircc_x509_store_add_certificate(X509_STORE *store, const char *path) {
 
     lookup = X509_STORE_add_lookup(store, X509_LOOKUP_file());
     if (!lookup) {
-        sircc_set_error("cannot create ssl store lookup: %s",
+        c_set_error("cannot create ssl store lookup: %s",
                         sircc_ssl_get_error());
         return -1;
     }
 
     if (X509_LOOKUP_load_file(lookup, path, X509_FILETYPE_PEM) == 0) {
-        sircc_set_error("cannot load ssl certificate from %s: %s",
+        c_set_error("cannot load ssl certificate from %s: %s",
                         path, sircc_ssl_get_error());
         return -1;
     }

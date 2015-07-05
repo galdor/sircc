@@ -130,7 +130,7 @@ sircc_msgh_cap_ls(struct sircc_server *server, struct sircc_msg *msg) {
     caps = sircc_irc_caps_parse(caps_str, &nb_caps);
     if (!caps) {
         sircc_server_log_error(server, "cannot parse cap list: %s",
-                               sircc_get_error());
+                               c_get_error());
         return;
     }
 
@@ -164,7 +164,7 @@ sircc_msgh_cap_ack(struct sircc_server *server, struct sircc_msg *msg) {
     caps = sircc_irc_caps_parse(caps_str, &nb_caps);
     if (!caps) {
         sircc_server_log_error(server, "cannot parse cap list: %s",
-                               sircc_get_error());
+                               c_get_error());
         return;
     }
 
@@ -199,7 +199,7 @@ sircc_msgh_cap_nack(struct sircc_server *server, struct sircc_msg *msg) {
     caps = sircc_irc_caps_parse(caps_str, &nb_caps);
     if (!caps) {
         sircc_server_log_error(server, "cannot parse cap list: %s",
-                               sircc_get_error());
+                               c_get_error());
         return;
     }
 
@@ -228,7 +228,7 @@ sircc_msgh_join(struct sircc_server *server, struct sircc_msg *msg) {
 
     if (sircc_msg_prefix_nickname(msg, nickname, sizeof(nickname)) == -1) {
         sircc_server_log_error(server, "cannot get prefix nick: %s",
-                               sircc_get_error());
+                               c_get_error());
         return;
     }
 
@@ -264,7 +264,7 @@ sircc_msgh_mode(struct sircc_server *server, struct sircc_msg *msg) {
 
     if (sircc_msg_prefix_nickname(msg, nickname, sizeof(nickname)) == -1) {
         sircc_server_log_error(server, "cannot get prefix nick: %s",
-                               sircc_get_error());
+                               c_get_error());
         return;
     }
 
@@ -298,7 +298,7 @@ sircc_msgh_nick(struct sircc_server *server, struct sircc_msg *msg) {
 
     if (sircc_msg_prefix_nickname(msg, nickname, sizeof(nickname)) == -1) {
         sircc_server_log_error(server, "cannot get prefix nick: %s",
-                               sircc_get_error());
+                               c_get_error());
         return;
     }
 
@@ -333,7 +333,7 @@ sircc_msgh_notice(struct sircc_server *server, struct sircc_msg *msg) {
 
     if (sircc_msg_prefix_nickname(msg, nickname, sizeof(nickname)) == -1) {
         sircc_server_log_error(server, "cannot get prefix nick: %s",
-                               sircc_get_error());
+                               c_get_error());
         return;
     }
 
@@ -381,7 +381,7 @@ sircc_msgh_part(struct sircc_server *server, struct sircc_msg *msg) {
 
     if (sircc_msg_prefix_nickname(msg, nickname, sizeof(nickname)) == -1) {
         sircc_server_log_error(server, "cannot get prefix nick: %s",
-                               sircc_get_error());
+                               c_get_error());
         return;
     }
 
@@ -435,7 +435,7 @@ sircc_msgh_privmsg(struct sircc_server *server, struct sircc_msg *msg) {
 
     if (sircc_msg_prefix_nickname(msg, nickname, sizeof(nickname)) == -1) {
         sircc_server_log_error(server, "cannot get prefix nick: %s",
-                               sircc_get_error());
+                               c_get_error());
         return;
     }
 
@@ -468,7 +468,7 @@ sircc_msgh_quit(struct sircc_server *server, struct sircc_msg *msg) {
 
     if (sircc_msg_prefix_nickname(msg, nickname, sizeof(nickname)) == -1) {
         sircc_server_log_error(server, "cannot get prefix nick: %s",
-                               sircc_get_error());
+                               c_get_error());
         return;
     }
 
@@ -505,7 +505,7 @@ sircc_msgh_topic(struct sircc_server *server, struct sircc_msg *msg) {
 
     if (sircc_msg_prefix_nickname(msg, nickname, sizeof(nickname)) == -1) {
         sircc_server_log_error(server, "cannot get prefix nick: %s",
-                               sircc_get_error());
+                               c_get_error());
         return;
     }
 
@@ -552,7 +552,7 @@ sircc_msgh_rpl_welcome(struct sircc_server *server, struct sircc_msg *msg) {
         ret = sircc_cmd_parse(&cmd, buf);
         if (ret == -1) {
             sircc_server_log_error(server, "cannot parse auto command '%s': %s",
-                                   string, sircc_get_error());
+                                   string, c_get_error());
         } else if (ret == 0) {
             sircc_chan_log_error(NULL, "cannot parse auto command '%s':"
                                  " truncated input", string);

@@ -71,7 +71,7 @@ sircc_processing_initialize(void) {
 
         space = strchr(string, ' ');
         if (!space) {
-            sircc_set_error("missing regexp");
+            c_set_error("missing regexp");
             goto error;
         }
 
@@ -85,7 +85,7 @@ sircc_processing_initialize(void) {
         /* Compile the regexp */
         regexp_str = space + 1;
         if (*regexp_str == '\0') {
-            sircc_set_error("empty regexp");
+            c_set_error("empty regexp");
             goto error;
         }
 
@@ -277,7 +277,7 @@ sircc_highlighter_init_escape_sequences(struct sircc_highlighter *highlighter,
             char tmp[toklen + 1];
 
             c_strlcpy(tmp, ptr, toklen + 1);
-            sircc_set_error("unknown display attribute '%s'", tmp);
+            c_set_error("unknown display attribute '%s'", tmp);
             return -1;
         }
 
@@ -311,13 +311,13 @@ sircc_pcre_compile(const char *str, pcre_extra **pextra) {
 
     regexp = pcre_compile(str, 0, &error_str, &error_offset, NULL);
     if (!regexp) {
-        sircc_set_error("cannot compile regex: %s", error_str);
+        c_set_error("cannot compile regex: %s", error_str);
         return NULL;
     }
 
     *pextra = pcre_study(regexp, PCRE_STUDY_JIT_COMPILE, &error_str);
     if (!*pextra) {
-        sircc_set_error("cannot study regex: %s", error_str);
+        c_set_error("cannot study regex: %s", error_str);
         pcre_free(regexp);
         return NULL;
     }

@@ -78,7 +78,7 @@ sircc_x11_primary_selection(void) {
     utf8_text = sircc_str_convert(text, strlen(text),
                                   "ISO-8859-1", "UTF-8", NULL);
     if (!utf8_text) {
-        sircc_chan_log_error(NULL, "%s", sircc_get_error());
+        sircc_chan_log_error(NULL, "%s", c_get_error());
         sircc_free(text);
         return NULL;
     }
@@ -88,13 +88,13 @@ sircc_x11_primary_selection(void) {
 
 error:
     sircc_chan_log_error(NULL, "cannot read selection: %s",
-                         sircc_get_error());
+                         c_get_error());
     return NULL;
 }
 
 static int
 sircc_x11_error_handler(Display *display, XErrorEvent *event) {
-    char error_str[SIRCC_ERROR_BUFSZ];
+    char error_str[C_ERROR_BUFSZ];
 
     XGetErrorText(display, event->error_code, error_str, sizeof(error_str));
 
@@ -161,9 +161,9 @@ sircc_x11_get_selection(Atom selection, Atom target, char **pdata) {
 
         if (type != target) {
             if (type == None) {
-                sircc_set_error("empty selection data type");
+                c_set_error("empty selection data type");
             } else {
-                sircc_set_error("unhandled selection data type %s",
+                c_set_error("unhandled selection data type %s",
                                 XGetAtomName(sircc.display, type));
             }
 
@@ -187,7 +187,7 @@ sircc_x11_get_selection(Atom selection, Atom target, char **pdata) {
             break;
 
         default:
-            sircc_set_error("unhandled selection data format %d", format);
+            c_set_error("unhandled selection data format %d", format);
             goto error;
         }
 

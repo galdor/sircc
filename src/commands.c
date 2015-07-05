@@ -113,7 +113,7 @@ sircc_cmd_parse(struct sircc_cmd *cmd, struct c_buffer *buf) {
     memset(cmd, 0, sizeof(struct sircc_cmd));
 
     if (*ptr != '/') {
-        sircc_set_error("missing leading '/'");
+        c_set_error("missing leading '/'");
         goto error;
     }
 
@@ -134,7 +134,7 @@ sircc_cmd_parse(struct sircc_cmd *cmd, struct c_buffer *buf) {
     name = c_strndup(ptr, toklen);
     desc = sircc_cmd_get_desc(name);
     if (!desc) {
-        sircc_set_error("unknown command '%s'", name);
+        c_set_error("unknown command '%s'", name);
         sircc_free(name);
         goto error;
     }
@@ -152,7 +152,7 @@ sircc_cmd_parse(struct sircc_cmd *cmd, struct c_buffer *buf) {
 
         ret = sircc_cmd_parse_arg(&ptr, &len, &arg);
         if (ret == 0) {
-            sircc_set_error("missing argument");
+            c_set_error("missing argument");
             goto error;
         }
 
@@ -196,7 +196,7 @@ sircc_cmd_parse(struct sircc_cmd *cmd, struct c_buffer *buf) {
                     return 1;
                 } else {
                     /* The trailing argument is mandatory */
-                    sircc_set_error("missing trailing argument");
+                    c_set_error("missing trailing argument");
                     goto error;
                 }
             }

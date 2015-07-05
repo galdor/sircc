@@ -32,7 +32,7 @@ sircc_str_convert(char *buf, size_t sz, const char *from, const char *to,
 
     conv = iconv_open(to, from);
     if (conv == (iconv_t)-1) {
-        sircc_set_error("cannot create iconv descriptor from %s to %s: %s",
+        c_set_error("cannot create iconv descriptor from %s to %s: %s",
                         from, to, strerror(errno));
         return NULL;
     }
@@ -65,7 +65,7 @@ sircc_str_convert(char *buf, size_t sz, const char *from, const char *to,
                 /* Truncated sequence */
                 break;
             } else {
-                sircc_set_error("cannot convert string from %s to %s: %s",
+                c_set_error("cannot convert string from %s to %s: %s",
                                 from, to, strerror(errno));
                 sircc_free(tmp);
                 iconv_close(conv);
