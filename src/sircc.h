@@ -69,6 +69,12 @@ void sircc_debug(const char *, ...)
     __attribute__((format(printf, 1, 2)));
 #endif
 
+/* Memory */
+void *sircc_malloc(size_t);
+void sircc_free(void *);
+void *sircc_calloc(size_t, size_t);
+void *sircc_realloc(void *, size_t);
+
 /* Strings */
 int sircc_is_breaking_space(int);
 

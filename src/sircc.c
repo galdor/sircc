@@ -36,13 +36,7 @@ static void sircc_server_on_tcp_event(struct io_tcp_client *,
 
 static int sircc_cmp_users(const void *, const void *);
 
-
-static struct c_memory_allocator sircc_memory_allocator = {
-    .malloc = c_malloc,
-    .calloc = c_calloc,
-    .realloc = c_realloc,
-    .free = c_free
-};
+extern const struct c_memory_allocator sircc_memory_allocator;
 
 struct sircc sircc;
 
@@ -53,6 +47,8 @@ main(int argc, char **argv) {
 
     const char *cfgdir;
     int opt;
+
+    c_set_memory_allocator(&sircc_memory_allocator);
 
     sircc_debug_initialize();
 
