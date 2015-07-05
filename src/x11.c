@@ -173,17 +173,17 @@ sircc_x11_get_selection(Atom selection, Atom target, char **pdata) {
         switch (format) {
         case 8:
             length = (size_t)nb_items;
-            offset += nb_items / 4;
+            offset += (long)nb_items / 4;
             break;
 
         case 16:
             length = (size_t)(nb_items * 2);
-            offset += nb_items / 2;
+            offset += (long)nb_items / 2;
             break;
 
         case 32:
             length = (size_t)(nb_items * 4);
-            offset += nb_items;
+            offset += (long)nb_items;
             break;
 
         default:

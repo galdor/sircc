@@ -529,10 +529,8 @@ sircc_ui_prompt_delete_from_cursor(void) {
 void
 sircc_ui_prompt_move_cursor_backward(void) {
     char *ptr;
-    size_t len;
 
     ptr = c_buffer_data(sircc.prompt_buf);
-    len = c_buffer_length(sircc.prompt_buf);
 
     if (sircc.prompt_cursor == 0)
         return;
@@ -832,8 +830,6 @@ sircc_ui_completion_next(void) {
 
     char *completion;
     const char *suffix;
-    const char *ptr;
-    size_t len;
 
     bool is_command;
 
@@ -849,9 +845,6 @@ sircc_ui_completion_next(void) {
 
         sircc.completion_offset = offset;
     }
-
-    ptr = c_buffer_data(sircc.prompt_buf);
-    len = c_buffer_length(sircc.prompt_buf);
 
     /* Search for a matching user/command */
     is_command = (sircc.completion_prefix[0] == '/');
