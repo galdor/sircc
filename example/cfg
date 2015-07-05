@@ -5,14 +5,20 @@ highlight blue&underline [a-zA-Z]+://\S+
 highlight blue \S+@\S+\.\S+
 
 
+#server freenode
+#host irc.freenode.net
+#port 7000
+##autoconnect yes
+#ssl yes
+#ssl_ca_certificate freenode.pem
+#nickname sircc
+#realname Simple IRC Client
+##max_nickname_length 15
+
 server freenode
 host irc.freenode.net
-port 7000
+port 6667
 #autoconnect yes
-ssl yes
-#ssl_verify_certificate yes
-#ssl_allow_self_signed_certificate no
-ssl_ca_certificate freenode.pem
+ssl no
 nickname sircc
 realname Simple IRC Client
-#max_nickname_length 15

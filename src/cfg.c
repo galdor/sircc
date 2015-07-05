@@ -42,12 +42,10 @@ static struct {
     {"autoconnect",                       SIRCC_CFG_BOOLEAN},
 
     {"host",                              SIRCC_CFG_STRING},
-    {"port",                              SIRCC_CFG_STRING},
+    {"port",                              SIRCC_CFG_INTEGER},
 
     {"ssl",                               SIRCC_CFG_BOOLEAN},
-    {"ssl_verify_certificate",            SIRCC_CFG_BOOLEAN},
     {"ssl_ca_certificate",                SIRCC_CFG_STRING},
-    {"ssl_allow_self_signed_certificate", SIRCC_CFG_BOOLEAN},
 
     {"nickname",                          SIRCC_CFG_STRING},
     {"realname",                          SIRCC_CFG_STRING},

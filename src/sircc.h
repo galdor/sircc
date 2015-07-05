@@ -33,7 +33,6 @@
 #include <fcntl.h>
 #include <iconv.h>
 #include <netdb.h>
-#include <poll.h>
 #include <sys/ioctl.h>
 #include <unistd.h>
 
@@ -53,9 +52,8 @@
 #   include <X11/Xlib.h>
 #endif
 
-#include "core.h"
-
-#define SIRCC_ERROR_BUFSZ 1024
+#include <core.h>
+#include <io.h>
 
 #define SIRCC_NICKNAME_MAXSZ 32
 
@@ -340,23 +338,17 @@ void sircc_chan_sort_users(struct sircc_chan *);
 char *sircc_chan_next_user_completion(struct sircc_chan *,
                                       const char *, const char *);
 
-enum sircc_server_state {
-    SIRCC_SERVER_DISCONNECTED,
-    SIRCC_SERVER_CONNECTING,
-    SIRCC_SERVER_CONNECTED,
-    SIRCC_SERVER_SSL_CONNECTING,
-    SIRCC_SERVER_SSL_CONNECTED,
-
-    SIRCC_SERVER_BROKEN
-};
-
 struct sircc_server {
     const char *name;
 
     const char *host;
-    const char *port;
+    uint16_t port;
     bool autoconnect;
+
     bool use_ssl;
+    const char *ssl_ca_cert;
+
+    struct io_tcp_client *tcp_client;
 
     const char *nickname;
     char *current_nickname;
@@ -364,56 +356,36 @@ struct sircc_server {
     const char *realname;
     const char *password;
 
-    struct addrinfo **addresses;
-    size_t nb_addresses;
-    size_t next_address_idx;
-
-    int sock;
-
-    enum sircc_server_state state;
-
-    struct pollfd *pollfd;
-
-    struct c_buffer *rbuf;
-    struct c_buffer *wbuf;
-
     struct sircc_history history;
 
     struct sircc_chan *chans;
     struct sircc_chan *current_chan;
     struct sircc_chan *last_chan;
 
-    SSL_CTX *ssl_ctx;
-    SSL *ssl;
-    int ssl_last_write_length;
-    bool ssl_verify_certificate;
-    const char *ssl_ca_certificate;
-    bool ssl_allow_self_signed_certificate;
-
     bool cap_znc_server_time;
 };
 
 struct sircc_server *sircc_server_new(const char *name);
 void sircc_server_delete(struct sircc_server *);
-int sircc_server_prepare_connection(struct sircc_server *);
+
 int sircc_server_connect(struct sircc_server *);
-int sircc_server_ssl_connect(struct sircc_server *);
 void sircc_server_disconnect(struct sircc_server *);
-int sircc_server_ssl_check_certificate(struct sircc_server *);
+
 void sircc_server_trace(struct sircc_server *, const char *, ...)
     __attribute__((format(printf, 2, 3)));
 void sircc_server_log_info(struct sircc_server *, const char *, ...)
     __attribute__((format(printf, 2, 3)));
 void sircc_server_log_error(struct sircc_server *, const char *, ...)
     __attribute__((format(printf, 2, 3)));
+
 void sircc_server_add_server_msg(struct sircc_server *, time_t, const char *,
                                  const char *);
+
 void sircc_server_write(struct sircc_server *, const char *, size_t);
-int sircc_server_vprintf(struct sircc_server *, const char *, va_list);
-int sircc_server_printf(struct sircc_server *, const char *, ...)
+void sircc_server_vprintf(struct sircc_server *, const char *, va_list);
+void sircc_server_printf(struct sircc_server *, const char *, ...)
     __attribute__((format(printf, 2, 3)));
-void sircc_server_on_pollin(struct sircc_server *);
-void sircc_server_on_pollout(struct sircc_server *);
+
 void sircc_server_on_connection_established(struct sircc_server *);
 void sircc_server_read_msgs(struct sircc_server *);
 void sircc_server_msg_process(struct sircc_server *, struct sircc_msg *);
@@ -437,14 +409,11 @@ struct sircc_highlighter {
 };
 
 struct sircc {
-    struct sircc_server **servers;
-    size_t nb_servers;
-    int current_server;
+    struct c_ptr_vector *servers;
+    ssize_t current_server;
 
-    struct pollfd *pollfds;
-    size_t nb_pollfds;
+    struct io_base *io_base;
 
-    int signal_pipe[2];
     bool do_exit;
 
     struct sigaction old_sigact_sigint;
@@ -511,7 +480,7 @@ void sircc_ui_prompt_redraw(void);
 
 int sircc_ui_main_window_width(void);
 
-void sircc_ui_server_select(int);
+void sircc_ui_server_select(ssize_t);
 void sircc_ui_server_select_previous(void);
 void sircc_ui_server_select_next(void);
 void sircc_ui_server_select_chan(struct sircc_server *, struct sircc_chan *);

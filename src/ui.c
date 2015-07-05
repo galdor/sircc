@@ -87,11 +87,11 @@ sircc_ui_on_resize(void) {
 
     sircc_ui_setup_windows();
 
-    for (size_t i = 0; i < sircc.nb_servers; i++) {
+    for (size_t i = 0; i < c_ptr_vector_length(sircc.servers); i++) {
         struct sircc_server *server;
         struct sircc_chan *chan;
 
-        server = sircc.servers[i];
+        server = c_ptr_vector_entry(sircc.servers, i);
 
         server->history.layout.dirty = true;
 
@@ -287,11 +287,11 @@ sircc_ui_servers_redraw(void) {
     wclrtoeol(win);
     wbkgd(win, A_REVERSE);
 
-    for (size_t i = 0; i < sircc.nb_servers; i++) {
+    for (size_t i = 0; i < c_ptr_vector_length(sircc.servers); i++) {
         struct sircc_server *server;
         bool is_current;
 
-        server = sircc.servers[i];
+        server = c_ptr_vector_entry(sircc.servers, i);
         is_current = sircc_server_is_current(server);
 
         if (i > 0)
@@ -364,10 +364,10 @@ sircc_ui_main_window_width(void) {
 }
 
 void
-sircc_ui_server_select(int idx) {
+sircc_ui_server_select(ssize_t idx) {
     struct sircc_server *server;
 
-    assert(idx >= 0 && (size_t)idx < sircc.nb_servers);
+    assert(idx >= 0 && (size_t)idx < c_ptr_vector_length(sircc.servers));
 
     sircc.current_server = idx;
     server = sircc_server_get_current();
@@ -385,21 +385,21 @@ sircc_ui_server_select(int idx) {
 
 void
 sircc_ui_server_select_previous(void) {
-    int idx;
+    ssize_t idx;
 
     idx = sircc.current_server - 1;
     if (idx < 0)
-        idx = sircc.nb_servers - 1;
+        idx = (ssize_t)c_ptr_vector_length(sircc.servers) - 1;
 
     sircc_ui_server_select(idx);
 }
 
 void
 sircc_ui_server_select_next(void) {
-    int idx;
+    ssize_t idx;
 
     idx = sircc.current_server + 1;
-    if ((size_t)idx >= sircc.nb_servers)
+    if ((size_t)idx >= c_ptr_vector_length(sircc.servers) - 1)
         idx = 0;
 
     sircc_ui_server_select(idx);

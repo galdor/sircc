@@ -23,16 +23,16 @@
 static void sircc_usage(const char *, int);
 static void sircc_version(void);
 
-static void sircc_signal_handler(int);
-
 static void sircc_initialize(void);
 static void sircc_shutdown(void);
+
 static void sircc_load_servers(void);
-static void sircc_server_add(struct sircc_server *);
-static void sircc_setup_poll_array(void);
-static void sircc_poll(void);
-static void sircc_read_signal(void);
-static void sircc_read_input(void);
+
+static void sircc_on_signal(int, void *);
+static void sircc_on_stdin_event(int, uint32_t, void *);
+
+static void sircc_server_on_tcp_event(struct io_tcp_client *,
+                                      enum io_tcp_client_event, void *);
 
 static int sircc_cmp_users(const void *, const void *);
 
@@ -104,8 +104,10 @@ main(int argc, char **argv) {
     sircc_x11_initialize();
 #endif
 
-    while (!sircc.do_exit)
-        sircc_poll();
+    while (!sircc.do_exit) {
+        if (io_base_read_events(sircc.io_base) == -1)
+            die("cannot read events: %s", c_get_error());
+    }
 
 #ifdef SIRCC_WITH_X11
     sircc_x11_shutdown();
@@ -139,15 +141,6 @@ static void
 sircc_version() {
     printf("sircc-" SIRCC_VERSION " " SIRCC_BUILD_ID "\n");
     exit(0);
-}
-
-static void
-sircc_signal_handler(int signo) {
-    ssize_t ret;
-
-    ret = write(sircc.signal_pipe[1], &signo, sizeof(signo));
-    if (ret < (ssize_t)sizeof(signo))
-        die("cannot write to pipe: %s", strerror(errno));
 }
 
 void
@@ -453,17 +446,10 @@ sircc_server_new(const char *name) {
 
     server->name = name;
 
-    server->sock = -1;
-
-    server->rbuf = c_buffer_new();
-    server->wbuf = c_buffer_new();
-
     server->max_nickname_length = 15;
 
     sircc_history_init(&server->history, 1024);
     server->history.max_nickname_length = server->max_nickname_length;
-
-    server->state = SIRCC_SERVER_DISCONNECTED;
 
     return server;
 }
@@ -477,14 +463,6 @@ sircc_server_delete(struct sircc_server *server) {
 
     sircc_free(server->current_nickname);
 
-    if (server->addresses) {
-        freeaddrinfo(server->addresses[0]);
-        sircc_free(server->addresses);
-    }
-
-    c_buffer_delete(server->rbuf);
-    c_buffer_delete(server->wbuf);
-
     sircc_history_free(&server->history);
 
     chan = server->chans;
@@ -497,287 +475,21 @@ sircc_server_delete(struct sircc_server *server) {
         chan = next;
     }
 
+    io_tcp_client_delete(server->tcp_client);
+
     sircc_free(server);
 }
 
 int
-sircc_server_prepare_connection(struct sircc_server *server) {
-    assert(server->state == SIRCC_SERVER_DISCONNECTED);
-
-    if (server->addresses) {
-        sircc_free(server->addresses);
-        server->addresses = NULL;
-        server->nb_addresses = 0;
-    }
-
-    if (sircc_address_resolve(server->host, server->port,
-                              &server->addresses,
-                              &server->nb_addresses) == -1) {
-        sircc_server_log_error(server, "%s", c_get_error());
-        server->state = SIRCC_SERVER_BROKEN;
-        return -1;
-    }
-
-    server->next_address_idx = 0;
-    return 0;
-}
-
-int
 sircc_server_connect(struct sircc_server *server) {
-    struct addrinfo *ai;
-
-    assert(server->state == SIRCC_SERVER_DISCONNECTED
-        || server->state == SIRCC_SERVER_CONNECTING);
-
-    ai = server->addresses[server->next_address_idx];
-
-    if (server->state == SIRCC_SERVER_DISCONNECTED) {
-        server->sock = sircc_socket_open(ai);
-        if (server->sock == -1) {
-            sircc_server_log_error(server, "%s", c_get_error());
-            return -1;
-        }
-
-        server->pollfd->fd = server->sock;
-        server->state = SIRCC_SERVER_CONNECTING;
-    }
-
-    sircc_server_trace(server, "connecting to %s:%s",
-                       server->host, server->port);
-
-    if (connect(server->sock, ai->ai_addr, ai->ai_addrlen) == -1) {
-        if (errno == EINPROGRESS) {
-            server->pollfd->events = POLLOUT;
-            return 0;
-        } else {
-            /* We will try another address next time */
-            sircc_server_log_error(server, "cannot connect to %s:%s: %s",
-                                   server->host, server->port,
-                                   strerror(errno));
-            server->next_address_idx++;
-            if (server->next_address_idx >= server->nb_addresses)
-                server->next_address_idx = 0;
-
-            return -1;
-        }
-    }
-
-    server->state = SIRCC_SERVER_CONNECTED;
-    if (server->use_ssl) {
-        if (sircc_server_ssl_connect(server) == -1)
-            return -1;
-    } else {
-        sircc_server_on_connection_established(server);
-    }
-
-    return 0;
+    return io_tcp_client_connect(server->tcp_client,
+                                 server->host, server->port);
 }
 
-int
-sircc_server_ssl_connect(struct sircc_server *server) {
-    long options;
-    int ret;
-
-    assert(server->state == SIRCC_SERVER_CONNECTED
-        || server->state == SIRCC_SERVER_SSL_CONNECTING);
-
-    if (server->state == SIRCC_SERVER_CONNECTED) {
-        server->ssl_ctx = SSL_CTX_new(SSLv23_client_method());
-        if (!server->ssl_ctx) {
-            sircc_server_log_error(server, "cannot create ssl context: %s",
-                                   sircc_ssl_get_error());
-            goto error;
-        }
-
-        options = SSL_OP_ALL | SSL_OP_NO_SSLv2;
-        SSL_CTX_set_options(server->ssl_ctx, options);
-
-        options  = SSL_MODE_ENABLE_PARTIAL_WRITE;
-        options |= SSL_MODE_ACCEPT_MOVING_WRITE_BUFFER;
-        SSL_CTX_set_mode(server->ssl_ctx, options);
-
-        if (SSL_CTX_set_cipher_list(server->ssl_ctx, "HIGH") == 0) {
-            sircc_server_log_error(server, "cannot set cipher list: %s",
-                                   sircc_ssl_get_error());
-            goto error;
-        }
-
-        server->ssl = SSL_new(server->ssl_ctx);
-        if (!server->ssl) {
-            sircc_server_log_error(server, "cannot create ssl structure: %s",
-                                   sircc_ssl_get_error());
-            goto error;
-        }
-
-        if (SSL_set_fd(server->ssl, server->sock) == 0) {
-            sircc_server_log_error(server, "cannot set ssl file descriptor: %s",
-                                   sircc_ssl_get_error());
-            goto error;
-        }
-
-        server->state = SIRCC_SERVER_SSL_CONNECTING;
-    }
-
-    ret = SSL_connect(server->ssl);
-    if (ret <= 0) {
-        int err;
-
-        err = SSL_get_error(server->ssl, ret);
-        switch (err) {
-        case SSL_ERROR_WANT_READ:
-            server->pollfd->events = POLLIN;
-            break;
-
-        case SSL_ERROR_WANT_WRITE:
-            server->pollfd->events = POLLOUT;
-            break;
-
-        case SSL_ERROR_WANT_CONNECT:
-            break;
-
-        default:
-            sircc_server_log_error(server,
-                                   "cannot establish ssl connection: %s",
-                                   sircc_ssl_get_error());
-            goto error;
-        }
-
-        return -1;
-    }
-
-    if (server->ssl_verify_certificate) {
-        ret = sircc_server_ssl_check_certificate(server);
-        if (ret <= 0)
-            goto error;
-    }
-
-    server->state = SIRCC_SERVER_SSL_CONNECTED;
-    sircc_server_on_connection_established(server);
-    return 0;
-
-error:
-    sircc_server_log_info(server, "closing connection");
-
-    close(server->sock);
-    server->sock = -1;
-
-    server->state = SIRCC_SERVER_BROKEN;
-    return -1;
-}
 
 void
 sircc_server_disconnect(struct sircc_server *server) {
-    if (server->sock > 0) {
-        close(server->sock);
-        server->sock = -1;
-        server->pollfd->fd = -1;
-    }
-
-    c_buffer_clear(server->rbuf);
-    c_buffer_clear(server->wbuf);
-
-    if (server->ssl_ctx) {
-        SSL_CTX_free(server->ssl_ctx);
-        server->ssl_ctx = NULL;
-    }
-
-    if (server->ssl) {
-        SSL_free(server->ssl);
-        server->ssl = NULL;
-    }
-
-    server->state = SIRCC_SERVER_DISCONNECTED;
-}
-
-int
-sircc_server_ssl_check_certificate(struct sircc_server *server) {
-    X509 *cert;
-    X509_NAME *name;
-    X509_STORE *store;
-    X509_STORE_CTX *store_ctx;
-    char path[PATH_MAX];
-    char buf[512];
-
-    cert = SSL_get_peer_certificate(server->ssl);
-    if (!cert) {
-        sircc_server_log_error(server, "cannot get peer ssl certificate");
-        return -1;
-    }
-
-    name = X509_get_issuer_name(cert);
-    X509_NAME_oneline(name, buf, sizeof(buf));
-    sircc_server_log_info(server, "ssl certificate issuer: %s", buf);
-
-    name = X509_get_subject_name(cert);
-    X509_NAME_oneline(name, buf, sizeof(buf));
-    sircc_server_log_info(server, "ssl certificate subject: %s", buf);
-
-    store = NULL;
-    store_ctx = NULL;
-
-    store = X509_STORE_new();
-    if (!store) {
-        sircc_server_log_error(server, "cannot create x509 store: %s",
-                               sircc_ssl_get_error());
-        goto error;
-    }
-
-    sircc_cfg_ssl_file_path(path, server->ssl_ca_certificate, sizeof(path));
-    sircc_server_log_info(server, "loading ssl ca certificate from %s", path);
-
-    if (sircc_x509_store_add_certificate(store, path) == -1) {
-        sircc_server_log_error(server, "%s", c_get_error());
-        goto error;
-    }
-
-    store_ctx = X509_STORE_CTX_new();
-    if (!store_ctx) {
-        sircc_server_log_error(server, "cannot create x509 store context: %s",
-                               sircc_ssl_get_error());
-        goto error;
-    }
-
-    if (X509_STORE_CTX_init(store_ctx, store, cert, NULL) == 0) {
-        sircc_server_log_error(server,
-                               "cannot initialize x509 store context: %s",
-                               sircc_ssl_get_error());
-        goto error;
-    }
-
-    if (X509_verify_cert(store_ctx) <= 0) {
-        int cert_err;
-
-        cert_err = X509_STORE_CTX_get_error(store_ctx);
-        if (cert_err == X509_V_ERR_DEPTH_ZERO_SELF_SIGNED_CERT
-            && server->ssl_allow_self_signed_certificate) {
-            sircc_server_log_info(server,
-                                  "accepting self signed ssl certificate");
-        } else {
-            const char *cert_errstr;
-
-            cert_errstr = X509_verify_cert_error_string(cert_err);
-            sircc_server_log_error(server,
-                                   "ssl certificate verification failed: %s"
-                                   " (error %d)", cert_errstr, cert_err);
-
-            X509_STORE_CTX_free(store_ctx);
-            X509_STORE_free(store);
-            return 0;
-        }
-    }
-
-    sircc_server_log_info(server, "ssl certificate verified");
-
-    X509_STORE_CTX_free(store_ctx);
-    X509_STORE_free(store);
-    return 1;
-
-error:
-    if (store_ctx)
-        X509_STORE_CTX_free(store_ctx);
-    if (store)
-        X509_STORE_free(store);
-    return -1;
+    io_tcp_client_disconnect(server->tcp_client);
 }
 
 void
@@ -866,243 +578,34 @@ sircc_server_add_server_msg(struct sircc_server *server, time_t date,
 
 void
 sircc_server_write(struct sircc_server *server, const char *buf, size_t sz) {
-    if (server->state == SIRCC_SERVER_DISCONNECTED
-     || server->state == SIRCC_SERVER_BROKEN) {
-        sircc_server_log_error(server, "disconnected from server");
-        return;
-    }
-
-    c_buffer_add(server->wbuf, buf, sz);
-
-    server->pollfd->events |= POLLOUT;
+    io_tcp_client_write(server->tcp_client, buf, sz);
 }
 
-int
+void
 sircc_server_vprintf(struct sircc_server *server, const char *fmt, va_list ap) {
-    if (server->state == SIRCC_SERVER_DISCONNECTED
-     || server->state == SIRCC_SERVER_BROKEN) {
-        sircc_server_log_error(server, "disconnected from server");
-        return -1;
-    }
+    char *string;
+    int sz;
 
-    if (c_buffer_add_vprintf(server->wbuf, fmt, ap) == -1)
-        return -1;
+    sz = c_vasprintf(&string, fmt, ap);
 
-    server->pollfd->events |= POLLOUT;
-    return 0;
+    io_tcp_client_write(server->tcp_client, string, (size_t)sz);
+
+    c_free(string);
 }
 
-int
+void
 sircc_server_printf(struct sircc_server *server, const char *fmt, ...) {
     va_list ap;
-    int ret;
-
-    if (server->state == SIRCC_SERVER_DISCONNECTED
-     || server->state == SIRCC_SERVER_BROKEN) {
-        sircc_server_log_error(server, "disconnected from server");
-        return -1;
-    }
 
     va_start(ap, fmt);
-    ret = sircc_server_vprintf(server, fmt, ap);
+    sircc_server_vprintf(server, fmt, ap);
     va_end(ap);
-
-    return ret;
-}
-
-void
-sircc_server_on_pollin(struct sircc_server *server) {
-    switch (server->state) {
-    case SIRCC_SERVER_SSL_CONNECTING:
-        sircc_server_ssl_connect(server);
-        break;
-
-    case SIRCC_SERVER_CONNECTED:
-        {
-            ssize_t ret;
-
-            ret = c_buffer_read(server->rbuf, server->sock, BUFSIZ);
-            if (ret == -1) {
-                sircc_server_log_error(server, "cannot read socket: %s",
-                                       strerror(errno));
-                sircc_server_disconnect(server);
-                return;
-            }
-
-            if (ret == 0) {
-                sircc_server_log_info(server, "connection closed");
-                sircc_server_disconnect(server);
-                return;
-            }
-
-            sircc_server_read_msgs(server);
-        }
-        break;
-
-    case SIRCC_SERVER_SSL_CONNECTED:
-        {
-            int ret, err;
-            char buf[BUFSIZ];
-
-            ret = SSL_read(server->ssl, buf, sizeof(buf));
-            if (ret <= 0) {
-                err = SSL_get_error(server->ssl, ret);
-
-                switch (err) {
-                case SSL_ERROR_WANT_READ:
-                    break;
-
-                case SSL_ERROR_WANT_WRITE:
-                    server->pollfd->events |= POLLOUT;
-                    break;
-
-                case SSL_ERROR_ZERO_RETURN:
-                    sircc_server_log_info(server, "connection closed");
-                    sircc_server_disconnect(server);
-                    break;
-
-                default:
-                    sircc_server_log_error(server, "cannot read socket: %s",
-                                           sircc_ssl_get_error());
-                    sircc_server_disconnect(server);
-                    break;
-                }
-
-                return;
-            }
-
-            c_buffer_add(server->rbuf, buf, (size_t)ret);
-            sircc_server_read_msgs(server);
-        }
-        break;
-
-    default:
-        sircc_server_log_error(server, "ignoring pollin event in state %d",
-                               server->state);
-        break;
-    }
-}
-
-void
-sircc_server_on_pollout(struct sircc_server *server) {
-    switch (server->state) {
-    case SIRCC_SERVER_CONNECTING:
-        {
-            int err;
-
-            if (sircc_socket_get_so_error(server->sock, &err) == -1) {
-                sircc_server_log_error(server, "%s", c_get_error());
-                sircc_server_disconnect(server);
-                return;
-            }
-
-            if (err == 0) {
-                server->state = SIRCC_SERVER_CONNECTED;
-                if (server->use_ssl) {
-                    sircc_server_ssl_connect(server);
-                } else {
-                    sircc_server_on_connection_established(server);
-                }
-            } else if (err == EINPROGRESS) {
-                return;
-            } else {
-                sircc_server_log_error(server, "cannot connect to %s:%s: %s",
-                                       server->host, server->port,
-                                       strerror(err));
-                sircc_server_disconnect(server);
-            }
-        }
-        break;
-
-    case SIRCC_SERVER_SSL_CONNECTING:
-        sircc_server_ssl_connect(server);
-        break;
-
-    case SIRCC_SERVER_CONNECTED:
-        {
-            ssize_t ret;
-
-            ret = c_buffer_write(server->wbuf, server->sock);
-            if (ret == -1) {
-                sircc_server_log_error(server, "cannot write to socket: %s",
-                                       strerror(errno));
-                sircc_server_disconnect(server);
-            }
-
-            if (c_buffer_length(server->wbuf) == 0)
-                server->pollfd->events &= ~POLLOUT;
-        }
-        break;
-
-    case SIRCC_SERVER_SSL_CONNECTED:
-        {
-            const char *data;
-            int len, ret, err;
-
-            data = c_buffer_data(server->wbuf);
-
-            if (server->ssl_last_write_length > 0) {
-                len = server->ssl_last_write_length;
-            } else {
-                len = (int)c_buffer_length(server->wbuf);
-            }
-
-            ret = SSL_write(server->ssl, data, len);
-            if (ret <= 0) {
-                err = SSL_get_error(server->ssl, ret);
-
-                switch (err) {
-                case SSL_ERROR_WANT_READ:
-                case SSL_ERROR_WANT_WRITE:
-                    /* From SSL_write(3):
-                     *
-                     * When an SSL_write() operation has to be repeated
-                     * because of SSL_ERROR_WANT_READ or SSL_ERROR_WANT_WRITE,
-                     * it must be repeated with the same arguments.
-                     *
-                     * So we save the length we used to reuse it next time. */
-                    server->ssl_last_write_length = len;
-                    break;
-
-                case SSL_ERROR_ZERO_RETURN:
-                    sircc_server_log_info(server, "connection closed");
-                    sircc_server_disconnect(server);
-                    break;
-
-                default:
-                    sircc_server_log_error(server, "cannot write to socket: %s",
-                                           sircc_ssl_get_error());
-                    sircc_server_disconnect(server);
-                    break;
-                }
-
-                return;
-            }
-
-            server->ssl_last_write_length = 0;
-
-            c_buffer_skip(server->wbuf, (size_t)ret);
-            if (c_buffer_length(server->wbuf) == 0)
-                server->pollfd->events &= ~POLLOUT;
-        }
-        break;
-
-    default:
-        sircc_server_log_error(server, "ignoring pollout event in state %d",
-                               server->state);
-        break;
-    }
 }
 
 void
 sircc_server_on_connection_established(struct sircc_server *server) {
-    assert(server->state == SIRCC_SERVER_CONNECTED
-        || server->state == SIRCC_SERVER_SSL_CONNECTED);
-
-    sircc_server_log_info(server, "connected to %s:%s",
+    sircc_server_log_info(server, "connected to %s:%u",
                           server->host, server->port);
-
-    server->pollfd->events = POLLIN;
 
     sircc_server_printf(server, "CAP LS\r\n");
     if (server->password)
@@ -1114,7 +617,11 @@ sircc_server_on_connection_established(struct sircc_server *server) {
 
 void
 sircc_server_read_msgs(struct sircc_server *server) {
-    while (c_buffer_length(server->rbuf) > 0) {
+    struct c_buffer *rbuf;
+
+    rbuf = io_tcp_client_rbuf(server->tcp_client);
+
+    while (c_buffer_length(rbuf) > 0) {
         struct sircc_msg msg;
         int ret;
 
@@ -1122,7 +629,7 @@ sircc_server_read_msgs(struct sircc_server *server) {
             const char *ptr;
             char *cr;
 
-            ptr = c_buffer_data(server->rbuf);
+            ptr = c_buffer_data(rbuf);
 
             cr = strchr(ptr, '\r');
             if (cr) {
@@ -1132,7 +639,7 @@ sircc_server_read_msgs(struct sircc_server *server) {
             }
         }
 
-        ret = sircc_msg_parse(&msg, server->rbuf);
+        ret = sircc_msg_parse(&msg, rbuf);
         if (ret == -1) {
             sircc_server_log_error(server, "cannot parse message: %s",
                                    c_get_error());
@@ -1143,7 +650,7 @@ sircc_server_read_msgs(struct sircc_server *server) {
         if (ret == 0)
             break;
 
-        c_buffer_skip(server->rbuf, (size_t)ret);
+        c_buffer_skip(rbuf, (size_t)ret);
 
         sircc_server_msg_process(server, &msg);
         sircc_msg_free(&msg);
@@ -1221,8 +728,8 @@ sircc_server_remove_chan(struct sircc_server *server,
 
 struct sircc_server *
 sircc_server_get_current(void) {
-    if (sircc.current_server >= 0) {
-        return sircc.servers[sircc.current_server];
+    if (sircc.current_server != -1) {
+        return c_ptr_vector_entry(sircc.servers, (size_t)sircc.current_server);
     } else {
         return NULL;
     }
@@ -1242,16 +749,23 @@ sircc_server_send_privmsg(struct sircc_server *server, const char *target,
 
 static void
 sircc_initialize(void) {
-    struct sigaction sigact;
+    sircc.io_base = io_base_new();
 
-    memset(&sigact, 0, sizeof(struct sigaction));
-    sigact.sa_handler = sircc_signal_handler;
-    sigaction(SIGINT, &sigact, &sircc.old_sigact_sigint);
-    sigaction(SIGTERM, &sigact, &sircc.old_sigact_sigterm);
-    sigaction(SIGWINCH, &sigact, &sircc.old_sigact_sigwinch);
+#define SIRCC_WATCH_SIGNAL(signo_)                                \
+    if (io_base_watch_signal(sircc.io_base, signo_,               \
+                             sircc_on_signal, NULL) == -1) {      \
+        die("cannot watch signal %d: %s", signo_, c_get_error()); \
+    }
 
-    if (pipe(sircc.signal_pipe) == -1)
-        die("cannot create pipe: %s", strerror(errno));
+    SIRCC_WATCH_SIGNAL(SIGINT);
+    SIRCC_WATCH_SIGNAL(SIGTERM);
+    SIRCC_WATCH_SIGNAL(SIGWINCH);
+#undef SIRCC_WATCH_SIGNAL
+
+    if (io_base_watch_fd(sircc.io_base, STDIN_FILENO, IO_EVENT_FD_READ,
+                         sircc_on_stdin_event, NULL) == -1) {
+        die("cannot watch stdin: %s", c_get_error());
+    }
 
     sircc.msg_handlers = c_hash_table_new(c_hash_string, c_equal_string);
     sircc_init_msg_handlers();
@@ -1260,16 +774,27 @@ sircc_initialize(void) {
     sircc.input_read_buf = c_buffer_new();
     sircc.prompt_buf = c_buffer_new();
 
-    sircc_setup_poll_array();
-
-    for (size_t i = 0; i < sircc.nb_servers; i++) {
+    for (size_t i = 0; i < c_ptr_vector_length(sircc.servers); i++) {
         struct sircc_server *server;
+        struct io_ssl_cfg ssl_cfg;
 
-        server = sircc.servers[i];
+        server = c_ptr_vector_entry(sircc.servers, i);
 
-        sircc_server_prepare_connection(server);
-        if (server->state == SIRCC_SERVER_BROKEN)
-            continue;
+        server->tcp_client = io_tcp_client_new(sircc.io_base,
+                                               sircc_server_on_tcp_event,
+                                               server);
+
+        if (server->use_ssl) {
+            char ca_cert[PATH_MAX];
+
+            memset(&ssl_cfg, 0, sizeof(struct io_ssl_cfg));
+
+            sircc_cfg_ssl_file_path(ca_cert, server->ssl_ca_cert, PATH_MAX);
+            ssl_cfg.ca_cert_path = ca_cert;
+
+            if (io_tcp_client_enable_ssl(server->tcp_client, &ssl_cfg) == -1)
+                die("cannot enable ssl: %s", c_get_error());
+        }
 
         if (server->autoconnect)
             sircc_server_connect(server);
@@ -1278,16 +803,15 @@ sircc_initialize(void) {
 
 static void
 sircc_shutdown(void) {
-    for (size_t i = 0; i < sircc.nb_servers; i++) {
-        sircc_server_disconnect(sircc.servers[i]);
-        sircc_server_delete(sircc.servers[i]);
+    for (size_t i = 0; i < c_ptr_vector_length(sircc.servers); i++) {
+        struct sircc_server *server;
+
+        server = c_ptr_vector_entry(sircc.servers, i);
+
+        sircc_server_disconnect(server);
+        sircc_server_delete(server);
     }
-    sircc_free(sircc.servers);
-
-    free(sircc.pollfds);
-
-    close(sircc.signal_pipe[0]);
-    close(sircc.signal_pipe[1]);
+    c_ptr_vector_delete(sircc.servers);
 
     c_hash_table_delete(sircc.msg_handlers);
 
@@ -1295,13 +819,17 @@ sircc_shutdown(void) {
     c_buffer_delete(sircc.input_buf);
     c_buffer_delete(sircc.prompt_buf);
 
-    sigaction(SIGINT, &sircc.old_sigact_sigint, NULL);
-    sigaction(SIGTERM, &sircc.old_sigact_sigterm, NULL);
-    sigaction(SIGWINCH, &sircc.old_sigact_sigwinch, NULL);
+    io_base_unwatch_signal(sircc.io_base, SIGINT);
+    io_base_unwatch_signal(sircc.io_base, SIGTERM);
+    io_base_unwatch_signal(sircc.io_base, SIGWINCH);
+
+    io_base_delete(sircc.io_base);
 }
 
 static void
 sircc_load_servers(void) {
+    sircc.servers = c_ptr_vector_new();
+
     for (size_t i = 0; i < sircc.cfg.nb_servers; i++) {
         struct sircc_server *server;
 
@@ -1311,20 +839,15 @@ sircc_load_servers(void) {
                                                        true);
 
         server->host = sircc_cfg_server_string(server, "host", NULL);
-        server->port = sircc_cfg_server_string(server, "port", "6667");
+        server->port = sircc_cfg_server_integer(server, "port", 6667);
 
         server->use_ssl = sircc_cfg_server_boolean(server, "ssl", false);
+
         if (server->use_ssl) {
-            server->ssl_verify_certificate
-                = sircc_cfg_server_boolean(server, "ssl_verify_certificate", true);
-
-            server->ssl_ca_certificate
-                = sircc_cfg_server_string(server, "ssl_ca_certificate", NULL);
-
-            server->ssl_allow_self_signed_certificate
-                = sircc_cfg_server_boolean(server, "ssl_allow_self_signed_certificate",
-                                           false);
-            if (server->ssl_verify_certificate && !server->ssl_ca_certificate)
+            server->ssl_ca_cert = sircc_cfg_server_string(server,
+                                                          "ssl_ca_certificate",
+                                                          NULL);
+            if (!server->ssl_ca_cert)
                 die("missing ssl_ca_certificate for server %s", server->name);
         }
 
@@ -1348,101 +871,15 @@ sircc_load_servers(void) {
 
         server->current_nickname = c_strdup(server->nickname);
 
-        sircc_server_add(server);
+        c_ptr_vector_append(sircc.servers, server);
     }
 
-    if (sircc.nb_servers == 0)
+    if (c_ptr_vector_length(sircc.servers) == 0)
         die("no server defined in configuration");
 }
 
 static void
-sircc_server_add(struct sircc_server *server) {
-    if (!sircc.servers) {
-        sircc.nb_servers = 1;
-        sircc.servers = sircc_malloc(sizeof(struct sircc_server *));
-        sircc.servers[0] = server;
-    } else {
-        size_t sz;
-
-        sircc.nb_servers++;
-        sz = sircc.nb_servers * sizeof(struct sircc_server *);
-        sircc.servers = sircc_realloc(sircc.servers, sz);
-        sircc.servers[sircc.nb_servers - 1] = server;
-    }
-}
-
-static void
-sircc_setup_poll_array(void) {
-    free(sircc.pollfds);
-
-    /* - 1 pollfd for the signal pipe.
-     * - 1 pollfd for the stdin file descriptor.
-     * - 1 pollfd for the socket of each server. */
-    sircc.nb_pollfds = sircc.nb_servers + 2;
-    sircc.pollfds = calloc(sircc.nb_pollfds, sizeof(struct pollfd));
-
-    sircc.pollfds[0].fd = sircc.signal_pipe[0];
-    sircc.pollfds[0].events = POLLIN;
-
-    sircc.pollfds[1].fd = STDIN_FILENO;
-    sircc.pollfds[1].events = POLLIN;
-
-    for (size_t i = 0; i < sircc.nb_servers; i++) {
-        struct sircc_server *server;
-
-        server = sircc.servers[i];
-        server->pollfd = &sircc.pollfds[i + 2];
-    }
-}
-
-static void
-sircc_poll(void) {
-    if (poll(sircc.pollfds, sircc.nb_pollfds, -1) == -1) {
-        if (errno == EINTR) {
-            return;
-        } else {
-            die("cannot poll fds: %s", strerror(errno));
-        }
-    }
-
-    if (sircc.pollfds[0].revents & POLLIN)
-        sircc_read_signal();
-
-    if (sircc.pollfds[1].revents & POLLIN)
-        sircc_read_input();
-
-    for (size_t i = 0; i < sircc.nb_servers; i++) {
-        struct sircc_server *server;
-        int revents;
-
-        server = sircc.servers[i];
-        revents = sircc.pollfds[i + 2].revents;
-
-        if (revents & POLLIN) {
-            sircc_server_on_pollin(server);
-
-            if (server->state == SIRCC_SERVER_DISCONNECTED) {
-                /* If the pollin event handler closed the connection, we do not
-                 * want to process any more event. */
-                continue;
-            }
-        }
-
-        if (revents & POLLOUT) {
-            sircc_server_on_pollout(server);
-        }
-    }
-}
-
-static void
-sircc_read_signal(void) {
-    ssize_t ret;
-    int signo;
-
-    ret = read(sircc.signal_pipe[0], &signo, sizeof(int));
-    if (ret < (ssize_t)sizeof(int))
-        die("cannot read pipe: %s", strerror(errno));
-
+sircc_on_signal(int signo, void *arg) {
     switch (signo) {
     case SIGINT:
     case SIGTERM:
@@ -1456,7 +893,7 @@ sircc_read_signal(void) {
 }
 
 static void
-sircc_read_input(void) {
+sircc_on_stdin_event(int fd, uint32_t events, void *arg) {
     static bool escape = false;
 
     struct sircc_server *server;
@@ -1558,6 +995,37 @@ sircc_read_input(void) {
     }
 
     c_buffer_clear(sircc.input_read_buf);
+}
+
+static void
+sircc_server_on_tcp_event(struct io_tcp_client *client,
+                          enum io_tcp_client_event event, void *arg) {
+    struct sircc_server *server;
+
+    server = arg;
+
+    switch (event) {
+    case IO_TCP_CLIENT_EVENT_CONN_ESTABLISHED:
+        sircc_server_log_info(server, "connection established");
+        sircc_server_on_connection_established(server);
+        break;
+
+    case IO_TCP_CLIENT_EVENT_CONN_FAILED:
+        sircc_server_log_error(server, "connection failed");
+        break;
+
+    case IO_TCP_CLIENT_EVENT_CONN_CLOSED:
+        sircc_server_log_info(server, "connection closed");
+        break;
+
+    case IO_TCP_CLIENT_EVENT_ERROR:
+        sircc_server_log_error(server, "%s", c_get_error());
+        break;
+
+    case IO_TCP_CLIENT_EVENT_DATA_READ:
+        sircc_server_read_msgs(server);
+        break;
+    }
 }
 
 static int
