@@ -23,12 +23,12 @@ sircc_msg_free(struct sircc_msg *msg) {
     if (!msg)
         return;
 
-    sircc_free(msg->prefix);
-    sircc_free(msg->command);
+    c_free(msg->prefix);
+    c_free(msg->command);
 
     for (size_t i = 0; i < msg->nb_params; i++)
-        sircc_free(msg->params[i]);
-    sircc_free(msg->params);
+        c_free(msg->params[i]);
+    c_free(msg->params);
 }
 
 int
@@ -294,10 +294,10 @@ sircc_irc_caps_parse(const char *str, size_t *nb_caps) {
 
         if (caps_sz == 0) {
             caps_sz = 1;
-            caps = sircc_malloc(sizeof(struct sircc_irc_cap));
+            caps = c_malloc(sizeof(struct sircc_irc_cap));
         } else {
             caps_sz++;
-            caps = sircc_realloc(caps, caps_sz * sizeof(struct sircc_irc_cap));
+            caps = c_realloc(caps, caps_sz * sizeof(struct sircc_irc_cap));
         }
 
         cap = caps + caps_sz - 1;
@@ -329,8 +329,8 @@ sircc_irc_caps_parse(const char *str, size_t *nb_caps) {
 void
 sircc_irc_caps_free(struct sircc_irc_cap *caps, size_t nb_caps) {
     for (size_t i = 0; i < nb_caps; i++)
-        sircc_free(caps[i].name);
-    sircc_free(caps);
+        c_free(caps[i].name);
+    c_free(caps);
 }
 
 char *
@@ -346,7 +346,7 @@ sircc_ctcp_quote(const char *str) {
             nsz++;
     }
 
-    nstr = sircc_malloc(nsz + 1);
+    nstr = c_malloc(nsz + 1);
     nptr = nstr;
 
     for (const char *ptr = str; *ptr != '\0'; ptr++) {
@@ -369,10 +369,10 @@ static void
 sircc_msg_add_param(struct sircc_msg *msg, char *param) {
     if (!msg->params) {
         msg->nb_params = 1;
-        msg->params = sircc_malloc(sizeof(char *));
+        msg->params = c_malloc(sizeof(char *));
     } else {
         msg->nb_params++;
-        msg->params = sircc_realloc(msg->params,
+        msg->params = c_realloc(msg->params,
                                     msg->nb_params * sizeof(char *));
     }
 

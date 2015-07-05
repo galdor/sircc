@@ -308,7 +308,7 @@ sircc_msgh_nick(struct sircc_server *server, struct sircc_msg *msg) {
         sircc_chan_log_info(server->current_chan,
                             "you changed your nickname to %s",
                             new_nickname);
-        sircc_free(server->current_nickname);
+        c_free(server->current_nickname);
         server->current_nickname = c_strdup(new_nickname);
     } else {
         sircc_chan_log_info(server->current_chan,

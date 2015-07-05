@@ -79,11 +79,11 @@ sircc_x11_primary_selection(void) {
                                   "ISO-8859-1", "UTF-8", NULL);
     if (!utf8_text) {
         sircc_chan_log_error(NULL, "%s", c_get_error());
-        sircc_free(text);
+        c_free(text);
         return NULL;
     }
 
-    sircc_free(text);
+    c_free(text);
     return utf8_text;
 
 error:
@@ -193,11 +193,11 @@ sircc_x11_get_selection(Atom selection, Atom target, char **pdata) {
 
         if (!data) {
             datasz = length + 1;
-            data = sircc_malloc(datasz);
+            data = c_malloc(datasz);
             c_strlcpy(data, (char *)data_tmp, datasz);
         } else {
             datasz += length;
-            data = sircc_realloc(data, datasz);
+            data = c_realloc(data, datasz);
             c_strlcpy(data + datasz - length - 1,
                     (char *)data_tmp, datasz);
         }
@@ -213,7 +213,7 @@ sircc_x11_get_selection(Atom selection, Atom target, char **pdata) {
     return 1;
 
 error:
-    sircc_free(data);
+    c_free(data);
 
     if (data_tmp)
         XFree(data_tmp);

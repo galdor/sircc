@@ -40,7 +40,7 @@ sircc_str_convert(char *buf, size_t sz, const char *from, const char *to,
     inlen = sz;
 
     outlen = inlen + 1;
-    tmp = sircc_malloc(outlen);
+    tmp = c_malloc(outlen);
     memset(tmp, 0, outlen);
     out = tmp;
 
@@ -58,7 +58,7 @@ sircc_str_convert(char *buf, size_t sz, const char *from, const char *to,
         if (ret == (size_t)-1) {
             if (errno == E2BIG) {
                 outlen = (outlen - 1) * 2 + 1;
-                tmp = sircc_realloc(tmp, outlen);
+                tmp = c_realloc(tmp, outlen);
                 out = tmp;
                 continue;
             } else if (errno == EINVAL) {
@@ -67,7 +67,7 @@ sircc_str_convert(char *buf, size_t sz, const char *from, const char *to,
             } else {
                 c_set_error("cannot convert string from %s to %s: %s",
                                 from, to, strerror(errno));
-                sircc_free(tmp);
+                c_free(tmp);
                 iconv_close(conv);
                 return NULL;
             }

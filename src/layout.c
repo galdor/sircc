@@ -28,7 +28,7 @@ sircc_layout_free(struct sircc_layout *layout) {
     if (!layout)
         return;
 
-    sircc_free(layout->rows);
+    c_free(layout->rows);
 }
 
 void
@@ -37,7 +37,7 @@ sircc_layout_add_row(struct sircc_layout *layout,
     if (!layout->rows) {
         layout->rows_sz = 16;
         layout->nb_rows = 0;
-        layout->rows = sircc_calloc(layout->rows_sz,
+        layout->rows = c_calloc(layout->rows_sz,
                                     sizeof(struct sircc_layout_row));
     } else if (layout->start_idx + layout->nb_rows + 1 >= layout->rows_sz) {
         if (layout->start_idx > 0) {
@@ -57,7 +57,7 @@ sircc_layout_add_row(struct sircc_layout *layout,
             layout->rows_sz *= 2;
 
             sz = layout->rows_sz * sizeof(struct sircc_layout_row);
-            layout->rows = sircc_realloc(layout->rows, sz);
+            layout->rows = c_realloc(layout->rows, sz);
             memset(layout->rows + layout->rows_sz / 2, 0, sz / 2);
         }
     }

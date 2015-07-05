@@ -110,8 +110,8 @@ sircc_cfg_free(struct sircc_cfg *cfg) {
     c_hash_table_delete(cfg->entries);
 
     for (size_t i = 0; i < cfg->nb_servers; i++)
-        sircc_free(cfg->servers[i]);
-    sircc_free(cfg->servers);
+        c_free(cfg->servers[i]);
+    c_free(cfg->servers);
 }
 
 int
@@ -194,13 +194,13 @@ sircc_cfg_load_file(struct sircc_cfg *cfg, const char *path) {
         }
     }
 
-    sircc_free(current_server);
+    c_free(current_server);
 
     fclose(file);
     return 0;
 
 error:
-    sircc_free(current_server);
+    c_free(current_server);
     fclose(file);
 
     return -1;
@@ -302,10 +302,10 @@ sircc_cfg_add_server(struct sircc_cfg *cfg, const char *server_name) {
     if (!cfg->servers) {
         cfg->servers_sz = 4;
         cfg->nb_servers = 0;
-        cfg->servers = sircc_calloc(cfg->servers_sz, sizeof(char *));
+        cfg->servers = c_calloc(cfg->servers_sz, sizeof(char *));
     } else if (cfg->nb_servers + 1 > cfg->servers_sz) {
         cfg->servers_sz *= 2;
-        cfg->servers = sircc_realloc(cfg->servers,
+        cfg->servers = c_realloc(cfg->servers,
                                      cfg->servers_sz * sizeof(char *));
         memset(cfg->servers + cfg->servers_sz / 2, 0,
                (cfg->servers_sz / 2) * sizeof(char *));
@@ -342,14 +342,14 @@ sircc_cfg_entry_parse(struct sircc_cfg_entry **pentry, const char *line,
 
     if (strcmp(key, "server") == 0) {
         /* Set the current server name */
-        sircc_free(*pserver);
+        c_free(*pserver);
         *pserver = value;
 
-        sircc_free(key);
+        c_free(key);
         return 0;
     }
 
-    entry = sircc_malloc(sizeof(struct sircc_cfg_entry));
+    entry = c_malloc(sizeof(struct sircc_cfg_entry));
     memset(entry, 0, sizeof(struct sircc_cfg_entry));
 
     if (strcmp(key, "chan") == 0) {
@@ -359,8 +359,8 @@ sircc_cfg_entry_parse(struct sircc_cfg_entry **pentry, const char *line,
         space = strchr(value, ' ');
         if (!space) {
             c_set_error("empty chan entry");
-            sircc_free(key);
-            sircc_free(value);
+            c_free(key);
+            c_free(value);
             goto error;
         }
 
@@ -371,29 +371,29 @@ sircc_cfg_entry_parse(struct sircc_cfg_entry **pentry, const char *line,
             ptr++;
         if (*ptr == '\0') {
             c_set_error("empty chan entry");
-            sircc_free(key);
-            sircc_free(value);
-            sircc_free(chan_name);
+            c_free(key);
+            c_free(value);
+            c_free(chan_name);
             goto error;
         }
 
         ret = sircc_cfg_parse_key_value(ptr, &chan_key, &chan_value);
         if (ret <= 0) {
-            sircc_free(key);
-            sircc_free(value);
-            sircc_free(chan_name);
+            c_free(key);
+            c_free(value);
+            c_free(chan_name);
             goto error;
         }
 
         c_asprintf(&entry->key, "server.%s.chan.%s.%s",
                        *pserver, chan_name, chan_key);
 
-        sircc_free(chan_name);
+        c_free(chan_name);
 
-        sircc_free(key);
+        c_free(key);
         key = chan_key;
 
-        sircc_free(value);
+        c_free(value);
         value = chan_value;
     } else if (*pserver) {
         c_asprintf(&entry->key, "server.%s.%s", *pserver, key);
@@ -403,19 +403,19 @@ sircc_cfg_entry_parse(struct sircc_cfg_entry **pentry, const char *line,
 
     if (sircc_cfg_get_key_type(key, &entry->type) == -1) {
         c_set_error("unknown key '%s'", key);
-        sircc_free(key);
-        sircc_free(value);
+        c_free(key);
+        c_free(value);
         goto error;
     }
 
     if (sircc_cfg_entry_parse_value(entry, value) == -1) {
-        sircc_free(key);
-        sircc_free(value);
+        c_free(key);
+        c_free(value);
         goto error;
     }
 
-    sircc_free(key);
-    sircc_free(value);
+    c_free(key);
+    c_free(value);
 
     *pentry = entry;
     return 1;
@@ -434,7 +434,7 @@ sircc_cfg_entry_parse_value(struct sircc_cfg_entry *entry, const char *str) {
 
     case SIRCC_CFG_STRING_LIST:
         entry->u.sl.nb = 1;
-        entry->u.sl.strs = sircc_malloc(sizeof(char *));
+        entry->u.sl.strs = c_malloc(sizeof(char *));
         entry->u.sl.strs[0] = c_strdup(str);
         break;
 
@@ -484,7 +484,7 @@ sircc_cfg_entry_add_string(struct sircc_cfg_entry *entry, const char *str) {
     assert(entry->type == SIRCC_CFG_STRING_LIST);
 
     entry->u.sl.nb++;
-    entry->u.sl.strs = sircc_realloc(entry->u.sl.strs,
+    entry->u.sl.strs = c_realloc(entry->u.sl.strs,
                                      entry->u.sl.nb * sizeof(char *));
     entry->u.sl.strs[entry->u.sl.nb - 1] = c_strdup(str);
 }
@@ -494,24 +494,24 @@ sircc_cfg_entry_delete(struct sircc_cfg_entry *entry) {
     if (!entry)
         return;
 
-    sircc_free(entry->key);
+    c_free(entry->key);
 
     switch (entry->type) {
     case SIRCC_CFG_STRING:
-        sircc_free(entry->u.s);
+        c_free(entry->u.s);
         break;
 
     case SIRCC_CFG_STRING_LIST:
         for (size_t i = 0; i < entry->u.sl.nb; i++)
-            sircc_free(entry->u.sl.strs[i]);
-        sircc_free(entry->u.sl.strs);
+            c_free(entry->u.sl.strs[i]);
+        c_free(entry->u.sl.strs);
         break;
 
     default:
         break;
     }
 
-    sircc_free(entry);
+    c_free(entry);
 }
 
 static int
@@ -562,8 +562,8 @@ sircc_cfg_parse_key_value(const char *ptr, char **pkey, char **pvalue) {
     return 1;
 
 error:
-    sircc_free(key);
-    sircc_free(value);
+    c_free(key);
+    c_free(value);
 
     return -1;
 }

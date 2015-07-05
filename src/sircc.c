@@ -38,10 +38,10 @@ static int sircc_cmp_users(const void *, const void *);
 
 
 static struct c_memory_allocator sircc_memory_allocator = {
-    .malloc = sircc_malloc,
-    .calloc = sircc_calloc,
-    .realloc = sircc_realloc,
-    .free = sircc_free
+    .malloc = c_malloc,
+    .calloc = c_calloc,
+    .realloc = c_realloc,
+    .free = c_free
 };
 
 struct sircc sircc;
@@ -166,7 +166,7 @@ sircc_chan_new(struct sircc_server *server, const char *name) {
 
     assert(strlen(name) > 0);
 
-    chan = sircc_malloc(sizeof(struct sircc_chan));
+    chan = c_malloc(sizeof(struct sircc_chan));
     memset(chan, 0, sizeof(struct sircc_chan));
 
     chan->name = c_strdup(name);
@@ -187,20 +187,20 @@ sircc_chan_delete(struct sircc_chan *chan) {
         return;
 
     sircc_history_free(&chan->history);
-    sircc_free(chan->name);
-    sircc_free(chan->topic);
+    c_free(chan->name);
+    c_free(chan->topic);
 
     for (size_t i = 0; i < chan->nb_users; i++)
-        sircc_free(chan->users[i]);
-    sircc_free(chan->users);
+        c_free(chan->users[i]);
+    c_free(chan->users);
 
-    sircc_free(chan);
+    c_free(chan);
 }
 
 void
 sircc_chan_set_topic(struct sircc_chan *chan, const char *topic) {
     if (chan->topic) {
-        sircc_free(chan->topic);
+        c_free(chan->topic);
         chan->topic = NULL;
     }
 
@@ -348,9 +348,9 @@ sircc_chan_add_user(struct sircc_chan *chan, const char *user, size_t sz) {
 
     if (!chan->users) {
         chan->nb_users = 0;
-        chan->users = sircc_malloc(sizeof(char *));
+        chan->users = c_malloc(sizeof(char *));
     } else {
-        chan->users = sircc_realloc(chan->users,
+        chan->users = c_realloc(chan->users,
                                     (chan->nb_users + 1) * sizeof(char *));
     }
 
@@ -364,7 +364,7 @@ void
 sircc_chan_remove_user(struct sircc_chan *chan, const char *user) {
     for (size_t i = 0; i < chan->nb_users; i++) {
         if (strcmp(chan->users[i], user) == 0) {
-            sircc_free(chan->users[i]);
+            c_free(chan->users[i]);
 
             if (i < chan->nb_users - 1) {
                 memmove(chan->users + i, chan->users + i + 1,
@@ -373,10 +373,10 @@ sircc_chan_remove_user(struct sircc_chan *chan, const char *user) {
 
             chan->nb_users--;
             if (chan->nb_users == 0) {
-                sircc_free(chan->users);
+                c_free(chan->users);
                 chan->users = NULL;
             } else {
-                chan->users = sircc_realloc(chan->users,
+                chan->users = c_realloc(chan->users,
                                             chan->nb_users * sizeof(char *));
             }
             break;
@@ -441,7 +441,7 @@ struct sircc_server *
 sircc_server_new(const char *name) {
     struct sircc_server *server;
 
-    server = sircc_malloc(sizeof(struct sircc_server));
+    server = c_malloc(sizeof(struct sircc_server));
     memset(server, 0, sizeof(struct sircc_server));
 
     server->name = name;
@@ -461,7 +461,7 @@ sircc_server_delete(struct sircc_server *server) {
     if (!server)
         return;
 
-    sircc_free(server->current_nickname);
+    c_free(server->current_nickname);
 
     sircc_history_free(&server->history);
 
@@ -477,7 +477,7 @@ sircc_server_delete(struct sircc_server *server) {
 
     io_tcp_client_delete(server->tcp_client);
 
-    sircc_free(server);
+    c_free(server);
 }
 
 int
@@ -986,7 +986,7 @@ sircc_on_stdin_event(int fd, uint32_t events, void *arg) {
         }
 
         sircc_ui_prompt_add(utf8_str);
-        sircc_free(utf8_str);
+        c_free(utf8_str);
 
         /* If there is a truncated multibyte character at the end of
          * input_buf, it will stay in it to be completed the next time there

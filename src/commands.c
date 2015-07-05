@@ -95,8 +95,8 @@ sircc_cmd_descs[SIRCC_CMD_COUNT] = {
 void
 sircc_cmd_free(struct sircc_cmd *cmd) {
     for (size_t i = 0; i < cmd->nb_args; i++)
-        sircc_free(cmd->args[i]);
-    sircc_free(cmd->args);
+        c_free(cmd->args[i]);
+    c_free(cmd->args);
 }
 
 int
@@ -135,10 +135,10 @@ sircc_cmd_parse(struct sircc_cmd *cmd, struct c_buffer *buf) {
     desc = sircc_cmd_get_desc(name);
     if (!desc) {
         c_set_error("unknown command '%s'", name);
-        sircc_free(name);
+        c_free(name);
         goto error;
     }
-    sircc_free(name);
+    c_free(name);
 
     cmd->id = desc->cmd;
 
@@ -276,11 +276,11 @@ static void
 sircc_cmd_add_arg(struct sircc_cmd *cmd, char *arg) {
     if (cmd->nb_args == 0) {
         cmd->nb_args = 1;
-        cmd->args = sircc_malloc(sizeof(char *));
+        cmd->args = c_malloc(sizeof(char *));
         cmd->args[0] = arg;
     } else {
         cmd->nb_args++;
-        cmd->args = sircc_realloc(cmd->args, cmd->nb_args * sizeof(char *));
+        cmd->args = c_realloc(cmd->args, cmd->nb_args * sizeof(char *));
         cmd->args[cmd->nb_args - 1] = arg;
     }
 }
@@ -395,7 +395,7 @@ sircc_cmdh_me(struct sircc_server *server, struct sircc_cmd *cmd) {
     now = time(NULL);
     sircc_chan_add_action(chan, now, server->current_nickname, text);
 
-    sircc_free(quoted_text);
+    c_free(quoted_text);
 }
 
 static void

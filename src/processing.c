@@ -57,7 +57,7 @@ sircc_processing_initialize(void) {
         return 0;
 
     sircc.nb_highlighters = nb_strings;
-    sircc.highlighters = sircc_calloc(nb_strings,
+    sircc.highlighters = c_calloc(nb_strings,
                                       sizeof(struct sircc_highlighter));
 
     for (size_t i = 0; i < nb_strings; i++) {
@@ -233,7 +233,7 @@ sircc_highlighter_free(struct sircc_highlighter *highlighter) {
     pcre_free(highlighter->regexp);
     pcre_free_study(highlighter->regexp_extra);
 
-    sircc_free(highlighter->sequence);
+    c_free(highlighter->sequence);
 }
 
 static int
@@ -285,7 +285,7 @@ sircc_highlighter_init_escape_sequences(struct sircc_highlighter *highlighter,
             char *tmp;
 
             c_asprintf(&tmp, "%s%s", highlighter->sequence, sequence);
-            sircc_free(highlighter->sequence);
+            c_free(highlighter->sequence);
             highlighter->sequence = tmp;
         } else {
             highlighter->sequence = strdup(sequence);

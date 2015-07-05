@@ -25,7 +25,7 @@ sircc_history_init(struct sircc_history *history, size_t sz) {
     memset(history, 0, sizeof(struct sircc_history));
 
     history->sz = sz;
-    history->entries = sircc_calloc(sz, sizeof(struct sircc_history_entry));
+    history->entries = c_calloc(sz, sizeof(struct sircc_history_entry));
 
     sircc_layout_init(&history->layout);
 
@@ -76,7 +76,7 @@ sircc_history_add_entry(struct sircc_history *history,
         history->disable_processing = true;
 
         text = sircc_process_text(head->text, minimal);
-        sircc_free(head->text);
+        c_free(head->text);
         head->text = text;
 
         history->disable_processing = false;
@@ -127,8 +127,8 @@ sircc_history_add_action(struct sircc_history *history, time_t date,
     entry.src = NULL;
     c_asprintf(&entry.text, "%s %s", src, text);
 
-    sircc_free(src);
-    sircc_free(text);
+    c_free(src);
+    c_free(text);
 
     sircc_history_add_entry(history, &entry);
 }
@@ -220,9 +220,9 @@ sircc_history_entry_free(struct sircc_history_entry *entry) {
     if (!entry)
         return;
 
-    sircc_free(entry->src);
-    sircc_free(entry->margin_text);
-    sircc_free(entry->text);
+    c_free(entry->src);
+    c_free(entry->margin_text);
+    c_free(entry->text);
 }
 
 static void
@@ -261,6 +261,6 @@ sircc_history_entry_update_margin_text(struct sircc_history *history,
     }
 
     if (entry->margin_text)
-        sircc_free(entry->margin_text);
+        c_free(entry->margin_text);
     entry->margin_text = str;
 }

@@ -47,7 +47,7 @@ sircc_address_resolve(const char *host, const char *port,
     for (ai = res; ai; ai = ai->ai_next)
         nb_addresses++;
 
-    addresses = sircc_calloc(nb_addresses, sizeof(struct addrinfo *));
+    addresses = c_calloc(nb_addresses, sizeof(struct addrinfo *));
 
     i = 0;
     for (ai = res; ai; ai = ai->ai_next) {

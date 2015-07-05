@@ -481,7 +481,7 @@ sircc_ui_prompt_add_selection(void) {
         return;
 
     sircc_ui_prompt_add(primary_selection);
-    sircc_free(primary_selection);
+    c_free(primary_selection);
 #endif
 }
 
@@ -649,7 +649,7 @@ sircc_ui_prompt_execute(void) {
             sircc_server_send_privmsg(server, chan->name, text);
             sircc_chan_add_msg(chan, now, server->current_nickname, text);
 
-            sircc_free(text);
+            c_free(text);
         }
     } else {
         sircc_server_write(server, c_buffer_data(sircc.prompt_buf),
@@ -813,10 +813,10 @@ sircc_ui_printf(WINDOW *win, const char *fmt, ...) {
 
 void
 sircc_ui_completion_reset(void) {
-    sircc_free(sircc.completion_prefix);
+    c_free(sircc.completion_prefix);
     sircc.completion_prefix = NULL;
 
-    sircc_free(sircc.last_completion);
+    c_free(sircc.last_completion);
     sircc.last_completion = NULL;
 
     sircc.completion_offset = 0;
@@ -875,14 +875,14 @@ sircc_ui_completion_next(void) {
     }
 
     if (!completion) {
-        sircc_free(completion);
+        c_free(completion);
         sircc_ui_completion_reset();
         return;
     }
 
     sircc_ui_completion_update_prompt(completion, suffix);
 
-    sircc_free(sircc.last_completion);
+    c_free(sircc.last_completion);
     sircc.last_completion = completion;
 
     sircc.completion = true;
