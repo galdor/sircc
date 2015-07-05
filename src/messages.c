@@ -20,32 +20,37 @@ typedef void (*sircc_msg_handler)(struct sircc_server *, struct sircc_msg *);
 
 static void sircc_set_msg_handler(const char *, sircc_msg_handler);
 
-static void sircc_msgh_cap(struct sircc_server *, struct sircc_msg *);
-static void sircc_msgh_cap_ls(struct sircc_server *, struct sircc_msg *);
-static void sircc_msgh_cap_ack(struct sircc_server *, struct sircc_msg *);
-static void sircc_msgh_cap_nack(struct sircc_server *, struct sircc_msg *);
-static void sircc_msgh_join(struct sircc_server *, struct sircc_msg *);
-static void sircc_msgh_mode(struct sircc_server *, struct sircc_msg *);
-static void sircc_msgh_nick(struct sircc_server *, struct sircc_msg *);
-static void sircc_msgh_notice(struct sircc_server *, struct sircc_msg *);
-static void sircc_msgh_part(struct sircc_server *, struct sircc_msg *);
-static void sircc_msgh_ping(struct sircc_server *, struct sircc_msg *);
-static void sircc_msgh_privmsg(struct sircc_server *, struct sircc_msg *);
-static void sircc_msgh_quit(struct sircc_server *, struct sircc_msg *);
-static void sircc_msgh_topic(struct sircc_server *, struct sircc_msg *);
-static void sircc_msgh_rpl_welcome(struct sircc_server *, struct sircc_msg *);
-static void sircc_msgh_rpl_notopic(struct sircc_server *, struct sircc_msg *);
-static void sircc_msgh_rpl_topic(struct sircc_server *, struct sircc_msg *);
-static void sircc_msgh_rpl_topicwhotime(struct sircc_server *, struct sircc_msg *);
-static void sircc_msgh_rpl_namreply(struct sircc_server *, struct sircc_msg *);
-static void sircc_msgh_err_nosuchnick(struct sircc_server *, struct sircc_msg *);
-static void sircc_msgh_err_invalidcapcmd(struct sircc_server *, struct sircc_msg *);
-static void sircc_msgh_err_notregistered(struct sircc_server *, struct sircc_msg *);
-static void sircc_msgh_err_passwdmismatch(struct sircc_server *, struct sircc_msg *);
-static void sircc_msgh_err_unknownmode(struct sircc_server *, struct sircc_msg *);
-static void sircc_msgh_err_noprivileges(struct sircc_server *, struct sircc_msg *);
-static void sircc_msgh_err_chanoprivsneeded(struct sircc_server *, struct sircc_msg *);
-static void sircc_msgh_err_umodeunknownflag(struct sircc_server *, struct sircc_msg *);
+#define SIRCC_DECLARE_MSG_HANDLER(id_)                                       \
+    static void sircc_msgh_##id_(struct sircc_server *, struct sircc_msg *);
+
+SIRCC_DECLARE_MSG_HANDLER(cap);
+SIRCC_DECLARE_MSG_HANDLER(cap_ls);
+SIRCC_DECLARE_MSG_HANDLER(cap_ack);
+SIRCC_DECLARE_MSG_HANDLER(cap_nack);
+SIRCC_DECLARE_MSG_HANDLER(join);
+SIRCC_DECLARE_MSG_HANDLER(mode);
+SIRCC_DECLARE_MSG_HANDLER(nick);
+SIRCC_DECLARE_MSG_HANDLER(notice);
+SIRCC_DECLARE_MSG_HANDLER(part);
+SIRCC_DECLARE_MSG_HANDLER(ping);
+SIRCC_DECLARE_MSG_HANDLER(privmsg);
+SIRCC_DECLARE_MSG_HANDLER(quit);
+SIRCC_DECLARE_MSG_HANDLER(topic);
+SIRCC_DECLARE_MSG_HANDLER(rpl_welcome);
+SIRCC_DECLARE_MSG_HANDLER(rpl_notopic);
+SIRCC_DECLARE_MSG_HANDLER(rpl_topic);
+SIRCC_DECLARE_MSG_HANDLER(rpl_topicwhotime);
+SIRCC_DECLARE_MSG_HANDLER(rpl_namreply);
+SIRCC_DECLARE_MSG_HANDLER(err_nosuchnick);
+SIRCC_DECLARE_MSG_HANDLER(err_invalidcapcmd);
+SIRCC_DECLARE_MSG_HANDLER(err_notregistered);
+SIRCC_DECLARE_MSG_HANDLER(err_passwdmismatch);
+SIRCC_DECLARE_MSG_HANDLER(err_unknownmode);
+SIRCC_DECLARE_MSG_HANDLER(err_noprivileges);
+SIRCC_DECLARE_MSG_HANDLER(err_chanoprivsneeded);
+SIRCC_DECLARE_MSG_HANDLER(err_umodeunknownflag);
+
+#undef SIRCC_DECLARE_MSG_HANDLER
 
 void
 sircc_init_msg_handlers(void) {
@@ -91,8 +96,11 @@ sircc_call_msg_handler(struct sircc_server *server, struct sircc_msg *msg) {
     handler(server, msg);
 }
 
-static void
-sircc_msgh_cap(struct sircc_server *server, struct sircc_msg *msg) {
+#define SIRCC_MSG_HANDLER(id_)                                           \
+    static void                                                          \
+    sircc_msgh_##id_(struct sircc_server *server, struct sircc_msg *msg)
+
+SIRCC_MSG_HANDLER(cap) {
     char *subcmd;
 
     if (msg->nb_params < 2) {
@@ -114,8 +122,7 @@ sircc_msgh_cap(struct sircc_server *server, struct sircc_msg *msg) {
     }
 }
 
-static void
-sircc_msgh_cap_ls(struct sircc_server *server, struct sircc_msg *msg) {
+SIRCC_MSG_HANDLER(cap_ls) {
     const char *caps_str;
     struct sircc_irc_cap *caps;
     size_t nb_caps;
@@ -148,8 +155,7 @@ sircc_msgh_cap_ls(struct sircc_server *server, struct sircc_msg *msg) {
     sircc_server_printf(server, "CAP END\r\n");
 }
 
-static void
-sircc_msgh_cap_ack(struct sircc_server *server, struct sircc_msg *msg) {
+SIRCC_MSG_HANDLER(cap_ack) {
     const char *caps_str;
     struct sircc_irc_cap *caps;
     size_t nb_caps;
@@ -183,8 +189,7 @@ sircc_msgh_cap_ack(struct sircc_server *server, struct sircc_msg *msg) {
     sircc_irc_caps_free(caps, nb_caps);
 }
 
-static void
-sircc_msgh_cap_nack(struct sircc_server *server, struct sircc_msg *msg) {
+SIRCC_MSG_HANDLER(cap_nack) {
     const char *caps_str;
     struct sircc_irc_cap *caps;
     size_t nb_caps;
@@ -215,8 +220,7 @@ sircc_msgh_cap_nack(struct sircc_server *server, struct sircc_msg *msg) {
     sircc_irc_caps_free(caps, nb_caps);
 }
 
-static void
-sircc_msgh_join(struct sircc_server *server, struct sircc_msg *msg) {
+SIRCC_MSG_HANDLER(join) {
     struct sircc_chan *chan;
     const char *chan_name;
     char nickname[SIRCC_NICKNAME_MAXSZ];
@@ -251,8 +255,7 @@ sircc_msgh_join(struct sircc_server *server, struct sircc_msg *msg) {
     }
 }
 
-static void
-sircc_msgh_mode(struct sircc_server *server, struct sircc_msg *msg) {
+SIRCC_MSG_HANDLER(mode) {
     struct sircc_chan *chan;
     const char *target, *flags;
     char nickname[SIRCC_NICKNAME_MAXSZ];
@@ -286,8 +289,7 @@ sircc_msgh_mode(struct sircc_server *server, struct sircc_msg *msg) {
     }
 }
 
-static void
-sircc_msgh_nick(struct sircc_server *server, struct sircc_msg *msg) {
+SIRCC_MSG_HANDLER(nick) {
     const char *new_nickname;
     char nickname[SIRCC_NICKNAME_MAXSZ];
 
@@ -317,8 +319,7 @@ sircc_msgh_nick(struct sircc_server *server, struct sircc_msg *msg) {
     }
 }
 
-static void
-sircc_msgh_notice(struct sircc_server *server, struct sircc_msg *msg) {
+SIRCC_MSG_HANDLER(notice) {
     char nickname[SIRCC_NICKNAME_MAXSZ];
     const char *target, *text;
     struct sircc_chan *chan;
@@ -368,8 +369,7 @@ sircc_msgh_notice(struct sircc_server *server, struct sircc_msg *msg) {
     }
 }
 
-static void
-sircc_msgh_part(struct sircc_server *server, struct sircc_msg *msg) {
+SIRCC_MSG_HANDLER(part) {
     struct sircc_chan *chan;
     const char *chan_name;
     char nickname[SIRCC_NICKNAME_MAXSZ];
@@ -410,8 +410,7 @@ sircc_msgh_part(struct sircc_server *server, struct sircc_msg *msg) {
     }
 }
 
-static void
-sircc_msgh_ping(struct sircc_server *server, struct sircc_msg *msg) {
+SIRCC_MSG_HANDLER(ping) {
     if (msg->nb_params < 1) {
         sircc_server_log_error(server, "missing argument in PING");
         return;
@@ -420,8 +419,7 @@ sircc_msgh_ping(struct sircc_server *server, struct sircc_msg *msg) {
     sircc_server_printf(server, "PONG :%s\r\n", msg->params[0]);
 }
 
-static void
-sircc_msgh_privmsg(struct sircc_server *server, struct sircc_msg *msg) {
+SIRCC_MSG_HANDLER(privmsg) {
     char nickname[SIRCC_NICKNAME_MAXSZ];
     const char *target, *text;
     struct sircc_chan *chan;
@@ -460,8 +458,7 @@ sircc_msgh_privmsg(struct sircc_server *server, struct sircc_msg *msg) {
     sircc_chan_add_msg(chan, date, nickname, text);
 }
 
-static void
-sircc_msgh_quit(struct sircc_server *server, struct sircc_msg *msg) {
+SIRCC_MSG_HANDLER(quit) {
     char nickname[SIRCC_NICKNAME_MAXSZ];
     const char *text;
     struct sircc_chan *chan;
@@ -492,8 +489,7 @@ sircc_msgh_quit(struct sircc_server *server, struct sircc_msg *msg) {
     }
 }
 
-static void
-sircc_msgh_topic(struct sircc_server *server, struct sircc_msg *msg) {
+SIRCC_MSG_HANDLER(topic) {
     struct sircc_chan *chan;
     const char *chan_name, *topic;
     char nickname[SIRCC_NICKNAME_MAXSZ];
@@ -524,8 +520,7 @@ sircc_msgh_topic(struct sircc_server *server, struct sircc_msg *msg) {
                         nickname, chan_name, topic);
 }
 
-static void
-sircc_msgh_rpl_welcome(struct sircc_server *server, struct sircc_msg *msg) {
+SIRCC_MSG_HANDLER(rpl_welcome) {
     const char **strings;
     size_t nb_strings;
     struct c_buffer *buf;
@@ -565,8 +560,7 @@ sircc_msgh_rpl_welcome(struct sircc_server *server, struct sircc_msg *msg) {
     c_buffer_delete(buf);
 }
 
-static void
-sircc_msgh_rpl_notopic(struct sircc_server *server, struct sircc_msg *msg) {
+SIRCC_MSG_HANDLER(rpl_notopic) {
     struct sircc_chan *chan;
     const char *chan_name;
 
@@ -588,8 +582,7 @@ sircc_msgh_rpl_notopic(struct sircc_server *server, struct sircc_msg *msg) {
     sircc_chan_log_info(chan, "no topic for chan %s", chan_name);
 }
 
-static void
-sircc_msgh_rpl_topic(struct sircc_server *server, struct sircc_msg *msg) {
+SIRCC_MSG_HANDLER(rpl_topic) {
     struct sircc_chan *chan;
     const char *chan_name, *topic;
 
@@ -613,9 +606,7 @@ sircc_msgh_rpl_topic(struct sircc_server *server, struct sircc_msg *msg) {
     sircc_chan_log_info(chan, "topic of chan %s: %s", chan_name, topic);
 }
 
-static void
-sircc_msgh_rpl_topicwhotime(struct sircc_server *server,
-                              struct sircc_msg *msg) {
+SIRCC_MSG_HANDLER(rpl_topicwhotime) {
     struct sircc_chan *chan;
     const char *chan_name, *nickname, *timestamp;
     struct tm tm;
@@ -649,8 +640,7 @@ sircc_msgh_rpl_topicwhotime(struct sircc_server *server,
                         chan_name, nickname, date);
 }
 
-static void
-sircc_msgh_rpl_namreply(struct sircc_server *server, struct sircc_msg *msg) {
+SIRCC_MSG_HANDLER(rpl_namreply) {
     const char *chan_name, *users_str;
     struct sircc_chan *chan;
     const char *ptr;
@@ -699,8 +689,7 @@ sircc_msgh_rpl_namreply(struct sircc_server *server, struct sircc_msg *msg) {
     }
 }
 
-static void
-sircc_msgh_err_invalidcapcmd(struct sircc_server *server, struct sircc_msg *msg) {
+SIRCC_MSG_HANDLER(err_invalidcapcmd) {
     const char *cmdname, *errstr;
 
     /* IRCv3 Client Capability Negotiation 3.1
@@ -732,8 +721,7 @@ sircc_msgh_err_invalidcapcmd(struct sircc_server *server, struct sircc_msg *msg)
     }
 }
 
-static void
-sircc_msgh_err_nosuchnick(struct sircc_server *server, struct sircc_msg *msg) {
+SIRCC_MSG_HANDLER(err_nosuchnick) {
     struct sircc_chan *chan;
     const char *nick;
 
@@ -755,15 +743,11 @@ sircc_msgh_err_nosuchnick(struct sircc_server *server, struct sircc_msg *msg) {
     sircc_chan_log_error(NULL, "unknown nick/chan '%s'", nick);
 }
 
-static void
-sircc_msgh_err_notregistered(struct sircc_server *server,
-                             struct sircc_msg *msg) {
+SIRCC_MSG_HANDLER(err_notregistered) {
     sircc_chan_log_error(NULL, "you have not registered");
 }
 
-static void
-sircc_msgh_err_passwdmismatch(struct sircc_server *server,
-                             struct sircc_msg *msg) {
+SIRCC_MSG_HANDLER(err_passwdmismatch) {
     const char *text;
 
     /* This can either mean that a password was required and not provided, or
@@ -773,26 +757,18 @@ sircc_msgh_err_passwdmismatch(struct sircc_server *server,
     sircc_chan_log_error(NULL, "cannot register: %s", text);
 }
 
-static void
-sircc_msgh_err_unknownmode(struct sircc_server *server,
-                           struct sircc_msg *msg) {
+SIRCC_MSG_HANDLER(err_unknownmode) {
     sircc_chan_log_error(NULL, "unknown mode flag");
 }
 
-static void
-sircc_msgh_err_noprivileges(struct sircc_server *server,
-                            struct sircc_msg *msg) {
+SIRCC_MSG_HANDLER(err_noprivileges) {
     sircc_chan_log_error(NULL, "you are not irc operator");
 }
 
-static void
-sircc_msgh_err_chanoprivsneeded(struct sircc_server *server,
-                                struct sircc_msg *msg) {
+SIRCC_MSG_HANDLER(err_chanoprivsneeded) {
     sircc_chan_log_error(NULL, "you are not chan operator");
 }
 
-static void
-sircc_msgh_err_umodeunknownflag(struct sircc_server *server,
-                                struct sircc_msg *msg) {
+SIRCC_MSG_HANDLER(err_umodeunknownflag) {
     sircc_chan_log_error(NULL, "unknown user mode flag");
 }
