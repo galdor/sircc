@@ -1,0 +1,29 @@
+{
+  "servers": {
+    "freenode": {
+      "host": "irc.freenode.net",
+      "port": 6667,
+      "autoConnect": true,
+      "nickname": "sircc",
+      "realname": "Simple IRC Client",
+      "maxNicknameLength": 15,
+      "autoJoin": ["#lisp", "#erlang"]
+    },
+
+    "freenodeSSL": {
+      "host": "irc.freenode.net",
+      "port": 7000,
+      "autoConnect": false,
+      "ssl": true,
+      "sslCaCertificate": "freenode.pem",
+      "nickname": "sircc",
+      "realname": "Simple IRC Client",
+      "maxNicknameLength": 15
+    }
+  },
+
+  "highlights": {
+    "[a-zA-Z]+://\\S+": "blue&underline",
+    "\\S+@\\S+\\.\\S+": "blue"
+  }
+}

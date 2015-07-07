@@ -16,554 +16,282 @@
 
 #include "sircc.h"
 
-#define SIRCC_CFG_KEY_MAXSZ 128
+static int sircc_cfg_load_file(const char *);
 
-static void sircc_cfg_add_server(struct sircc_cfg *, const char *);
+static struct sircc_server *sircc_cfg_load_server(const char *,
+                                                  const struct json_value *);
+static int sircc_cfg_load_highlights(const struct json_value *,
+                                     struct c_vector *);
 
-static int sircc_cfg_get_key_type(const char *, enum sircc_cfg_entry_type *);
+void
+sircc_cfg_initialize() {
+    char *path;
 
-static int sircc_cfg_entry_parse(struct sircc_cfg_entry **, const char *,
-                                 char **);
-static int sircc_cfg_entry_parse_value(struct sircc_cfg_entry *, const char *);
-static void sircc_cfg_entry_add_string(struct sircc_cfg_entry *, const char *);
-static void sircc_cfg_entry_delete(struct sircc_cfg_entry *);
-
-static int sircc_cfg_parse_key_value(const char *, char **, char **);
-
-
-static struct {
-    const char *key;
-    enum sircc_cfg_entry_type type;
-} sircc_cfg_type_array[] = {
-    /* Main */
-    {"highlight",                         SIRCC_CFG_STRING_LIST},
-
-    /* Servers */
-    {"autoconnect",                       SIRCC_CFG_BOOLEAN},
-
-    {"host",                              SIRCC_CFG_STRING},
-    {"port",                              SIRCC_CFG_INTEGER},
-
-    {"ssl",                               SIRCC_CFG_BOOLEAN},
-    {"ssl_ca_certificate",                SIRCC_CFG_STRING},
-
-    {"nickname",                          SIRCC_CFG_STRING},
-    {"realname",                          SIRCC_CFG_STRING},
-    {"max_nickname_length",               SIRCC_CFG_INTEGER},
-
-    {"password",                          SIRCC_CFG_STRING},
-
-    {"auto_join",                         SIRCC_CFG_STRING_LIST},
-    {"auto_command",                      SIRCC_CFG_STRING_LIST},
-};
-
-static struct c_hash_table *sircc_cfg_types;
-
-
-int
-sircc_cfg_initialize(const char *dirpath) {
-    size_t nb_types;
-
-    sircc.cfgdir = dirpath;
-
-    sircc_cfg_types = c_hash_table_new(c_hash_string, c_equal_string);
-
-    nb_types = sizeof(sircc_cfg_type_array) / sizeof(sircc_cfg_type_array[0]);
-    for (size_t i = 0; i < nb_types; i++) {
-        c_hash_table_insert(sircc_cfg_types, (char *)sircc_cfg_type_array[i].key,
-                        C_INT32_TO_POINTER(sircc_cfg_type_array[i].type));
-    }
-
-    sircc_cfg_init(&sircc.cfg);
-
-    if (sircc_cfg_load_directory(&sircc.cfg, dirpath) == -1) {
-        sircc_cfg_free(&sircc.cfg);
-        return -1;
-    }
-
-    return 0;
+    c_asprintf(&path, "%s/cfg.json", sircc.cfgdir);
+    if (sircc_cfg_load_file(path) == -1)
+        die("cannot load configuration from %s: %s", path, c_get_error());
+    c_free(path);
 }
 
 void
 sircc_cfg_shutdown(void) {
-    c_hash_table_delete(sircc_cfg_types);
-    sircc_cfg_free(&sircc.cfg);
 }
 
-void
-sircc_cfg_init(struct sircc_cfg *cfg) {
-    memset(cfg, 0, sizeof(struct sircc_cfg));
+static int
+sircc_cfg_load_file(const char *path) {
+    struct json_value *json;
+    uint32_t flags;
 
-    cfg->entries = c_hash_table_new(c_hash_string, c_equal_string);
-}
-
-void
-sircc_cfg_free(struct sircc_cfg *cfg) {
-    struct c_hash_table_iterator *it;
-    struct sircc_cfg_entry *entry;
-
-    it = c_hash_table_iterate(cfg->entries);
-    while (c_hash_table_iterator_next(it, NULL, (void **)&entry) == 1)
-        sircc_cfg_entry_delete(entry);
-    c_hash_table_iterator_delete(it);
-
-    c_hash_table_delete(cfg->entries);
-
-    for (size_t i = 0; i < cfg->nb_servers; i++)
-        c_free(cfg->servers[i]);
-    c_free(cfg->servers);
-}
-
-int
-sircc_cfg_load_directory(struct sircc_cfg *cfg, const char *dirpath) {
-    char path[PATH_MAX];
-
-    snprintf(path, sizeof(path), "%s/cfg", dirpath);
-    if (sircc_cfg_load_file(cfg, path) == -1)
+    flags = JSON_PARSE_REJECT_DUPLICATE_KEYS
+          | JSON_PARSE_REJECT_NULL_CHARACTERS;
+    json = json_parse_file(path, flags);
+    if (!json)
         return -1;
 
+#define SIRCC_FAIL(fmt_, ...)             \
+    do {                                  \
+        c_set_error(fmt_, ##__VA_ARGS__); \
+        json_value_delete(json);          \
+        return -1;                        \
+    } while (0)
+
+    if (!json_value_is_object(json))
+        SIRCC_FAIL("top-level value is not an object");
+
+    for (size_t i = 0; i < json_object_nb_members(json); i++) {
+        const char *key;
+        struct json_value *value;
+
+        key = json_object_nth_member(json, i, &value);
+
+        if (strcmp(key, "highlights") == 0) {
+            struct c_vector *highlighters;
+
+            highlighters = c_vector_new(sizeof(struct sircc_highlighter));
+
+            if (sircc_cfg_load_highlights(value, highlighters) == -1) {
+                for (size_t i = 0; i < c_vector_length(highlighters); i++)
+                    sircc_highlighter_free(c_vector_entry(highlighters, i));
+                c_vector_delete(highlighters);
+                return -1;
+            }
+
+            sircc.highlighters = highlighters;
+        } else if (strcmp(key, "servers") == 0) {
+            struct c_ptr_vector *servers;
+
+            if (!json_value_is_object(json))
+                SIRCC_FAIL("servers are not an object");
+
+            servers = c_ptr_vector_new();
+
+            for (size_t j = 0; j < json_object_nb_members(value); j++) {
+                const char *skey;
+                struct json_value *svalue;
+                struct sircc_server *server;
+
+                skey = json_object_nth_member(value, j, &svalue);
+
+                server = sircc_cfg_load_server(skey, svalue);
+                if (!server) {
+                    c_set_error("invalid server '%s': %s", skey, c_get_error());
+
+                    for (size_t i = 0; i < c_ptr_vector_length(servers); i++)
+                        sircc_server_delete(c_ptr_vector_entry(servers, i));
+                    c_ptr_vector_delete(servers);
+                    return -1;
+                }
+
+                c_ptr_vector_append(servers, server);
+            }
+
+            if (c_ptr_vector_length(servers) == 0)
+                die("no server defined in configuration");
+
+            sircc.servers = servers;
+        } else {
+            SIRCC_FAIL("unknown key '%s'", key);
+        }
+    }
+
+#undef SIRCC_FAIL
+
+    json_value_delete(json);
     return 0;
 }
 
-int
-sircc_cfg_load_file(struct sircc_cfg *cfg, const char *path) {
-    char *current_server;
-    FILE *file;
-    int lineno;
+static struct sircc_server *
+sircc_cfg_load_server(const char *name, const struct json_value *json) {
+    struct sircc_server *server;
+    const char *string;
+    int64_t i64;
 
-    file = fopen(path, "r");
-    if (!file) {
-        c_set_error("cannot open file %s: %s`", path, strerror(errno));
-        return -1;
-    }
+    server = sircc_server_new(name);
 
-    current_server = NULL;
+#define SIRCC_FAIL(fmt_, ...)             \
+    do {                                  \
+        c_set_error(fmt_, ##__VA_ARGS__); \
+        sircc_server_delete(server);      \
+        return NULL;                      \
+    } while (0)
 
-    lineno = 0;
+    if (!json_value_is_object(json))
+        SIRCC_FAIL("server description is not an object");
 
-    for (;;) {
-        const char *previous_server;
-        struct sircc_cfg_entry *entry, *old_entry;
-        char line[1024];
-        int ret;
+    for (size_t i = 0; i < json_object_nb_members(json); i++) {
+        const char *key;
+        struct json_value *value;
 
-        if (!fgets(line, sizeof(line), file)) {
-            if (feof(file)) {
-                break;
+        key = json_object_nth_member(json, i, &value);
+
+        if (strcmp(key, "host") == 0) {
+            if (!json_value_is_string(value))
+                SIRCC_FAIL("host is not a string");
+
+            server->host = json_string_dup(value);
+        } else if (strcmp(key, "port") == 0) {
+            if (!json_value_is_integer(value))
+                SIRCC_FAIL("port is not an integer");
+
+            i64 = json_integer_value(value);
+            if (i64 < 1 || i64 > 65535)
+                SIRCC_FAIL("invalid port");
+
+            server->port = (uint16_t)i64;
+        } else if (strcmp(key, "autoConnect") == 0) {
+            if (!json_value_is_boolean(value))
+                SIRCC_FAIL("autoConnect is not a boolean");
+
+            server->auto_connect = json_boolean_value(value);
+        } else if (strcmp(key, "ssl") == 0) {
+            if (!json_value_is_boolean(value))
+                SIRCC_FAIL("ssl is not a boolean");
+
+            server->use_ssl = json_boolean_value(value);
+        } else if (strcmp(key, "sslCaCertificate") == 0) {
+            if (!json_value_is_string(value))
+                SIRCC_FAIL("sslCaCertificate is not a string");
+
+            string = json_string_value(value);
+
+            if (string[0] == '/') {
+                server->ssl_ca_cert = json_string_dup(value);
             } else {
-                c_set_error("cannot read file %s: %s",
-                                path, strerror(errno));
-                return -1;
+                c_asprintf(&server->ssl_ca_cert, "%s/ssl/%s",
+                           sircc.cfgdir, json_string_value(value));
             }
-        }
+        } else if (strcmp(key, "password") == 0) {
+            if (!json_value_is_string(value))
+                SIRCC_FAIL("password is not a string");
 
-        lineno++;
+            server->password = json_string_dup(value);
+        } else if (strcmp(key, "nickname") == 0) {
+            if (!json_value_is_string(value))
+                SIRCC_FAIL("nickname is not a string");
 
-        line[strcspn(line, "\r\n")] = '\0';
+            server->nickname = json_string_dup(value);
+            server->current_nickname = json_string_dup(value);
+        } else if (strcmp(key, "realname") == 0) {
+            if (!json_value_is_string(value))
+                SIRCC_FAIL("realname is not a string");
 
-        if (line[0] == '#') {
-            /* Comment */
-            continue;
-        }
+            server->realname = json_string_dup(value);
+        } else if (strcmp(key, "maxNicknameLength") == 0) {
+            if (!json_value_is_integer(value))
+                SIRCC_FAIL("maxNicknameLength is not a string");
 
-        previous_server = current_server;
-        ret = sircc_cfg_entry_parse(&entry, line, &current_server);
-        if (ret == 0) {
-            /* Valid line with no entry (empty line or server line) */
-            if (current_server != previous_server)
-                sircc_cfg_add_server(&sircc.cfg, current_server);
+            i64 = json_integer_value(value);
+            if (i64 < 1 || i64 > 128)
+                SIRCC_FAIL("invalid maxNicknameLength");
 
-            continue;
-        }
+            server->max_nickname_length = (int)i64;
+        } else if (strcmp(key, "autoJoin") == 0) {
+            if (!json_value_is_array(value))
+                SIRCC_FAIL("autoJoin is not an array");
 
-        if (ret == -1) {
-            c_set_error("syntax error in %s at line %d: %s",
-                            path, lineno, c_get_error());
-            goto error;
-        }
+            for (size_t j = 0; j < json_array_nb_elements(value); j++) {
+                const struct json_value *evalue;
 
-        if (entry->type == SIRCC_CFG_STRING_LIST
-         && c_hash_table_get(cfg->entries, entry->key, (void **)&old_entry) == 1) {
-            sircc_cfg_entry_add_string(old_entry, entry->u.sl.strs[0]);
-            sircc_cfg_entry_delete(entry);
+                evalue = json_array_element(value, j);
+                if (!json_value_is_string(evalue))
+                    SIRCC_FAIL("autoJoin element is not a string");
+
+                c_ptr_vector_append(server->auto_join,
+                                    json_string_dup(evalue));
+            }
+        } else if (strcmp(key, "autoCommands") == 0) {
+            if (!json_value_is_array(value))
+                SIRCC_FAIL("autoCommands are not an array");
+
+            for (size_t j = 0; j < json_array_nb_elements(value); j++) {
+                const struct json_value *evalue;
+
+                evalue = json_array_element(value, j);
+                if (!json_value_is_string(evalue))
+                    SIRCC_FAIL("autoCommands element is not a string");
+
+                c_ptr_vector_append(server->auto_commands,
+                                    json_string_dup(evalue));
+            }
         } else {
-            c_hash_table_insert2(cfg->entries, entry->key, entry,
-                             NULL, (void **)&old_entry);
-            if (old_entry)
-                sircc_cfg_entry_delete(old_entry);
+            SIRCC_FAIL("unknown key '%s'", key);
         }
     }
 
-    c_free(current_server);
+    if (!server->host)
+        SIRCC_FAIL("missing host");
 
-    fclose(file);
-    return 0;
+#undef SIRCC_FAIL
 
-error:
-    c_free(current_server);
-    fclose(file);
-
-    return -1;
-}
-
-void
-sircc_cfg_ssl_file_path(char *buf, const char *file, size_t sz) {
-    if (file[0] == '/') {
-        /* Absolute path */
-        c_strlcpy(buf, file, sz);
-    } else {
-        /* Relative path */
-        snprintf(buf, sz, "%s/ssl/%s", sircc.cfgdir, file);
-    }
-}
-
-const char *
-sircc_cfg_string(struct sircc_cfg *cfg, const char *key,
-                 const char *default_value) {
-    struct sircc_cfg_entry *entry;
-
-    if (c_hash_table_get(cfg->entries, key, (void **)&entry) == 0)
-        return default_value;
-
-    return entry->u.s;
-}
-
-const char **
-sircc_cfg_strings(struct sircc_cfg *cfg, const char *key, size_t *pnb) {
-    struct sircc_cfg_entry *entry;
-
-    if (c_hash_table_get(cfg->entries, key, (void **)&entry) == 0) {
-        *pnb = 0;
-        return NULL;
-    }
-
-    *pnb = entry->u.sl.nb;
-    return (const char **)entry->u.sl.strs;
-}
-
-int
-sircc_cfg_integer(struct sircc_cfg *cfg, const char *key, int default_value) {
-    struct sircc_cfg_entry *entry;
-
-    if (c_hash_table_get(cfg->entries, key, (void **)&entry) == 0)
-        return default_value;
-
-    return entry->u.i;
-}
-
-bool
-sircc_cfg_boolean(struct sircc_cfg *cfg, const char *key, bool default_value) {
-    struct sircc_cfg_entry *entry;
-
-    if (c_hash_table_get(cfg->entries, key, (void **)&entry) == 0)
-        return default_value;
-
-    return entry->u.b;
-}
-
-const char *
-sircc_cfg_server_string(struct sircc_server *server, const char *subkey,
-                        const char *default_value) {
-    char key[SIRCC_CFG_KEY_MAXSZ];
-
-    snprintf(key, sizeof(key), "server.%s.%s", server->name, subkey);
-    return sircc_cfg_string(&sircc.cfg, key, default_value);
-}
-
-const char **
-sircc_cfg_server_strings(struct sircc_server *server, const char *subkey,
-                         size_t *pnb) {
-    char key[SIRCC_CFG_KEY_MAXSZ];
-
-    snprintf(key, sizeof(key), "server.%s.%s", server->name, subkey);
-    return sircc_cfg_strings(&sircc.cfg, key, pnb);
-}
-
-int
-sircc_cfg_server_integer(struct sircc_server *server, const char *subkey,
-                         int default_value) {
-    char key[SIRCC_CFG_KEY_MAXSZ];
-
-    snprintf(key, sizeof(key), "server.%s.%s", server->name, subkey);
-    return sircc_cfg_integer(&sircc.cfg, key, default_value);
-}
-
-bool
-sircc_cfg_server_boolean(struct sircc_server *server, const char *subkey,
-                         bool default_value) {
-    char key[SIRCC_CFG_KEY_MAXSZ];
-
-    snprintf(key, sizeof(key), "server.%s.%s", server->name, subkey);
-    return sircc_cfg_boolean(&sircc.cfg, key, default_value);
-}
-
-static void
-sircc_cfg_add_server(struct sircc_cfg *cfg, const char *server_name) {
-    if (!cfg->servers) {
-        cfg->servers_sz = 4;
-        cfg->nb_servers = 0;
-        cfg->servers = c_calloc(cfg->servers_sz, sizeof(char *));
-    } else if (cfg->nb_servers + 1 > cfg->servers_sz) {
-        cfg->servers_sz *= 2;
-        cfg->servers = c_realloc(cfg->servers,
-                                     cfg->servers_sz * sizeof(char *));
-        memset(cfg->servers + cfg->servers_sz / 2, 0,
-               (cfg->servers_sz / 2) * sizeof(char *));
-    }
-
-    cfg->servers[cfg->nb_servers] = c_strdup(server_name);
-    cfg->nb_servers++;
+    return server;
 }
 
 static int
-sircc_cfg_get_key_type(const char *key, enum sircc_cfg_entry_type *ptype) {
-    intptr_t value;
+sircc_cfg_load_highlights(const struct json_value *json,
+                          struct c_vector *highlighters) {
+#define SIRCC_FAIL(fmt_, ...)             \
+    do {                                  \
+        c_set_error(fmt_, ##__VA_ARGS__); \
+        return -1;                        \
+    } while (0)
 
-    if (c_hash_table_get(sircc_cfg_types, key, (void **)&value) == 0)
-        return -1;
+    if (!json_value_is_object(json))
+        SIRCC_FAIL("highlights are not an object");
 
-    *ptype = value;
-    return 0;
-}
+    for (size_t i = 0; i < json_object_nb_members(json); i++) {
+        const char *key;
+        struct json_value *value;
+        struct sircc_highlighter highlighter;
+        pcre_extra *extra;
+        const char *string;
+        size_t length;
 
-static int
-sircc_cfg_entry_parse(struct sircc_cfg_entry **pentry, const char *line,
-                      char **pserver) {
-    struct sircc_cfg_entry *entry;
-    const char *ptr;
-    char *key, *value;
-    int ret;
+        key = json_object_nth_member(json, i, &value);
 
-    ptr = line;
+        if (!json_value_is_string(value))
+            SIRCC_FAIL("highlight value is not a string");
 
-    ret = sircc_cfg_parse_key_value(ptr, &key, &value);
-    if (ret <= 0)
-        return ret;
+        sircc_highlighter_init(&highlighter);
 
-    if (strcmp(key, "server") == 0) {
-        /* Set the current server name */
-        c_free(*pserver);
-        *pserver = value;
+        highlighter.regexp = sircc_pcre_compile(key, &extra);
+        if (!highlighter.regexp) {
+            sircc_highlighter_free(&highlighter);
+            SIRCC_FAIL("cannot compile regexp /%s/: %s", key, c_get_error());
+        }
+        highlighter.regexp_extra = extra;
 
-        c_free(key);
-        return 0;
-    }
-
-    entry = c_malloc(sizeof(struct sircc_cfg_entry));
-    memset(entry, 0, sizeof(struct sircc_cfg_entry));
-
-    if (strcmp(key, "chan") == 0) {
-        const char *space;
-        char *chan_name, *chan_key, *chan_value;
-
-        space = strchr(value, ' ');
-        if (!space) {
-            c_set_error("empty chan entry");
-            c_free(key);
-            c_free(value);
-            goto error;
+        string = json_string_value(value);
+        length = json_string_length(value);
+        if (sircc_highlighter_init_escape_sequences(&highlighter,
+                                                    string, length) == -1) {
+            sircc_highlighter_free(&highlighter);
+            SIRCC_FAIL("invalid highlight value: %s", c_get_error());
         }
 
-        chan_name = c_strndup(value, (size_t)(space - value));
-
-        ptr = space + 1;
-        while (isspace((unsigned char)*ptr))
-            ptr++;
-        if (*ptr == '\0') {
-            c_set_error("empty chan entry");
-            c_free(key);
-            c_free(value);
-            c_free(chan_name);
-            goto error;
-        }
-
-        ret = sircc_cfg_parse_key_value(ptr, &chan_key, &chan_value);
-        if (ret <= 0) {
-            c_free(key);
-            c_free(value);
-            c_free(chan_name);
-            goto error;
-        }
-
-        c_asprintf(&entry->key, "server.%s.chan.%s.%s",
-                       *pserver, chan_name, chan_key);
-
-        c_free(chan_name);
-
-        c_free(key);
-        key = chan_key;
-
-        c_free(value);
-        value = chan_value;
-    } else if (*pserver) {
-        c_asprintf(&entry->key, "server.%s.%s", *pserver, key);
-    } else {
-        entry->key = c_strdup(key);
+        c_vector_append(highlighters, &highlighter);
     }
 
-    if (sircc_cfg_get_key_type(key, &entry->type) == -1) {
-        c_set_error("unknown key '%s'", key);
-        c_free(key);
-        c_free(value);
-        goto error;
-    }
-
-    if (sircc_cfg_entry_parse_value(entry, value) == -1) {
-        c_free(key);
-        c_free(value);
-        goto error;
-    }
-
-    c_free(key);
-    c_free(value);
-
-    *pentry = entry;
-    return 1;
-
-error:
-    sircc_cfg_entry_delete(entry);
-    return -1;
-}
-
-static int
-sircc_cfg_entry_parse_value(struct sircc_cfg_entry *entry, const char *str) {
-    switch (entry->type) {
-    case SIRCC_CFG_STRING:
-        entry->u.s = c_strdup(str);
-        break;
-
-    case SIRCC_CFG_STRING_LIST:
-        entry->u.sl.nb = 1;
-        entry->u.sl.strs = c_malloc(sizeof(char *));
-        entry->u.sl.strs[0] = c_strdup(str);
-        break;
-
-    case SIRCC_CFG_INTEGER:
-        {
-            long value;
-            char *end;
-
-            errno = 0;
-            value = strtol(str, &end, 10);
-            if (errno) {
-                c_set_error("cannot parse integer value");
-                return -1;
-            }
-
-            if (value < INT_MIN || value > INT_MAX) {
-                c_set_error("integer too large");
-                return -1;
-            }
-
-            if (*end != '\0') {
-                c_set_error("invalid data after integer");
-                return -1;
-            }
-
-            entry->u.i = value;
-        }
-        break;
-
-    case SIRCC_CFG_BOOLEAN:
-        if (strcmp(str, "yes") == 0) {
-            entry->u.b = true;
-        } else if (strcmp(str, "no") == 0) {
-            entry->u.b = false;
-        } else {
-            c_set_error("cannot parse boolean value");
-            return -1;
-        }
-        break;
-    }
+#undef SIRCC_FAIL
 
     return 0;
-}
-
-static void
-sircc_cfg_entry_add_string(struct sircc_cfg_entry *entry, const char *str) {
-    assert(entry->type == SIRCC_CFG_STRING_LIST);
-
-    entry->u.sl.nb++;
-    entry->u.sl.strs = c_realloc(entry->u.sl.strs,
-                                     entry->u.sl.nb * sizeof(char *));
-    entry->u.sl.strs[entry->u.sl.nb - 1] = c_strdup(str);
-}
-
-static void
-sircc_cfg_entry_delete(struct sircc_cfg_entry *entry) {
-    if (!entry)
-        return;
-
-    c_free(entry->key);
-
-    switch (entry->type) {
-    case SIRCC_CFG_STRING:
-        c_free(entry->u.s);
-        break;
-
-    case SIRCC_CFG_STRING_LIST:
-        for (size_t i = 0; i < entry->u.sl.nb; i++)
-            c_free(entry->u.sl.strs[i]);
-        c_free(entry->u.sl.strs);
-        break;
-
-    default:
-        break;
-    }
-
-    c_free(entry);
-}
-
-static int
-sircc_cfg_parse_key_value(const char *ptr, char **pkey, char **pvalue) {
-    const char *space;
-    char *key, *value;
-    size_t toklen;
-
-    key = NULL;
-    value = NULL;
-
-    while (isspace((unsigned char)*ptr))
-        ptr++;
-    if (*ptr == '\0')
-        return 0;
-
-    /* Read the key */
-    space = strchr(ptr, ' ');
-    if (!space) {
-        c_set_error("missing value");
-        goto error;
-    }
-
-    toklen = (size_t)(space - ptr);
-    if (toklen == 0) {
-        c_set_error("missing key");
-        goto error;
-    }
-
-    key = c_strndup(ptr, toklen);
-
-    /* Skip spaces */
-    ptr = space + 1;
-    while (isspace((unsigned char)*ptr))
-        ptr++;
-
-    if (*ptr == '\0') {
-        c_set_error("missing value");
-        goto error;
-    }
-
-    /* Read the value */
-    value = c_strdup(ptr);
-
-    *pkey = key;
-    *pvalue = value;
-
-    return 1;
-
-error:
-    c_free(key);
-    c_free(value);
-
-    return -1;
 }

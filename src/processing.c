@@ -41,69 +41,31 @@ static void sircc_process_buf(struct c_buffer *, bool);
 static void sircc_remove_control_characters(struct c_buffer *);
 static void sircc_escape_format_sequences(struct c_buffer *);
 
-static void sircc_highlighter_free(struct sircc_highlighter *);
-static int sircc_highlighter_init_escape_sequences(struct sircc_highlighter *,
-                                                   const char *, size_t);
-
-static pcre *sircc_pcre_compile(const char *, pcre_extra **);
-
-int
+void
 sircc_processing_initialize(void) {
-    const char **strings;
-    size_t nb_strings;
-
-    strings = sircc_cfg_strings(&sircc.cfg, "highlight", &nb_strings);
-    if (!strings)
-        return 0;
-
-    sircc.nb_highlighters = nb_strings;
-    sircc.highlighters = c_calloc(nb_strings,
-                                      sizeof(struct sircc_highlighter));
-
-    for (size_t i = 0; i < nb_strings; i++) {
-        struct sircc_highlighter *highlighter;
-        const char *string, *space;
-        const char *regexp_str;
-        size_t sz;
-
-        highlighter = &sircc.highlighters[i];
-        string = strings[i];
-
-        space = strchr(string, ' ');
-        if (!space) {
-            c_set_error("missing regexp");
-            goto error;
-        }
-
-        /* Build the prefix/suffix escape sequence strings */
-        sz = (size_t)(space - string);
-        if (sircc_highlighter_init_escape_sequences(highlighter,
-                                                    string, sz) == -1) {
-            goto error;
-        }
-
-        /* Compile the regexp */
-        regexp_str = space + 1;
-        if (*regexp_str == '\0') {
-            c_set_error("empty regexp");
-            goto error;
-        }
-
-        highlighter->regexp = sircc_pcre_compile(regexp_str,
-                                                 &highlighter->regexp_extra);
-    }
-
-    return 0;
-
-error:
-    sircc_processing_shutdown();
-    return -1;
 }
 
 void
 sircc_processing_shutdown(void) {
-    for (size_t i = 0; i < sircc.nb_highlighters; i++)
-        sircc_highlighter_free(&sircc.highlighters[i]);
+    for (size_t i = 0; i < c_vector_length(sircc.highlighters); i++)
+        sircc_highlighter_free(c_vector_entry(sircc.highlighters, i));
+    c_vector_delete(sircc.highlighters);
+}
+
+void
+sircc_highlighter_init(struct sircc_highlighter *highlighter) {
+    memset(highlighter, 0, sizeof(struct sircc_highlighter));
+}
+
+void
+sircc_highlighter_free(struct sircc_highlighter *highlighter) {
+    if (!highlighter)
+        return;
+
+    pcre_free(highlighter->regexp);
+    pcre_free_study(highlighter->regexp_extra);
+
+    c_free(highlighter->sequence);
 }
 
 char *
@@ -135,14 +97,14 @@ sircc_process_buf(struct c_buffer *buf, bool minimal) {
     if (minimal)
         return;
 
-    for (size_t i = 0; i < sircc.nb_highlighters; i++) {
+    for (size_t i = 0; i < c_vector_length(sircc.highlighters); i++) {
         struct sircc_highlighter *highlighter;
         size_t sequence_len;
         size_t offset;
         int substrings[3];
         int ret;
 
-        highlighter = &sircc.highlighters[i];
+        highlighter = c_vector_entry(sircc.highlighters, i);
 
         sequence_len = strlen(highlighter->sequence);
         offset = 0;
@@ -228,15 +190,7 @@ sircc_escape_format_sequences(struct c_buffer *buf) {
     }
 }
 
-static void
-sircc_highlighter_free(struct sircc_highlighter *highlighter) {
-    pcre_free(highlighter->regexp);
-    pcre_free_study(highlighter->regexp_extra);
-
-    c_free(highlighter->sequence);
-}
-
-static int
+int
 sircc_highlighter_init_escape_sequences(struct sircc_highlighter *highlighter,
                                         const char *str, size_t sz) {
     const char *and;
@@ -303,7 +257,7 @@ sircc_highlighter_init_escape_sequences(struct sircc_highlighter *highlighter,
     return 0;
 }
 
-static pcre *
+pcre *
 sircc_pcre_compile(const char *str, pcre_extra **pextra) {
     const char *error_str;
     int error_offset;

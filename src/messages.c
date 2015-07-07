@@ -521,25 +521,25 @@ SIRCC_MSG_HANDLER(topic) {
 }
 
 SIRCC_MSG_HANDLER(rpl_welcome) {
-    const char **strings;
-    size_t nb_strings;
     struct c_buffer *buf;
 
     sircc_server_log_info(server, "irc client registered");
 
-    strings = sircc_cfg_server_strings(server, "auto_join", &nb_strings);
-    for (size_t i = 0; i < nb_strings; i++)
-        sircc_server_printf(server, "JOIN %s\r\n", strings[i]);
+    for (size_t i = 0; i < c_ptr_vector_length(server->auto_join); i++) {
+        const char *chan;
+
+        chan = c_ptr_vector_entry(server->auto_join, i);
+        sircc_server_printf(server, "JOIN %s\r\n", chan);
+    }
 
     buf = c_buffer_new();
 
-    strings = sircc_cfg_server_strings(server, "auto_command", &nb_strings);
-    for (size_t i = 0; i < nb_strings; i++) {
+    for (size_t i = 0; i < c_ptr_vector_length(server->auto_commands); i++) {
         const char *string;
         struct sircc_cmd cmd;
         int ret;
 
-        string = strings[i];
+        string = c_ptr_vector_entry(server->auto_commands, i);
 
         c_buffer_clear(buf);
         c_buffer_add_string(buf, string);

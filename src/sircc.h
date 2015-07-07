@@ -54,6 +54,7 @@
 
 #include <core.h>
 #include <io.h>
+#include <json.h>
 
 #define SIRCC_NICKNAME_MAXSZ 32
 
@@ -87,7 +88,7 @@ size_t sircc_utf8_sequence_length(char);
 size_t sircc_utf8_nb_chars(const char *);
 
 /* Text processing */
-int sircc_processing_initialize(void);
+void sircc_processing_initialize(void);
 void sircc_processing_shutdown(void);
 
 char *sircc_process_text(const char *, bool);
@@ -97,61 +98,8 @@ size_t c_buffer_utf8_nb_chars(const struct c_buffer *);
 char *c_buffer_utf8_last_n_chars(const struct c_buffer *, size_t, size_t *);
 
 /* Configuration */
-enum sircc_cfg_entry_type {
-    SIRCC_CFG_STRING,
-    SIRCC_CFG_STRING_LIST,
-    SIRCC_CFG_INTEGER,
-    SIRCC_CFG_BOOLEAN
-};
-
-struct sircc_cfg_entry {
-    char *key;
-
-    enum sircc_cfg_entry_type type;
-
-    union {
-        char *s;
-        struct {
-            char **strs;
-            size_t nb;
-        } sl;
-        int i;
-        bool b;
-    } u;
-};
-
-struct sircc_cfg {
-    struct c_hash_table *entries;
-
-    char **servers;
-    size_t servers_sz;
-    size_t nb_servers;
-};
-
-int sircc_cfg_initialize(const char *);
+void sircc_cfg_initialize(void);
 void sircc_cfg_shutdown(void);
-
-void sircc_cfg_init(struct sircc_cfg *);
-void sircc_cfg_free(struct sircc_cfg *);
-
-int sircc_cfg_load_directory(struct sircc_cfg *, const char *);
-int sircc_cfg_load_file(struct sircc_cfg *, const char *);
-
-void sircc_cfg_ssl_file_path(char *, const char *, size_t);
-
-const char *sircc_cfg_string(struct sircc_cfg *, const char *, const char *);
-const char **sircc_cfg_strings(struct sircc_cfg *, const char *, size_t *);
-int sircc_cfg_integer(struct sircc_cfg *, const char *, int);
-bool sircc_cfg_boolean(struct sircc_cfg *, const char *, bool);
-
-struct sircc_server;
-
-const char *sircc_cfg_server_string(struct sircc_server *, const char *,
-                                    const char *);
-const char **sircc_cfg_server_strings(struct sircc_server *, const char *,
-                                      size_t *);
-int sircc_cfg_server_integer(struct sircc_server *, const char *, int);
-bool sircc_cfg_server_boolean(struct sircc_server *, const char *, bool);
 
 /* Layout */
 struct sircc_history;
@@ -339,22 +287,25 @@ char *sircc_chan_next_user_completion(struct sircc_chan *,
                                       const char *, const char *);
 
 struct sircc_server {
-    const char *name;
+    char *name;
 
-    const char *host;
+    char *host;
     uint16_t port;
-    bool autoconnect;
+    bool auto_connect;
 
     bool use_ssl;
-    const char *ssl_ca_cert;
+    char *ssl_ca_cert;
+
+    struct c_ptr_vector *auto_join;     /* strings */
+    struct c_ptr_vector *auto_commands; /* strings */
 
     struct io_tcp_client *tcp_client;
 
-    const char *nickname;
+    char *nickname;
     char *current_nickname;
     int max_nickname_length;
-    const char *realname;
-    const char *password;
+    char *realname;
+    char *password;
 
     struct sircc_history history;
 
@@ -408,6 +359,14 @@ struct sircc_highlighter {
     char *sequence;
 };
 
+void sircc_highlighter_init(struct sircc_highlighter *);
+void sircc_highlighter_free(struct sircc_highlighter *);
+
+int sircc_highlighter_init_escape_sequences(struct sircc_highlighter *,
+                                            const char *, size_t);
+
+pcre *sircc_pcre_compile(const char *, pcre_extra **);
+
 struct sircc {
     struct c_ptr_vector *servers;
     ssize_t current_server;
@@ -423,7 +382,6 @@ struct sircc {
     struct c_hash_table *msg_handlers;
 
     const char *cfgdir;
-    struct sircc_cfg cfg;
 
     /* UI */
     bool ui_setup;
@@ -446,8 +404,7 @@ struct sircc {
     size_t prompt_cursor;  /* offset in prompt_buf */
     size_t prompt_vcursor; /* position in the window */
 
-    struct sircc_highlighter *highlighters;
-    size_t nb_highlighters;
+    struct c_vector *highlighters;
 
 #ifdef SIRCC_WITH_X11
     /* X11 */

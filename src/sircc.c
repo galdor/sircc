@@ -26,8 +26,6 @@ static void sircc_version(void);
 static void sircc_initialize(void);
 static void sircc_shutdown(void);
 
-static void sircc_load_servers(void);
-
 static void sircc_on_signal(int, void *);
 static void sircc_on_stdin_event(int, uint32_t, void *);
 
@@ -45,7 +43,6 @@ main(int argc, char **argv) {
     const char *home;
     char cfgdir_default[PATH_MAX];
 
-    const char *cfgdir;
     int opt;
 
     c_set_memory_allocator(&sircc_memory_allocator);
@@ -64,13 +61,13 @@ main(int argc, char **argv) {
     if (!home)
         die("HOME environment variable not set");
     snprintf(cfgdir_default, sizeof(cfgdir_default), "%s/.sircc", home);
-    cfgdir = cfgdir_default;
+    sircc.cfgdir = cfgdir_default;
 
     opterr = 0;
     while ((opt = getopt(argc, argv, "c:hv")) != -1) {
         switch (opt) {
         case 'c':
-            cfgdir = optarg;
+            sircc.cfgdir = optarg;
             break;
 
         case 'h':
@@ -86,13 +83,8 @@ main(int argc, char **argv) {
         }
     }
 
-    if (sircc_cfg_initialize(cfgdir) == -1)
-        die("%s", c_get_error());
-
-    if (sircc_processing_initialize() == -1)
-        die("%s", c_get_error());
-
-    sircc_load_servers();
+    sircc_cfg_initialize();
+    sircc_processing_initialize();
     sircc_ui_initialize();
     sircc_initialize();
 
@@ -111,7 +103,6 @@ main(int argc, char **argv) {
 
     sircc_shutdown();
     sircc_ui_shutdown();
-
     sircc_processing_shutdown();
     sircc_cfg_shutdown();
 
@@ -440,7 +431,12 @@ sircc_server_new(const char *name) {
     server = c_malloc(sizeof(struct sircc_server));
     memset(server, 0, sizeof(struct sircc_server));
 
-    server->name = name;
+    server->name = c_strdup(name);
+
+    server->port= 6667;
+
+    server->auto_join = c_ptr_vector_new();
+    server->auto_commands = c_ptr_vector_new();
 
     server->max_nickname_length = 15;
 
@@ -457,7 +453,24 @@ sircc_server_delete(struct sircc_server *server) {
     if (!server)
         return;
 
+    c_free(server->name);
+
+    c_free(server->host);
+
+    c_free(server->ssl_ca_cert);
+
+    for (size_t i = 0; i < c_ptr_vector_length(server->auto_join); i++)
+        c_free(c_ptr_vector_entry(server->auto_join, i));
+    c_ptr_vector_delete(server->auto_join);
+
+    for (size_t i = 0; i < c_ptr_vector_length(server->auto_commands); i++)
+        c_free(c_ptr_vector_entry(server->auto_commands, i));
+    c_ptr_vector_delete(server->auto_commands);
+
+    c_free(server->nickname);
     c_free(server->current_nickname);
+    c_free(server->realname);
+    c_free(server->password);
 
     sircc_history_free(&server->history);
 
@@ -781,18 +794,15 @@ sircc_initialize(void) {
                                                server);
 
         if (server->use_ssl) {
-            char ca_cert[PATH_MAX];
-
             memset(&ssl_cfg, 0, sizeof(struct io_ssl_cfg));
 
-            sircc_cfg_ssl_file_path(ca_cert, server->ssl_ca_cert, PATH_MAX);
-            ssl_cfg.ca_cert_path = ca_cert;
+            ssl_cfg.ca_cert_path = server->ssl_ca_cert;
 
             if (io_tcp_client_enable_ssl(server->tcp_client, &ssl_cfg) == -1)
                 die("cannot enable ssl: %s", c_get_error());
         }
 
-        if (server->autoconnect)
+        if (server->auto_connect)
             sircc_server_connect(server);
     }
 }
@@ -820,58 +830,6 @@ sircc_shutdown(void) {
     io_base_unwatch_signal(sircc.io_base, SIGWINCH);
 
     io_base_delete(sircc.io_base);
-}
-
-static void
-sircc_load_servers(void) {
-    sircc.servers = c_ptr_vector_new();
-
-    for (size_t i = 0; i < sircc.cfg.nb_servers; i++) {
-        struct sircc_server *server;
-
-        server = sircc_server_new(sircc.cfg.servers[i]);
-
-        server->autoconnect = sircc_cfg_server_boolean(server, "autoconnect",
-                                                       true);
-
-        server->host = sircc_cfg_server_string(server, "host", NULL);
-        server->port = sircc_cfg_server_integer(server, "port", 6667);
-
-        server->use_ssl = sircc_cfg_server_boolean(server, "ssl", false);
-
-        if (server->use_ssl) {
-            server->ssl_ca_cert = sircc_cfg_server_string(server,
-                                                          "ssl_ca_certificate",
-                                                          NULL);
-            if (!server->ssl_ca_cert)
-                die("missing ssl_ca_certificate for server %s", server->name);
-        }
-
-        server->nickname = sircc_cfg_server_string(server, "nickname", NULL);
-        server->realname = sircc_cfg_server_string(server, "realname",
-                                                   server->nickname);
-        server->password = sircc_cfg_server_string(server, "password",
-                                                   server->password);
-
-        server->max_nickname_length =
-            sircc_cfg_server_integer(server, "max_nickname_length", 15);
-        if (server->max_nickname_length <= 0)
-            die("invalid nickname length: %d", server->max_nickname_length);
-        server->history.max_nickname_length = server->max_nickname_length;
-
-        if (!server->host)
-            die("no host defined for server %s", server->name);
-
-        if (!server->nickname)
-            die("no nickname defined for server %s", server->name);
-
-        server->current_nickname = c_strdup(server->nickname);
-
-        c_ptr_vector_append(sircc.servers, server);
-    }
-
-    if (c_ptr_vector_length(sircc.servers) == 0)
-        die("no server defined in configuration");
 }
 
 static void
