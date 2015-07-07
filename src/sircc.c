@@ -432,6 +432,7 @@ sircc_server_new(const char *name) {
     server->name = c_strdup(name);
 
     server->port= 6667;
+    server->auto_connect = true;
 
     server->auto_join = c_ptr_vector_new();
     server->auto_commands = c_ptr_vector_new();
