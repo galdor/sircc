@@ -399,7 +399,7 @@ sircc_ui_server_select_next(void) {
     ssize_t idx;
 
     idx = sircc.current_server + 1;
-    if ((size_t)idx >= c_ptr_vector_length(sircc.servers) - 1)
+    if ((size_t)idx >= c_ptr_vector_length(sircc.servers))
         idx = 0;
 
     sircc_ui_server_select(idx);
