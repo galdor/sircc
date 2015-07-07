@@ -51,9 +51,7 @@ main(int argc, char **argv) {
 
     setlocale(LC_ALL, "");
 
-    SSL_library_init();
-    SSL_load_error_strings();
-    OpenSSL_add_all_algorithms();
+    io_ssl_initialize();
 
     c_set_memory_allocator(&sircc_memory_allocator);
 
@@ -106,7 +104,7 @@ main(int argc, char **argv) {
     sircc_processing_shutdown();
     sircc_cfg_shutdown();
 
-    EVP_cleanup();
+    io_ssl_shutdown();
 
     sircc_debug_shutdown();
     return 0;
