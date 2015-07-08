@@ -20,9 +20,6 @@
 
 #include "sircc.h"
 
-static void sircc_usage(const char *, int);
-static void sircc_version(void);
-
 static void sircc_initialize(void);
 static void sircc_shutdown(void);
 
@@ -40,18 +37,9 @@ struct sircc sircc;
 
 int
 main(int argc, char **argv) {
+    struct c_command_line *cmdline;
     const char *home;
     char cfgdir_default[PATH_MAX];
-
-    int opt;
-
-    c_set_memory_allocator(&sircc_memory_allocator);
-
-    sircc_debug_initialize();
-
-    setlocale(LC_ALL, "");
-
-    io_ssl_initialize();
 
     c_set_memory_allocator(&sircc_memory_allocator);
 
@@ -59,27 +47,31 @@ main(int argc, char **argv) {
     if (!home)
         die("HOME environment variable not set");
     snprintf(cfgdir_default, sizeof(cfgdir_default), "%s/.sircc", home);
-    sircc.cfgdir = cfgdir_default;
 
-    opterr = 0;
-    while ((opt = getopt(argc, argv, "c:hv")) != -1) {
-        switch (opt) {
-        case 'c':
-            sircc.cfgdir = optarg;
-            break;
+    /* Command line */
+    cmdline = c_command_line_new();
 
-        case 'h':
-            sircc_usage(argv[0], 0);
-            break;
+    c_command_line_add_flag(cmdline, "v", "version", "show the version number");
+    c_command_line_add_option(cmdline, "c", "cfg-dir",
+                              "the configuration directory", "path",
+                              cfgdir_default);
 
-        case 'v':
-            sircc_version();
-            break;
+    if (c_command_line_parse(cmdline, argc, argv) == -1)
+        die("%s", c_get_error());
 
-        case '?':
-            sircc_usage(argv[0], 1);
-        }
+    if (c_command_line_is_option_set(cmdline, "version")) {
+        printf("sircc-" SIRCC_VERSION " " SIRCC_BUILD_ID "\n");
+        return 0;
     }
+
+    sircc.cfgdir = c_command_line_option_value(cmdline, "cfg-dir");
+
+    /* Main */
+    sircc_debug_initialize();
+
+    setlocale(LC_ALL, "");
+
+    io_ssl_initialize();
 
     sircc_cfg_initialize();
     sircc_processing_initialize();
@@ -108,24 +100,6 @@ main(int argc, char **argv) {
 
     sircc_debug_shutdown();
     return 0;
-}
-
-static void
-sircc_usage(const char *argv0, int exit_code) {
-    printf("Usage: %s [-chv]\n"
-            "\n"
-            "Options:\n"
-            "  -c <dir>  load the configuration from <dir> instead of ~/.sircc/\n"
-            "  -h        display help\n"
-            "  -v        display version information\n",
-            argv0);
-    exit(exit_code);
-}
-
-static void
-sircc_version() {
-    printf("sircc-" SIRCC_VERSION " " SIRCC_BUILD_ID "\n");
-    exit(0);
 }
 
 void
