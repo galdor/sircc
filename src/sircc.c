@@ -784,7 +784,7 @@ sircc_initialize(void) {
 
     for (size_t i = 0; i < c_ptr_vector_length(sircc.servers); i++) {
         struct sircc_server *server;
-        struct io_ssl_cfg ssl_cfg;
+        struct io_ssl_client_cfg ssl_cfg;
 
         server = c_ptr_vector_entry(sircc.servers, i);
 
@@ -793,7 +793,7 @@ sircc_initialize(void) {
                                                server);
 
         if (server->use_ssl) {
-            memset(&ssl_cfg, 0, sizeof(struct io_ssl_cfg));
+            memset(&ssl_cfg, 0, sizeof(struct io_ssl_client_cfg));
 
             ssl_cfg.ca_cert_path = server->ssl_ca_cert;
 
