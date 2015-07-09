@@ -99,6 +99,8 @@ main(int argc, char **argv) {
     io_ssl_shutdown();
 
     sircc_debug_shutdown();
+
+    c_command_line_delete(cmdline);
     return 0;
 }
 
@@ -457,6 +459,7 @@ sircc_server_delete(struct sircc_server *server) {
         chan = next;
     }
 
+    io_tcp_client_close(server->tcp_client);
     io_tcp_client_delete(server->tcp_client);
 
     c_free(server);

@@ -1,9 +1,17 @@
 {
   "servers": {
+    "test": {
+      "host": "localhost",
+      "nickname": "sircc",
+      "realname": "Simple IRC Client",
+      "maxNicknameLength": 15,
+      "autoJoin": ["#test"]
+    },
+
     "freenode": {
       "host": "irc.freenode.net",
       "port": 6667,
-      "autoConnect": true,
+      "autoConnect": false,
       "nickname": "sircc",
       "realname": "Simple IRC Client",
       "maxNicknameLength": 15,
