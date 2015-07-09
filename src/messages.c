@@ -326,16 +326,23 @@ SIRCC_MSG_HANDLER(notice) {
     const char *chan_name;
     bool log_to_chan;
     time_t date;
+    bool has_nickname;
 
     if (msg->nb_params < 2) {
         sircc_server_log_error(server, "missing arguments in NOTICE");
         return;
     }
 
-    if (sircc_msg_prefix_nickname(msg, nickname, sizeof(nickname)) == -1) {
-        sircc_server_log_error(server, "NOTICE: cannot get prefix nick: %s",
-                               c_get_error());
-        return;
+    if (msg->prefix) {
+        has_nickname = true;
+
+        if (sircc_msg_prefix_nickname(msg, nickname, sizeof(nickname)) == -1) {
+            sircc_server_log_error(server, "NOTICE: cannot get prefix nick: %s",
+                                   c_get_error());
+            return;
+        }
+    } else {
+        has_nickname = false;
     }
 
     target = msg->params[0];
@@ -345,7 +352,7 @@ SIRCC_MSG_HANDLER(notice) {
         /* Public message */
         log_to_chan = true;
         chan_name = target;
-    } else if (strcmp(target, server->current_nickname) == 0) {
+    } else if (has_nickname && strcmp(target, server->current_nickname) == 0) {
         /* Private message */
         log_to_chan = true;
         chan_name = nickname;
@@ -365,7 +372,11 @@ SIRCC_MSG_HANDLER(notice) {
 
         sircc_chan_add_server_msg(chan, date, nickname, text);
     } else {
-        sircc_server_add_server_msg(server, date, nickname, text);
+        if (has_nickname) {
+            sircc_server_add_server_msg(server, date, nickname, text);
+        } else {
+            sircc_server_add_server_msg(server, date, target, text);
+        }
     }
 }
 
