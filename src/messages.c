@@ -231,7 +231,7 @@ SIRCC_MSG_HANDLER(join) {
     }
 
     if (sircc_msg_prefix_nickname(msg, nickname, sizeof(nickname)) == -1) {
-        sircc_server_log_error(server, "cannot get prefix nick: %s",
+        sircc_server_log_error(server, "JOIN: cannot get prefix nick: %s",
                                c_get_error());
         return;
     }
@@ -266,7 +266,7 @@ SIRCC_MSG_HANDLER(mode) {
     }
 
     if (sircc_msg_prefix_nickname(msg, nickname, sizeof(nickname)) == -1) {
-        sircc_server_log_error(server, "cannot get prefix nick: %s",
+        sircc_server_log_error(server, "MODE: cannot get prefix nick: %s",
                                c_get_error());
         return;
     }
@@ -299,7 +299,7 @@ SIRCC_MSG_HANDLER(nick) {
     }
 
     if (sircc_msg_prefix_nickname(msg, nickname, sizeof(nickname)) == -1) {
-        sircc_server_log_error(server, "cannot get prefix nick: %s",
+        sircc_server_log_error(server, "NICK: cannot get prefix nick: %s",
                                c_get_error());
         return;
     }
@@ -333,7 +333,7 @@ SIRCC_MSG_HANDLER(notice) {
     }
 
     if (sircc_msg_prefix_nickname(msg, nickname, sizeof(nickname)) == -1) {
-        sircc_server_log_error(server, "cannot get prefix nick: %s",
+        sircc_server_log_error(server, "NOTICE: cannot get prefix nick: %s",
                                c_get_error());
         return;
     }
@@ -380,7 +380,7 @@ SIRCC_MSG_HANDLER(part) {
     }
 
     if (sircc_msg_prefix_nickname(msg, nickname, sizeof(nickname)) == -1) {
-        sircc_server_log_error(server, "cannot get prefix nick: %s",
+        sircc_server_log_error(server, "PART: cannot get prefix nick: %s",
                                c_get_error());
         return;
     }
@@ -432,7 +432,7 @@ SIRCC_MSG_HANDLER(privmsg) {
     }
 
     if (sircc_msg_prefix_nickname(msg, nickname, sizeof(nickname)) == -1) {
-        sircc_server_log_error(server, "cannot get prefix nick: %s",
+        sircc_server_log_error(server, "PRIVMSG: cannot get prefix nick: %s",
                                c_get_error());
         return;
     }
@@ -464,7 +464,7 @@ SIRCC_MSG_HANDLER(quit) {
     struct sircc_chan *chan;
 
     if (sircc_msg_prefix_nickname(msg, nickname, sizeof(nickname)) == -1) {
-        sircc_server_log_error(server, "cannot get prefix nick: %s",
+        sircc_server_log_error(server, "QUIT: cannot get prefix nick: %s",
                                c_get_error());
         return;
     }
@@ -500,7 +500,7 @@ SIRCC_MSG_HANDLER(topic) {
     }
 
     if (sircc_msg_prefix_nickname(msg, nickname, sizeof(nickname)) == -1) {
-        sircc_server_log_error(server, "cannot get prefix nick: %s",
+        sircc_server_log_error(server, "TOPIC: cannot get prefix nick: %s",
                                c_get_error());
         return;
     }
