@@ -295,6 +295,8 @@ struct sircc_server {
 
     bool use_ssl;
     char *ssl_ca_cert;
+    char *ssl_cert;
+    char *ssl_key;
 
     struct c_ptr_vector *auto_join;     /* strings */
     struct c_ptr_vector *auto_commands; /* strings */

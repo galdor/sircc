@@ -433,6 +433,8 @@ sircc_server_delete(struct sircc_server *server) {
     c_free(server->host);
 
     c_free(server->ssl_ca_cert);
+    c_free(server->ssl_cert);
+    c_free(server->ssl_key);
 
     for (size_t i = 0; i < c_ptr_vector_length(server->auto_join); i++)
         c_free(c_ptr_vector_entry(server->auto_join, i));
@@ -773,6 +775,8 @@ sircc_initialize(void) {
             memset(&ssl_cfg, 0, sizeof(struct io_ssl_client_cfg));
 
             ssl_cfg.ca_cert_path = server->ssl_ca_cert;
+            ssl_cfg.cert_path = server->ssl_cert;
+            ssl_cfg.key_path = server->ssl_key;
 
             if (io_tcp_client_enable_ssl(server->tcp_client, &ssl_cfg) == -1)
                 die("cannot enable ssl: %s", c_get_error());

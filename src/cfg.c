@@ -23,6 +23,8 @@ static struct sircc_server *sircc_cfg_load_server(const char *,
 static int sircc_cfg_load_highlights(const struct json_value *,
                                      struct c_vector *);
 
+static char *sircc_cfg_path(const char *, const char *);
+
 void
 sircc_cfg_initialize() {
     char *path;
@@ -173,13 +175,19 @@ sircc_cfg_load_server(const char *name, const struct json_value *json) {
                 SIRCC_FAIL("sslCaCertificate is not a string");
 
             string = json_string_value(value);
+            server->ssl_ca_cert = sircc_cfg_path("ssl", string);
+        } else if (strcmp(key, "sslCertificate") == 0) {
+            if (!json_value_is_string(value))
+                SIRCC_FAIL("sslCertificate is not a string");
 
-            if (string[0] == '/') {
-                server->ssl_ca_cert = json_string_dup(value);
-            } else {
-                c_asprintf(&server->ssl_ca_cert, "%s/ssl/%s",
-                           sircc.cfgdir, json_string_value(value));
-            }
+            string = json_string_value(value);
+            server->ssl_cert = sircc_cfg_path("ssl", string);
+        } else if (strcmp(key, "sslKey") == 0) {
+            if (!json_value_is_string(value))
+                SIRCC_FAIL("sslKey is not a string");
+
+            string = json_string_value(value);
+            server->ssl_key = sircc_cfg_path("ssl", string);
         } else if (strcmp(key, "password") == 0) {
             if (!json_value_is_string(value))
                 SIRCC_FAIL("password is not a string");
@@ -294,4 +302,21 @@ sircc_cfg_load_highlights(const struct json_value *json,
 #undef SIRCC_FAIL
 
     return 0;
+}
+
+static char *
+sircc_cfg_path(const char *subdir, const char *path) {
+    char *npath;
+
+    if (path[0] == '/') {
+        npath = c_strdup(path);
+    } else {
+        if (subdir) {
+            c_asprintf(&npath, "%s/%s/%s", sircc.cfgdir, subdir, path);
+        } else {
+            c_asprintf(&npath, "%s/%s", sircc.cfgdir, path);
+        }
+    }
+
+    return npath;
 }
