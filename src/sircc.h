@@ -184,16 +184,6 @@ void sircc_history_add_error(struct sircc_history *, char *);
 void sircc_history_recompute_layout(struct sircc_history *);
 size_t sircc_history_margin_size(struct sircc_history *);
 
-/* Network */
-int sircc_address_resolve(const char *, const char *,
-                          struct addrinfo ***, size_t *);
-int sircc_socket_open(struct addrinfo *);
-int sircc_socket_get_so_error(int, int *);
-
-/* SSL */
-const char *sircc_ssl_get_error(void);
-int sircc_x509_store_add_certificate(X509_STORE *, const char *);
-
 /* IRC */
 struct sircc_msg {
     char *prefix;
