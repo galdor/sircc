@@ -85,10 +85,10 @@ sircc_layout_add_history_entry(struct sircc_layout *layout,
 
     while (*ptr != '\0') {
         size_t nb_bytes, wordsz;
-        bool truncated_seq, eos, force_split;
+        bool eos, force_split;
         const char *end;
+        uint32_t codepoint;
 
-        truncated_seq = false;
         force_split = false;
 
         /* Skip any leading format sequence */
@@ -122,20 +122,9 @@ sircc_layout_add_history_entry(struct sircc_layout *layout,
             }
         }
 
-        nb_bytes = sircc_utf8_sequence_length(*ptr);
-        if (nb_bytes == 0) {
-            /* TODO Handle invalid UTF-8 sequences. For the time being we just
-             * ignore the invalid byte. */
-            nb_bytes = 1;
-        }
-
-        /* If we find a truncated UTF-8 sequence, we ignore it. It should not
-         * happen since the string was converted to UTF-8 by iconv. */
-
-        for (size_t i = 1; i < nb_bytes; i++) {
-            if (*(ptr + i) == '\0')
-                truncated_seq = true;
-        }
+        /* Data were converted to utf8 by iconv, so there should not be any
+         * error. */
+        assert(c_utf8_read_codepoint(ptr, &codepoint, &nb_bytes) == 0);
 
         /* Since '^' is a special character used for format sequences, '^'
          * characters are escaped as "^^". Therefore the "^^" sequence only
@@ -143,13 +132,11 @@ sircc_layout_add_history_entry(struct sircc_layout *layout,
         if (*ptr == '^' && *(ptr + 1) == '^')
             ptr++;
 
-        if (!truncated_seq) {
-            ptr += nb_bytes;
-            x++;
-        }
+        ptr += nb_bytes;
+        x++;
 
 split:
-        eos = truncated_seq || *ptr == '\0';
+        eos = (*ptr == '\0');
 
         if (x >= width || eos || force_split) {
             bool is_first_row;

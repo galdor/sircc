@@ -84,7 +84,6 @@ char *sircc_str_locale_to_utf8(char *, size_t, size_t *);
 
 bool sircc_utf8_is_leading_byte(char);
 bool sircc_utf8_is_continuation_byte(char);
-size_t sircc_utf8_sequence_length(char);
 size_t sircc_utf8_nb_chars(const char *);
 
 /* Text processing */
